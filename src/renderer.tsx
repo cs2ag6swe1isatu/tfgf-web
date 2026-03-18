@@ -1,22 +1,26 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import App from './App';
 import './index.css';
+import Board from './components/Board';
+import QuizCard from './components/QuizCard';
 
-const App = () => {
-  return (
-    <div>
-      <h1>Hello from React!</h1>
-      <p>This is a React component in an Electron app.</p>
-    </div>
-  );
-};
+const theme = createTheme({
+  palette: {
+    mode: 'dark',
+  },
+});
 
-const rootElement = document.getElementById('root');
-if (rootElement) {
-  const root = createRoot(rootElement);
-  root.render(
-    <React.StrictMode>
+const root = createRoot(document.getElementById('root')!);
+
+root.render(
+  <React.StrictMode>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
       <App />
-    </React.StrictMode>
-  );
-}
+      <Board />
+      <QuizCard />
+    </ThemeProvider>
+  </React.StrictMode>
+);
