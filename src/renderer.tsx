@@ -5,12 +5,11 @@ import App from './App';
 import './index.css';
 import Board from './components/Board';
 import QuizCard from './components/QuizCard';
+import { pixelTheme } from './themes/pixelArt';
+import { lightTheme } from './themes/muiLight';
+import { darkTheme } from './themes/muiDark';
 
-const theme = createTheme({
-  palette: {
-    mode: 'dark',
-  },
-});
+const theme = darkTheme;
 
 const root = createRoot(document.getElementById('root')!);
 

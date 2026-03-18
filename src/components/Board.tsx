@@ -1,22 +1,22 @@
 import { create } from 'zustand'
 import { combine } from 'zustand/middleware'
 
-type SquareValue = string | null;
+type BoardValue = string | null;
 
-interface GameData {
-    squares: SquareValue[];
+interface BoardData {
+    squares: BoardValue[];
     xIsNext: boolean;
 }
 
-interface GameActions {
-    setSquares: (nextSquares: SquareValue[] | ((prev: SquareValue[]) => SquareValue[])) => void;
+interface BoardActions {
+    setSquares: (nextSquares: BoardValue[] | ((prev: BoardValue[]) => BoardValue[])) => void;
     setXIsNext: (nextXIsNext: boolean | ((prev: boolean) => boolean)) => void;
 }
 
-type GameStore = GameData & GameActions;
+type BoardStore = BoardData & BoardActions;
 
-const useGameStore = create<GameStore>(
-    combine({ squares: Array(9).fill(null) as SquareValue[], xIsNext: true }, (set) => {
+const useGameStore = create<BoardStore>(
+    combine({ squares: Array(9).fill(null) as BoardValue[], xIsNext: true }, (set) => {
         return {
             setSquares: (nextSquares) => {
                 set((state) => ({
@@ -38,7 +38,7 @@ const useGameStore = create<GameStore>(
     }),
 )
 
-function calculateWinner(squares: SquareValue[]) {
+function calculateWinner(squares: BoardValue[]) {
     const lines = [
         [0, 1, 2],
         [3, 4, 5],
@@ -57,10 +57,10 @@ function calculateWinner(squares: SquareValue[]) {
     }
     return null
 }
-function calculateTurns(squares: SquareValue[]){
+function calculateTurns(squares: BoardValue[]){
     return squares.filter((square) => !square).length
 }
-function calculateStatus(winner: SquareValue, turns: number, player: string){
+function calculateStatus(winner: BoardValue, turns: number, player: string){
     if(!winner && !turns) return "Game tied!"
     if(!winner) return `Player ${player}'s turn`
     return `Player ${winner} wins!`
@@ -96,8 +96,8 @@ function Square({ value, onSquareClick }: SquareProps) {
 export default function Board(){
     const xIsNext = useGameStore((state) => state.xIsNext)
     const setXIsNext = useGameStore((state) => state.setXIsNext)
-    const squares = useGameStore((state : GameStore) => state.squares)
-    const setSquares = useGameStore((state : GameStore) => state.setSquares)
+    const squares = useGameStore((state : BoardStore) => state.squares)
+    const setSquares = useGameStore((state : BoardStore) => state.setSquares)
     const winner = calculateWinner(squares)
     const turns = calculateTurns(squares)
     const player = xIsNext ? 'X' : 'O'
@@ -124,7 +124,7 @@ export default function Board(){
                     border: '1px solid #999',
                 }}
             >
-                {squares.map((square: SquareValue, squareIndex: number) => (
+                {squares.map((square: BoardValue, squareIndex: number) => (
                     <Square key={squareIndex} value={square} onSquareClick={() => handleClick(squareIndex)} />
                 ))}
             </div>
