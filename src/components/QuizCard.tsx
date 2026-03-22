@@ -505,19 +505,7 @@ function useTypingAnimation(text: string | null, active: boolean, speed = 50) {
 }
 
 // --- Types ---
-interface Option {
-  id: string;
-  text: string;
-  isCorrect: boolean;
-}
 
-interface QuizCardProps {
-  level?: string;
-  question?: string;
-  options?: Option[];
-  health?: number;
-  onAnswer?: (option: Option) => void;
-}
 
 // Default options as a constant to avoid re-creation
 const DEFAULT_OPTIONS: Option[] = [

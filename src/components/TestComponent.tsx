@@ -1,5 +1,5 @@
 import { useTriviaStore } from "../logic/trivia-manager";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import QuizCard from "./QuizCard";
 
 
@@ -15,13 +15,15 @@ export default function TestComponent(){
 
   const current = questions[currentIndex];
 
-  const handleAnswer = (opt: { id: string; text: string; isCorrect: boolean }) => {
-    selectAnswer(opt.id);
-  };
-
-  const onAnimationComplete = () => {
+  const onAnimationComplete = useCallback(() => {
+    // Animation callback - trigger next phase after animation finishes
     nextPhase();
-  };
+  }, [nextPhase]);
+
+  const handleAnswer = useCallback((opt: { id: string; text: string; isCorrect: boolean }) => {
+    selectAnswer(opt.id);
+    nextPhase();
+  }, [selectAnswer, nextPhase]);
 
   useEffect(() => {
     startGame("General Knowledge", "easy", 5, 15, 'solo');
@@ -36,6 +38,7 @@ export default function TestComponent(){
         isCorrect: a === current?.correctAnswer,
       }))}
       onAnswer={handleAnswer}
+      onAnimationComplete={onAnimationComplete}
     />
   )
 }
