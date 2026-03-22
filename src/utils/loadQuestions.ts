@@ -1,28 +1,49 @@
 import type { Question } from "../types/question";
+import type { JSONQuestion } from "src/types/jsonQuestion";
 
-function base64ToUtf8(base64: string): string {
-  return decodeURIComponent(
-    Array.prototype.map
-      .call(atob(base64), (c: string) =>
-        "%" + c.charCodeAt(0).toString(16).padStart(2, "0")
-      )
-      .join("")
-  );
-}
+// no need to convert base64, our devtool already do this
 
-export async function loadQuestions(): Promise<Question[]> {
+export async function loadQuestions(category: string, difficulty: 'easy' | 'medium' | 'hard', mode: 'solo' | 'multi', limit: number): Promise<Question[]> {
   try {
-    const response = await fetch("/Question.json");
-    const json = await response.json();
-
-    if (!json.data) {
+    const data = await fetch('/data/Questions.json');
+    const json: JSONQuestion[] = await data.json();
+    
+    /* ---------- Validation ---------- */
+    if (!Array.isArray(json)) {
+      console.error("Invalid questions data format");
       return [];
     }
+    const filteredQuestions = json
+      .filter(q => {
+        if (!q.Category || !q.Difficulty || !q.QuestionText || !q.CorrectAnswer || !Array.isArray(q.AllAnswers)) {
+          return false;
+        }
+        return q.Category === category && q.Difficulty === difficulty;
+      });
+    
+    /* ---------- Shuffle ---------- */
+    const shuffledQuestions = filteredQuestions.sort(() => Math.random() - 0.5);
+    const selectedQuestions = shuffledQuestions.slice(0, limit);
 
-    const decoded = base64ToUtf8(json.data);
-    const questions: Question[] = JSON.parse(decoded);
+    /* ---------- Map ---------- */
+    const processedQuestions = selectedQuestions.map((q, index) => {
+      const shuffledAnswers = [...q.AllAnswers].sort(() => Math.random() - 0.5);
+      return {
+        id: `${q.Category}-${index}`,
+        category: q.Category,
+        difficulty: q.Difficulty,
+        text: q.QuestionText,
+        correctAnswer: q.CorrectAnswer,
+        incorrectAnswers: q.IncorrectAnswers || [],
+        allAnswers: shuffledAnswers
+      };
+    });
+    
+    if (processedQuestions.length === 0) {
+      console.warn(`No questions found for category: ${category}, difficulty: ${difficulty}`);
+    }
 
-    return questions;
+    return processedQuestions;
   } catch (error) {
     console.error("Error loading questions:", error);
     return [];

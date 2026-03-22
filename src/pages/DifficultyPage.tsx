@@ -1,16 +1,29 @@
 import { Button, Container, Typography, Box } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
+import { useTriviaStore } from "../store/triviaStore";
 
 const DifficultyPage = () => {
   const setDifficulty = useGameStore((state) => state.setDifficulty);
   const setScreen = useGameStore((state) => state.setScreen);
-  const resetSession = useGameStore((state) => state.resetSession);
-  const startSession = useGameStore((state) => state.startSession);
+  const category = useGameStore((state) => state.category);
+  
+  const startGame = useTriviaStore((state) => state.startGame);
+  const resetGame = useTriviaStore((state) => state.resetGame);
 
- const handleSelect = (difficulty: "easy" | "medium" | "hard") => {
+  const handleSelect = (difficulty: "easy" | "medium" | "hard") => {
     setDifficulty(difficulty);
-    resetSession();
-    startSession();
+    
+    resetGame();
+    startGame(
+      category || "General Knowledge",
+      difficulty,
+      15, // question limit
+      15, // timer per question
+      "solo" // mode
+    );
+    
+    // Navigate to question page
+    setScreen("question");
   };
 
   return (
