@@ -22,9 +22,19 @@ export interface Question{
 // The reference for the data used per game session
 export interface TriviaState {
     questions: Question[];
+    currentIndex: number;
+    answer: string;
+    score: number;
+    timer: number;
+    phase: 'loading' | 'asking' | 'answering' | 'scoring' | 'ranking' | 'end';
+    mode: 'solo' | 'multi';
 }
 
 // The reference for the functions used per game session
 export interface TriviaActions {
-    initializeTriviaQuestions: (category: string, difficulty: 'easy' | 'medium' | 'hard', limit: number) => Promise<void>;
+    startGame: (category: string, difficulty: 'easy' | 'medium' | 'hard', limit: number, timer: number, mode: 'solo' | 'multi') => Promise<void>;
+    selectAnswer: (answer: string) => void;
+    tickTimer: () => void;
+    nextPhase: () => void;
+    reset: () => void;
 }

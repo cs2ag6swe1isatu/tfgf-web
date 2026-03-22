@@ -1,14 +1,41 @@
 import { useTriviaStore } from "../logic/trivia-manager";
 import { useEffect } from "react";
+import QuizCard from "./QuizCard";
+
 
 export default function TestComponent(){
-  const { questions, initializeTriviaQuestions } = useTriviaStore();
+  const { 
+    questions,
+    currentIndex,
+    phase,
+    selectAnswer,
+    nextPhase, 
+    startGame,
+  } = useTriviaStore();
+
+  const current = questions[currentIndex];
+
+  const handleAnswer = (opt: { id: string; text: string; isCorrect: boolean }) => {
+    selectAnswer(opt.id);
+  };
+
+  const onAnimationComplete = () => {
+    nextPhase();
+  };
 
   useEffect(() => {
-    initializeTriviaQuestions("General Knowledge", "easy", 5);
+    startGame("General Knowledge", "easy", 5, 15, 'solo');
   }, []);
 
   return (
-    <pre>{JSON.stringify(questions, null, 2)}</pre>
+    <QuizCard
+      question={current?.text}
+      options={current?.allAnswers?.map((a, i) => ({
+        id: String.fromCharCode(65 + i),
+        text: a,
+        isCorrect: a === current?.correctAnswer,
+      }))}
+      onAnswer={handleAnswer}
+    />
   )
 }
