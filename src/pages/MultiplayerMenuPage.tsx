@@ -8,13 +8,12 @@ const MultiplayerMenuPage = () => {
     <Container maxWidth="sm">
       <Box sx={{ mt: 8, textAlign: "center" }}>
         <Typography variant="h4" gutterBottom>
-          Multiplayer Mode
+          Multiplayer
         </Typography>
 
         <Box sx={{ mt: 4, display: "grid", gap: 2 }}>
           <Button
             variant="contained"
-            size="large"
             onClick={() => setScreen("multiplayer-lobby")}
           >
             Host Game
@@ -22,10 +21,16 @@ const MultiplayerMenuPage = () => {
 
           <Button
             variant="outlined"
-            size="large"
             onClick={() => setScreen("multiplayer-lobby")}
           >
             Join Game
+          </Button>
+
+          <Button
+            variant="text"
+            onClick={() => setScreen("mode-select")}
+          >
+            Back
           </Button>
         </Box>
       </Box>

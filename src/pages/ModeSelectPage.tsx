@@ -1,47 +1,46 @@
 import { Button, Container, Typography, Box } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 
-const HomePage = () => {
+const ModeSelectPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
+  const setMode = useGameStore((state) => state.setMode);
 
   return (
     <Container maxWidth="sm">
       <Box sx={{ mt: 8, textAlign: "center" }}>
-        <Typography variant="h3" gutterBottom>
-          Think Fast, Guess Faster
+        <Typography variant="h4" gutterBottom>
+          Choose Mode
         </Typography>
 
-        <Box sx={{ mt: 5, display: "grid", gap: 2 }}>
+        <Box sx={{ mt: 4, display: "grid", gap: 2 }}>
           <Button
             variant="contained"
             size="large"
-            onClick={() => setScreen("mode-select")}
+            onClick={() => {
+              setMode("solo");
+              setScreen("category");
+            }}
           >
-            Play
+            Single Player
           </Button>
 
           <Button
             variant="outlined"
             size="large"
-            onClick={() => setScreen("profile")}
+            onClick={() => {
+              setMode("multiplayer");
+              setScreen("multiplayer-menu");
+            }}
           >
-            Profile
+            Multiplayer
           </Button>
 
           <Button
-            variant="outlined"
+            variant="text"
             size="large"
-            onClick={() => setScreen("settings")}
+            onClick={() => setScreen("home")}
           >
-            Settings
-          </Button>
-
-          <Button
-            variant="outlined"
-            size="large"
-            onClick={() => setScreen("standing")}
-          >
-            Standing
+            Back
           </Button>
         </Box>
       </Box>
@@ -49,4 +48,4 @@ const HomePage = () => {
   );
 };
 
-export default HomePage;
+export default ModeSelectPage;

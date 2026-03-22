@@ -12,18 +12,15 @@ function base64ToUtf8(base64: string): string {
 
 export async function loadQuestions(): Promise<Question[]> {
   try {
-    const response = await fetch("./Question.json");
+    const response = await fetch("/Question.json");
+    const json = await response.json();
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch Question.json: ${response.status}`);
+    if (!json.data) {
+      return [];
     }
 
-    const raw = await response.text();
-    console.log("RAW FILE CONTENT:", raw);
-
-    const parsed = JSON.parse(raw);
-    const decodedString = base64ToUtf8(parsed.data);
-    const questions = JSON.parse(decodedString);
+    const decoded = base64ToUtf8(json.data);
+    const questions: Question[] = JSON.parse(decoded);
 
     return questions;
   } catch (error) {

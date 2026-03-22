@@ -1,22 +1,18 @@
 import { Button, Container, Typography, Box } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 
-const ProfilePage = () => {
+const StandingPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
 
   return (
     <Container maxWidth="sm">
       <Box sx={{ mt: 8, textAlign: "center" }}>
         <Typography variant="h4" gutterBottom>
-          Profile
+          Standing
         </Typography>
 
         <Typography sx={{ mt: 2 }}>
-          Player profile will be added here.
-        </Typography>
-
-        <Typography sx={{ mt: 1 }}>
-          Game history and achievements are not finished yet.
+          Ranking / standing page is not finished yet.
         </Typography>
 
         <Button
@@ -31,4 +27,4 @@ const ProfilePage = () => {
   );
 };
 
-export default ProfilePage;
+export default StandingPage;

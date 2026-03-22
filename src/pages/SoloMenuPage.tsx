@@ -1,38 +1,31 @@
 import { Button, Container, Typography, Box } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 
-const HomePage = () => {
+const SoloMenuPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
-  const setMode = useGameStore((state) => state.setMode);
 
   return (
     <Container maxWidth="sm">
-      <Box sx={{ mt: 10, textAlign: "center" }}>
-        <Typography variant="h3" gutterBottom>
-          Trivia Game
+      <Box sx={{ mt: 8, textAlign: "center" }}>
+        <Typography variant="h4" gutterBottom>
+          Solo Mode
         </Typography>
 
-        <Box sx={{ mt: 6, display: "grid", gap: 2 }}>
+        <Box sx={{ mt: 4, display: "grid", gap: 2 }}>
           <Button
             variant="contained"
             size="large"
-            onClick={() => {
-              setMode("solo");
-              setScreen("solo-menu");
-            }}
+            onClick={() => setScreen("category")}
           >
-            Solo
+            Start Game
           </Button>
 
           <Button
             variant="outlined"
             size="large"
-            onClick={() => {
-              setMode("multiplayer");
-              setScreen("multiplayer-menu");
-            }}
+            onClick={() => setScreen("profile")}
           >
-            Multiplayer
+            Profile
           </Button>
         </Box>
       </Box>
@@ -40,5 +33,4 @@ const HomePage = () => {
   );
 };
 
-
-export default HomePage;
+export default SoloMenuPage;

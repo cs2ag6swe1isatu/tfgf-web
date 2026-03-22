@@ -1,12 +1,14 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import HomePage from "./pages/HomePage";
-import SoloMenuPage from "./pages/SoloMenuPage";
+import ModeSelectPage from "./pages/ModeSelectPage";
 import CategoryPage from "./pages/CategoryPage";
 import DifficultyPage from "./pages/DifficultyPage";
 import QuestionPage from "./pages/QuestionPage";
-import ResultPage from "./pages/ResultPage";
+import SessionSummaryPage from "./pages/SessionSummaryPage";
 import ProfilePage from "./pages/ProfilePage";
+import SettingsPage from "./pages/SettingsPage";
+import StandingPage from "./pages/StandingPage";
 import MultiplayerMenuPage from "./pages/MultiplayerMenuPage";
 import MultiplayerLobbyPage from "./pages/MultiplayerLobbyPage";
 import { useGameStore } from "./store/gameStore";
@@ -16,8 +18,8 @@ const App = () => {
   const screen = useGameStore((state) => state.screen);
 
   switch (screen) {
-    case "solo-menu":
-      return <SoloMenuPage />;
+    case "mode-select":
+      return <ModeSelectPage />;
     case "category":
       return <CategoryPage />;
     case "difficulty":
@@ -25,9 +27,13 @@ const App = () => {
     case "question":
       return <QuestionPage />;
     case "result":
-      return <ResultPage />;
+      return <SessionSummaryPage />;
     case "profile":
       return <ProfilePage />;
+    case "settings":
+      return <SettingsPage />;
+    case "standing":
+      return <StandingPage />;
     case "multiplayer-menu":
       return <MultiplayerMenuPage />;
     case "multiplayer-lobby":

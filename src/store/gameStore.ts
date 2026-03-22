@@ -2,12 +2,14 @@ import { create } from "zustand";
 
 type Screen =
   | "home"
-  | "solo-menu"
+  | "mode-select"
   | "category"
   | "difficulty"
   | "question"
   | "result"
   | "profile"
+  | "settings"
+  | "standing"
   | "multiplayer-menu"
   | "multiplayer-lobby";
 

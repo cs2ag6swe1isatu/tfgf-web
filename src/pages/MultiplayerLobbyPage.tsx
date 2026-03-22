@@ -18,29 +18,27 @@ const MultiplayerLobbyPage = () => {
         </Typography>
 
         <Typography sx={{ mt: 2 }}>
-          Host selects difficulty
+          Host chooses the difficulty.
         </Typography>
 
         <Box sx={{ mt: 4, display: "grid", gap: 2 }}>
-          <Button
-            variant="contained"
-            onClick={() => handleStart("easy")}
-          >
+          <Button variant="contained" onClick={() => handleStart("easy")}>
             Start Easy Game
           </Button>
 
-          <Button
-            variant="contained"
-            onClick={() => handleStart("medium")}
-          >
+          <Button variant="contained" onClick={() => handleStart("medium")}>
             Start Medium Game
           </Button>
 
+          <Button variant="contained" onClick={() => handleStart("hard")}>
+  Start Hard Game
+</Button>
+
           <Button
-            variant="contained"
-            onClick={() => handleStart("hard")}
+            variant="text"
+            onClick={() => setScreen("multiplayer-menu")}
           >
-            Start Hard Game
+            Back
           </Button>
         </Box>
       </Box>

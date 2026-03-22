@@ -3,10 +3,11 @@ import { useGameStore } from "../store/gameStore";
 
 const DifficultyPage = () => {
   const setDifficulty = useGameStore((state) => state.setDifficulty);
+  const setScreen = useGameStore((state) => state.setScreen);
   const resetSession = useGameStore((state) => state.resetSession);
   const startSession = useGameStore((state) => state.startSession);
 
-  const handleSelect = (difficulty: "easy" | "medium" | "hard") => {
+ const handleSelect = (difficulty: "easy" | "medium" | "hard") => {
     setDifficulty(difficulty);
     resetSession();
     startSession();
@@ -23,11 +24,20 @@ const DifficultyPage = () => {
           <Button variant="contained" onClick={() => handleSelect("easy")}>
             Easy
           </Button>
+
           <Button variant="contained" onClick={() => handleSelect("medium")}>
             Medium
           </Button>
+
           <Button variant="contained" onClick={() => handleSelect("hard")}>
-            Hard
+  Hard
+</Button>
+
+          <Button
+            variant="text"
+            onClick={() => setScreen("category")}
+          >
+            Back
           </Button>
         </Box>
       </Box>
