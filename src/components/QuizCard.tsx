@@ -277,51 +277,81 @@ function useKeyboardNavigation(
 }
 
 function useSoundEffects() {
-  const [audioCtx] = useState(() => new (window.AudioContext || (window as any).webkitAudioContext)());
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const getCtx = () => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext ||
+        (window as any).webkitAudioContext)();
+    }
+
+    if (audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume();
+    }
+
+    return audioCtxRef.current;
+  };
 
   const playBeep = useCallback(() => {
-    const now = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const ctx = getCtx();
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(ctx.destination);
+
     osc.frequency.value = 880;
     gain.gain.setValueAtTime(0.1, now);
     gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.2);
+
     osc.start();
     osc.stop(now + 0.2);
-  }, [audioCtx]);
+  }, []);
 
   const playCorrect = useCallback(() => {
-    const now = audioCtx.currentTime;
-    const osc1 = audioCtx.createOscillator();
-    const osc2 = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const ctx = getCtx();
+    const now = ctx.currentTime;
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+
     osc1.connect(gain);
     osc2.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc1.frequency.value = 523.25; // C5
-    osc2.frequency.value = 659.25; // E5
+    gain.connect(ctx.destination);
+
+    osc1.frequency.value = 523.25;
+    osc2.frequency.value = 659.25;
+
     gain.gain.setValueAtTime(0.15, now);
     gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.3);
+
     osc1.start();
     osc2.start();
     osc1.stop(now + 0.3);
     osc2.stop(now + 0.3);
-  }, [audioCtx]);
+  }, []);
 
   const playError = useCallback(() => {
-    const now = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const ctx = getCtx();
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(ctx.destination);
+
     osc.frequency.value = 220;
+
     gain.gain.setValueAtTime(0.2, now);
     gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.4);
+
     osc.start();
     osc.stop(now + 0.4);
-  }, [audioCtx]);
+  }, []);
 
   return { playBeep, playCorrect, playError };
 }
@@ -338,87 +368,111 @@ interface Particle {
   life: number;
 }
 
-const ParticleEffect = memo(function ParticleEffect({ 
-  active, 
-  position, 
+const ParticleEffect = memo(function ParticleEffect({
+  active,
+  position,
   color,
-  onComplete 
-}: { 
-  active: boolean; 
-  position: { x: number; y: number }; 
+  onComplete,
+}: {
+  active: boolean;
+  position: { x: number; y: number };
   color: string;
   onComplete?: () => void;
 }) {
-  const [particles, setParticles] = useState<Particle[]>([]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const particlesRef = useRef<
+    {
+      el: HTMLDivElement;
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      life: number;
+    }[]
+  >([]);
+
   const animationRef = useRef<number>();
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || !containerRef.current) return;
 
-    // Create 20 particles
-    const newParticles: Particle[] = Array.from({ length: 20 }, (_, i) => ({
-      id: i,
-      x: position.x,
-      y: position.y,
-      size: Math.random() * 6 + 2,
-      color,
-      velocityX: (Math.random() - 0.5) * 8,
-      velocityY: (Math.random() - 0.5) * 8 - 4,
-      life: 1,
-    }));
-    setParticles(newParticles);
+    const container = containerRef.current;
+    container.innerHTML = ""; // reset
 
-    let startTime = performance.now();
+    const particles = [];
+    const count = 20;
+
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement("div");
+
+      const size = Math.random() * 6 + 2;
+
+      el.style.position = "absolute";
+      el.style.width = `${size}px`;
+      el.style.height = `${size}px`;
+      el.style.borderRadius = "50%";
+      el.style.background = color;
+      el.style.pointerEvents = "none";
+      el.style.willChange = "transform, opacity";
+
+      container.appendChild(el);
+
+      particles.push({
+        el,
+        x: position.x,
+        y: position.y,
+        vx: (Math.random() - 0.5) * 8,
+        vy: (Math.random() - 0.5) * 8 - 4,
+        life: 1,
+      });
+    }
+
+    particlesRef.current = particles;
+
+    const start = performance.now();
     const duration = 500;
 
     const animate = (now: number) => {
-      const elapsed = now - startTime;
-      const t = Math.min(1, elapsed / duration);
-      if (t >= 1) {
-        setParticles([]);
-        onComplete?.();
-        return;
-      }
+      const t = Math.min(1, (now - start) / duration);
 
-      setParticles(prev =>
-        prev.map(p => ({
-          ...p,
-          x: p.x + p.velocityX,
-          y: p.y + p.velocityY,
-          life: 1 - t,
-        }))
-      );
-      animationRef.current = requestAnimationFrame(animate);
+      particlesRef.current.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life = 1 - t;
+
+        p.el.style.transform = `translate(${p.x}px, ${p.y}px) scale(${1 -
+          p.life * 0.5})`;
+        p.el.style.opacity = String(p.life);
+      });
+
+      if (t < 1) {
+        animationRef.current = requestAnimationFrame(animate);
+      } else {
+        particlesRef.current.forEach((p) => p.el.remove());
+        particlesRef.current = [];
+        onComplete?.();
+      }
     };
 
     animationRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
-  }, [active, position, color, onComplete]);
 
-  if (!active || particles.length === 0) return null;
+    return () => {
+      cancelAnimationFrame(animationRef.current!);
+      particlesRef.current.forEach((p) => p.el.remove());
+      particlesRef.current = [];
+    };
+  }, [active, position.x, position.y, color, onComplete]);
 
   return (
-    <Box sx={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999 }}>
-      {particles.map(p => (
-        <Box
-          key={p.id}
-          sx={{
-            position: 'absolute',
-            left: p.x,
-            top: p.y,
-            width: p.size,
-            height: p.size,
-            backgroundColor: p.color,
-            borderRadius: '50%',
-            opacity: p.life,
-            transform: `scale(${1 - p.life * 0.5})`,
-            transition: 'opacity 0.02s linear',
-          }}
-        />
-      ))}
-    </Box>
+    <Box
+      ref={containerRef}
+      sx={{
+        position: 'fixed',
+        inset: 0,
+        pointerEvents: 'none',
+        zIndex: 9999,
+      }}
+    />
   );
 });
 
@@ -480,6 +534,7 @@ const QuizCard = memo(function QuizCard({
   health: rawHealth = 85,
   onAnswer,
 }: QuizCardProps) {
+  const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
   const [showParticles, setShowParticles] = useState(false);
@@ -523,9 +578,13 @@ const QuizCard = memo(function QuizCard({
       if (event) {
         setParticlePosition({ x: event.clientX, y: event.clientY });
       } else {
-        // Keyboard fallback – get the corresponding button's position (optional)
-        // We'll just use screen center or button center via a ref. For simplicity, center of viewport.
-        setParticlePosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+        const rect = buttonRefs.current[option.id]?.getBoundingClientRect();
+        if (rect) {
+          setParticlePosition({
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          });
+        }
       }
 
       setSelectedAnswer(option.id);
@@ -560,8 +619,6 @@ const QuizCard = memo(function QuizCard({
     },
     [isRevealed, playBeep, playCorrect, playError]
   );
-
-
 
   // Keyboard navigation
   const systemMessageRaw = useMemo(() => {
@@ -636,7 +693,7 @@ const QuizCard = memo(function QuizCard({
         <Box sx={{ px: 3, pt: 3, pb: 1, backgroundColor: 'rgba(0,0,0,0.3)', position: 'relative', zIndex: 1 }}>
           {/* ... header (level, HP) unchanged */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5, alignItems: 'center' }}>
-            <Typography variant="overline" sx={{ color: THEME.primary, fontWeight: 'bold', letterSpacing: 3, fontSize: '0.7rem', textShadow: `0 0 5px ${THEME.primary}88` }}>
+            <Typography variant="overline" sx={{ color: THEME.primary, fontWeight: 'bold', letterSpacing: 3, fontSize: '0.7rem', textShadow: `0 0 5px ${THEME.primary}` }}>
               {`// ${level}`}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -688,7 +745,7 @@ const QuizCard = memo(function QuizCard({
                 wordBreak: 'break-word',
                 lineHeight: 1.5,
                 margin: 0,
-                textShadow: `0 0 5px ${THEME.primary}66`,
+                textShadow: `0 0 5px ${THEME.primary}`,
                 display: 'inline-block',
                 '@media (prefers-reduced-motion: no-preference)': {
                   animation: `${glitch} 4s infinite linear`,
@@ -734,6 +791,7 @@ const QuizCard = memo(function QuizCard({
                   $isWrong={isWrong && isRevealed}
                   $isRevealed={isRevealed}
                   $isOther={isOther}
+                  ref={(el) => (buttonRefs.current[option.id] = el)}
                   onClick={(e) => handleSelect(option, e)}
                   disabled={isRevealed}
                   aria-pressed={isSelected}
