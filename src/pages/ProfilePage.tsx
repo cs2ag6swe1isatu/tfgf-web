@@ -33,7 +33,7 @@ const ProfilePage = () => {
         <Button
           variant="contained"
           sx={{ mt: 5 }}
-          onClick={() => setScreen("solo-menu")}
+          onClick={() => setScreen("home")}
         >
           Back
         </Button>

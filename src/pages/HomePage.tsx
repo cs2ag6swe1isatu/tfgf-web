@@ -7,7 +7,7 @@ const HomePage = () => {
   return (
     <Container maxWidth="sm">
       <Box sx={{ mt: 8, textAlign: "center" }}>
-        <Typography variant="h3" gutterBottom>
+        <Typography variant="h1" gutterBottom>
           Think Fast, Guess Faster
         </Typography>
 
