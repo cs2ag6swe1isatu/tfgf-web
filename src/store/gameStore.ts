@@ -1,4 +1,21 @@
 import { create } from "zustand";
+import { Player, LobbyRole, LobbyState, ModalState, GameConfig } from "../types/multiplayer";
+
+/**
+ * Game Store - Navigation and Session Setup
+ * 
+ * RESPONSIBILITIES:
+ * - Application navigation between screens/pages
+ * - Game mode selection (solo/multiplayer)
+ * - Category and difficulty selection for game configuration
+ * - Multiplayer lobby state management
+ * - Basic session setup state management
+ * 
+ * SEPARATION OF CONCERNS:
+ * This store handles ONLY navigation and game configuration.
+ * All game-specific logic (questions, scoring, timers, phases) 
+ * is managed by triviaStore.ts.
+ */
 
 type Screen =
   | "home"
@@ -11,83 +28,155 @@ type Screen =
   | "settings"
   | "standing"
   | "multiplayer-menu"
-  | "multiplayer-lobby";
+  | "multiplayer-lobby"
+  | "client-discovery";
 
 type Mode = "solo" | "multiplayer" | null;
 type Difficulty = "easy" | "medium" | "hard" | null;
 
 interface GameState {
+  // Basic navigation state
   screen: Screen;
   mode: Mode;
   category: string | null;
   difficulty: Difficulty;
 
-  currentQuestionIndex: number;
-  score: number;
-  correctAnswers: number;
-  totalQuestions: number;
-  sessionFinished: boolean;
+  // Multiplayer state
+  lobbyRole: LobbyRole | null;
+  lobbyId: string | null;
+  hostId: string;
+  players: Player[];
+  isHostReady: boolean;
+  lobbyState: LobbyState;
+  modalState: ModalState;
+  gameConfig: GameConfig;
 
+  // Actions
   setScreen: (screen: Screen) => void;
   setMode: (mode: Mode) => void;
   setCategory: (category: string) => void;
   setDifficulty: (difficulty: Difficulty) => void;
-
-  startSession: () => void;
-  addCorrectAnswer: (points: number) => void;
-  nextQuestion: () => void;
-  finishSession: () => void;
-  resetSession: () => void;
+  
+  // Multiplayer actions
+  setLobbyRole: (role: LobbyRole) => void;
+  setLobbyId: (id: string) => void;
+  setHostId: (id: string) => void;
+  addPlayer: (player: Player) => void;
+  removePlayer: (playerId: string) => void;
+  setPlayerReady: (playerId: string, ready: boolean) => void;
+  setHostReady: (ready: boolean) => void;
+  setLobbyState: (state: LobbyState) => void;
+  setModalState: (modal: keyof ModalState, open: boolean) => void;
+  setGameConfig: (config: Partial<GameConfig>) => void;
+  resetMultiplayer: () => void;
 }
 
-export const useGameStore = create<GameState>((set) => ({
+export const useGameStore = create<GameState>((set, get) => ({
+  // Basic navigation state
   screen: "home",
   mode: null,
   category: null,
   difficulty: null,
 
-  currentQuestionIndex: 0,
-  score: 0,
-  correctAnswers: 0,
-  totalQuestions: 15,
-  sessionFinished: false,
+  // Multiplayer state
+  lobbyRole: null,
+  lobbyId: null,
+  hostId: null,
+  players: [],
+  isHostReady: false,
+  lobbyState: 'lobby',
+  modalState: {
+    category: false,
+    difficulty: false,
+  },
+  gameConfig: {
+    category: null,
+    difficulty: null,
+    questionLimit: 10,
+    timer: 15,
+  },
 
+  // Actions
   setScreen: (screen) => set({ screen }),
   setMode: (mode) => set({ mode }),
   setCategory: (category) => set({ category }),
   setDifficulty: (difficulty) => set({ difficulty }),
-
-  startSession: () =>
-    set({
-      currentQuestionIndex: 0,
-      score: 0,
-      correctAnswers: 0,
-      sessionFinished: false,
-      screen: "question",
-    }),
-
-  addCorrectAnswer: (points) =>
-    set((state) => ({
-      score: state.score + points,
-      correctAnswers: state.correctAnswers + 1,
-    })),
-
-  nextQuestion: () =>
-    set((state) => ({
-      currentQuestionIndex: state.currentQuestionIndex + 1,
-    })),
-
-  finishSession: () =>
-    set({
-      sessionFinished: true,
-      screen: "result",
-    }),
-
-  resetSession: () =>
-    set({
-      currentQuestionIndex: 0,
-      score: 0,
-      correctAnswers: 0,
-      sessionFinished: false,
-    }),
+  
+  // Multiplayer actions
+  setLobbyRole: (role) => set({ lobbyRole: role }),
+  setLobbyId: (id) => set({ lobbyId: id }),
+  setHostId: (id) => set({ hostId: id }),
+  
+  addPlayer: (player) => {
+    const currentPlayers = get().players;
+    const existingPlayer = currentPlayers.find(p => p.id === player.id);
+    
+    if (existingPlayer) {
+      // Update existing player
+      const updatedPlayers = currentPlayers.map(p => 
+        p.id === player.id ? { ...p, ...player } : p
+      );
+      set({ players: updatedPlayers });
+    } else {
+      // Add new player
+      set({ players: [...currentPlayers, player] });
+    }
+  },
+  
+  removePlayer: (playerId) => {
+    const currentPlayers = get().players;
+    const filteredPlayers = currentPlayers.filter(p => p.id !== playerId);
+    set({ players: filteredPlayers });
+  },
+  
+  setPlayerReady: (playerId, ready) => {
+    const currentPlayers = get().players;
+    const updatedPlayers = currentPlayers.map(p => 
+      p.id === playerId ? { ...p, isReady: ready } : p
+    );
+    set({ players: updatedPlayers });
+  },
+  
+  setHostReady: (ready) => set({ isHostReady: ready }),
+  
+  setLobbyState: (state) => set({ lobbyState: state }),
+  
+  setModalState: (modal, open) => {
+    const currentModalState = get().modalState;
+    set({ 
+      modalState: { 
+        ...currentModalState, 
+        [modal]: open 
+      } 
+    });
+  },
+  
+  setGameConfig: (config) => {
+    const currentConfig = get().gameConfig;
+    set({ 
+      gameConfig: { 
+        ...currentConfig, 
+        ...config 
+      } 
+    });
+  },
+  
+  resetMultiplayer: () => set({
+    lobbyRole: null,
+    lobbyId: null,
+    hostId: null,
+    players: [],
+    isHostReady: false,
+    lobbyState: 'lobby',
+    modalState: {
+      category: false,
+      difficulty: false,
+    },
+    gameConfig: {
+      category: null,
+      difficulty: null,
+      questionLimit: 10,
+      timer: 15,
+    },
+  }),
 }));

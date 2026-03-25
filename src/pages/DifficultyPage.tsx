@@ -1,4 +1,5 @@
-import { Button, Container, Typography, Box } from "@mui/material";
+import { Container, Typography, Box } from "@mui/material";
+import { Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
 
@@ -34,21 +35,22 @@ const DifficultyPage = () => {
         </Typography>
 
         <Box sx={{ mt: 4, display: "grid", gap: 2 }}>
-          <Button variant="contained" onClick={() => handleSelect("easy")}>
+          <Button variant="contained" color="primary" onClick={() => handleSelect("easy")}>
             Easy
           </Button>
 
-          <Button variant="contained" onClick={() => handleSelect("medium")}>
+          <Button variant="contained" color="secondary" onClick={() => handleSelect("medium")}>
             Medium
           </Button>
 
-          <Button variant="contained" onClick={() => handleSelect("hard")}>
-  Hard
-</Button>
+          <Button variant="contained" color="error" onClick={() => handleSelect("hard")}>
+            Hard
+          </Button>
 
           <Button
-            variant="text"
-            onClick={() => setScreen("category")}
+            variant="outlined"
+            color="primary"
+            onClick={() => setScreen("mode-select")}
           >
             Back
           </Button>

@@ -11,6 +11,7 @@ import SettingsPage from "./pages/SettingsPage";
 import StandingPage from "./pages/StandingPage";
 import MultiplayerMenuPage from "./pages/MultiplayerMenuPage";
 import MultiplayerLobbyPage from "./pages/MultiplayerLobbyPage";
+import ClientDiscoveryPage from "./pages/ClientDiscoveryPage";
 import { useGameStore } from "./store/gameStore";
 import "./index.css";
 
@@ -38,6 +39,8 @@ const App = () => {
       return <MultiplayerMenuPage />;
     case "multiplayer-lobby":
       return <MultiplayerLobbyPage />;
+    case "client-discovery":
+      return <ClientDiscoveryPage />;
     case "home":
     default:
       return <HomePage />;

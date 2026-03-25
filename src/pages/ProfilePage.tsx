@@ -1,4 +1,5 @@
-import { Button, Container, Typography, Box } from "@mui/material";
+import { Container, Typography, Box } from "@mui/material";
+import { Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 
 const ProfilePage = () => {
@@ -8,6 +9,7 @@ const ProfilePage = () => {
   const playerName = "Player 1";
   const level = 1;
   const xp = 0;
+  const rank = "Beginner";
 
   return (
     <Container maxWidth="sm">
@@ -26,13 +28,18 @@ const ProfilePage = () => {
           </Typography>
 
           <Typography variant="h6">
+            Rank: {rank}
+          </Typography>
+
+          <Typography variant="h6">
             XP: {xp}
           </Typography>
         </Box>
 
         <Button
           variant="contained"
-          sx={{ mt: 5 }}
+          color="primary"
+          className="mt-5"
           onClick={() => setScreen("home")}
         >
           Back

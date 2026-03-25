@@ -1,4 +1,5 @@
-import { Button, Container, Typography, Box } from "@mui/material";
+import { Container, Typography, Box } from "@mui/material";
+import { Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 
 const SoloMenuPage = () => {
@@ -14,6 +15,7 @@ const SoloMenuPage = () => {
         <Box sx={{ mt: 4, display: "grid", gap: 2 }}>
           <Button
             variant="contained"
+            color="primary"
             size="large"
             onClick={() => setScreen("category")}
           >
@@ -22,6 +24,7 @@ const SoloMenuPage = () => {
 
           <Button
             variant="outlined"
+            color="primary"
             size="large"
             onClick={() => setScreen("profile")}
           >

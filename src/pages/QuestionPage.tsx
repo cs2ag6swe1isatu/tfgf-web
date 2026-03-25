@@ -1,7 +1,22 @@
 import { useEffect, useMemo } from "react";
-import { Container, Box, Typography, CircularProgress, Button } from "@mui/material";
+import { Container, Box, Typography } from "@mui/material";
+import { Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
+
+// Custom loading spinner component
+const LoadingSpinner = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => {
+  const sizeClasses = {
+    sm: "w-6 h-6",
+    md: "w-10 h-10",
+    lg: "w-16 h-16",
+  };
+  return (
+    <div
+      className={`${sizeClasses[size]} border-4 border-green-500 border-t-transparent rounded-full animate-spin`}
+    />
+  );
+};
 
 const QuestionPage = () => {
   const {
@@ -74,7 +89,7 @@ const QuestionPage = () => {
       case 'loading':
         return (
           <Box sx={{ textAlign: 'center', py: 8 }}>
-            <CircularProgress size={60} sx={{ color: '#00ff9d', mb: 3 }} />
+            <LoadingSpinner size="lg" />
             <Typography variant="h6">
               Loading questions...
             </Typography>
@@ -115,7 +130,7 @@ const QuestionPage = () => {
                 <Typography variant="h6" sx={{ color: '#999999', mb: 2 }}>
                   Loading question...
                 </Typography>
-                <CircularProgress size={40} sx={{ color: '#00ff9d' }} />
+                <LoadingSpinner size="md" />
               </Box>
             )}
           </Box>
@@ -128,7 +143,7 @@ const QuestionPage = () => {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Loading question...
               </Typography>
-              <CircularProgress size={40} sx={{ color: '#00ff9d' }} />
+                <LoadingSpinner size="md" />
             </Box>
           );
         }
@@ -169,6 +184,7 @@ const QuestionPage = () => {
                 <Button
                   key={index}
                   variant="outlined"
+                  color="primary"
                   onClick={() => handleAnswerSelect(answer)}
                 >
                   {answer}
@@ -226,6 +242,7 @@ const QuestionPage = () => {
             </Typography>
             <Button
               variant="contained"
+              color="primary"
               onClick={() => {
                 resetGame();
                 setScreen('home');
@@ -244,6 +261,7 @@ const QuestionPage = () => {
             </Typography>
             <Button
               variant="contained"
+              color="primary"
               onClick={() => setScreen('home')}
             >
               Back to Menu

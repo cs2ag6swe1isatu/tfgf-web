@@ -1,20 +1,19 @@
-import { Button, Container, Typography, Box, Divider } from "@mui/material";
+import { Container, Typography, Box, Divider } from "@mui/material";
+import { Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
+import { useTriviaStore } from "../store/triviaStore";
 
 const SessionSummaryPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
-  const score = useGameStore((state) => state.score);
-  const correctAnswers = useGameStore((state) => state.correctAnswers);
-  const totalQuestions = useGameStore((state) => state.totalQuestions);
-  const category = useGameStore((state) => state.category);
-  const difficulty = useGameStore((state) => state.difficulty);
+  const score = useTriviaStore((state) => state.score);
+  const questions = useTriviaStore((state) => state.questions);
+  const category = useTriviaStore((state) => state.category);
+  const difficulty = useTriviaStore((state) => state.difficulty);
 
-  const sessionQuestions = useGameStore(
-    (state: any) => state.sessionQuestions || []
-  );
-  const userAnswers = useGameStore(
-    (state: any) => state.userAnswers || []
-  );
+  const sessionQuestions = questions;
+  const totalQuestions = questions.length;
+  const correctAnswers = score;
+  const userAnswers = useTriviaStore((state) => state.userAnswers);
 
   const accuracy =
     totalQuestions > 0
@@ -79,6 +78,7 @@ const SessionSummaryPage = () => {
         <Box sx={{ mt: 4, textAlign: "center" }}>
           <Button
             variant="contained"
+            color="primary"
             onClick={() => setScreen("home")}
           >
             Back to Home

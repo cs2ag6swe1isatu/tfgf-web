@@ -2,7 +2,7 @@
   "name": "tfgf-web",
   "productName": "tfgf-web",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "A LAN capable educational trivia game for desktop inspired by traditional trivia contests, game shows, and online multiplayer game progression.",
   "main": ".vite/build/main.js",
   "private": true,
   "scripts": {
@@ -14,10 +14,10 @@
   },
   "keywords": [],
   "author": {
-    "name": "Loel Joseph Hofileña",
-    "email": "loeljoseph.hofilena@students.isatu.edu.ph"
+    "name": "",
+    "email": ""
   },
-  "license": "MIT",
+  "license": "",
   "devDependencies": {
     "@electron-forge/cli": "^7.11.1",
     "@electron-forge/maker-deb": "^7.11.1",
@@ -44,13 +44,19 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
-    "@pxlkit/core": "^1.0.1",
-    "@pxlkit/gamification": "^1.0.1",
-    "@pxlkit/ui": "^1.0.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "electron-squirrel-startup": "^1.0.1",
+    "lucide-react": "^0.577.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "shadcn": "^4.1.0",
+    "shadcn-ui": "^0.9.5",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.2",
+    "tw-animate-css": "^1.4.0",
     "zustand": "^5.0.12"
   }
 }

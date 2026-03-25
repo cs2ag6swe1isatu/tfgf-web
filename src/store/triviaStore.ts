@@ -2,6 +2,23 @@ import { create } from 'zustand';
 import { Question } from '../types/question';
 import { loadQuestions } from '../utils/loadQuestions';
 
+/**
+ * Trivia Store - Game Logic and State Management
+ * 
+ * RESPONSIBILITIES:
+ * - Question loading and management
+ * - Game phase management (loading, asking, answering, scoring, ranking)
+ * - Score tracking and answer processing
+ * - Timer management and countdown logic
+ * - Game state progression and transitions
+ * - Multiplayer vs solo game mode handling
+ * 
+ * SEPARATION OF CONCERNS:
+ * This store handles ALL game-specific logic and state.
+ * Navigation and screen management is handled by gameStore.ts.
+ * This store coordinates with gameStore for category/difficulty selection.
+ */
+
 export type Phase = 'loading' | 'asking' | 'answering' | 'scoring' | 'ranking' | 'end';
 export type GameMode = 'solo' | 'multi';
 
@@ -15,6 +32,7 @@ export interface TriviaState {
   mode: GameMode;
   category: string | null;
   difficulty: 'easy' | 'medium' | 'hard' | null;
+  userAnswers: string[];
 }
 
 export interface TriviaActions {
@@ -35,6 +53,7 @@ const initialState: TriviaState = {
   mode: 'solo',
   category: null,
   difficulty: null,
+  userAnswers: [],
 };
 
 export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => ({
@@ -97,7 +116,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
   /* ---------- Answer handling ---------- */
   selectAnswer: (answer) => {
-    const { questions, currentIndex, mode, phase, score } = get();
+    const { questions, currentIndex, mode, phase, score, userAnswers } = get();
     
     // Validate phase and game state
     if (phase !== 'answering') return;
@@ -114,6 +133,10 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     
     const isCorrect = answer === currentQuestion.correctAnswer;
     
+    // Track user answer
+    const newUserAnswers = [...userAnswers];
+    newUserAnswers[currentIndex] = answer;
+    
     if (mode === 'solo') {
       // Update score immediately
       const newScore = isCorrect ? score + 1 : score;
@@ -126,6 +149,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         score: newScore,
         phase: isLastQuestion ? 'ranking' : 'scoring',
         timer: isLastQuestion ? 0 : 5,
+        userAnswers: newUserAnswers,
       });
     } else if (mode === 'multi') {
       // Multiplayer logic to be implemented
@@ -133,6 +157,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         selectedAnswer: answer,
         phase: 'scoring',
         timer: 5,
+        userAnswers: newUserAnswers,
       });
     }
   },
