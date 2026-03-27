@@ -61,7 +61,6 @@ const QuestionPage = () => {
   }, [phase, setScreen]);
 
   const currentQuestion = questions[currentIndex];
-  const nextQuestion = questions[currentIndex];
   const isCorrect = useMemo(() => {
     if (!currentQuestion || !selectedAnswer) return false;
     return selectedAnswer === currentQuestion.correctAnswer;
@@ -116,9 +115,9 @@ const QuestionPage = () => {
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              {nextQuestion ? (
+              {currentQuestion ? (
                 <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
-                  {nextQuestion.text}
+                  {currentQuestion.text}
                 </Typography>
               ) : (
                 <Typography variant="h6" sx={{ color: '#999999' }}>

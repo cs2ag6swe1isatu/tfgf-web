@@ -30,7 +30,8 @@ const getPlayerFromStorage = (): Player | null => {
   try {
     const existing = localStorage.getItem(PLAYER_STORAGE_KEY);
     if (existing) {
-      return JSON.parse(existing);
+      const parsed = JSON.parse(existing);
+      return { ...parsed, lastActive: new Date(parsed.lastActive) };
     }
   } catch (error) {
     console.warn("Failed to load player from storage:", error);
