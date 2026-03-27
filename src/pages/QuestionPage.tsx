@@ -108,8 +108,7 @@ const QuestionPage = () => {
         return (
           <Box sx={{ py: 4 }}>
             {renderHUD()}
-            <Box sx={{ 
-              variant: 'outlined',
+            <Card variant="outlined" sx={{ 
               minHeight: '300px',
               p: 3,
               textAlign: 'center',
@@ -126,7 +125,7 @@ const QuestionPage = () => {
                   Loading question...
                 </Typography>
               )}
-            </Box>
+            </Card>
           </Box>
         );
 
@@ -146,7 +145,6 @@ const QuestionPage = () => {
             {renderHUD()}
             {/* Question text - top half */}
             <Card sx={{ 
-              variant: 'paper',
               minHeight: '300px',
               p: 3,
               display: 'flex',
