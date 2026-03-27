@@ -1,4 +1,21 @@
 import { create } from "zustand";
+import { Category, Difficulty, Mode } from "../constants";
+import { usePlayerStore, Player } from "./playerStore";
+/**
+ * Game Store - Navigation and Session Setup
+ * 
+ * RESPONSIBILITIES:
+ * - Application navigation between screens/pages
+ * - Game mode selection (solo/multiplayer)
+ * - Category and difficulty selection for game configuration
+ * - Multiplayer lobby state management
+ * - Basic session setup state management
+ * 
+ * SEPARATION OF CONCERNS:
+ * This store handles ONLY navigation and game configuration.
+ * All game-specific logic (questions, scoring, timers, phases) 
+ * is managed by triviaStore.ts.
+ */
 
 type Screen =
   | "home"
@@ -11,83 +28,69 @@ type Screen =
   | "settings"
   | "standing"
   | "multiplayer-menu"
-  | "multiplayer-lobby";
+  | "multiplayer-lobby"
+  | "multiplayer-discovery";
 
-type Mode = "solo" | "multiplayer" | null;
-type Difficulty = "easy" | "medium" | "hard" | null;
+export interface GameConfig {
+  mode?: Mode;
+  category?: Category;
+  difficulty?: Difficulty;
+  questionLimit?: number;
+  questionTimer?: number;
+  answerTimer?: number;
+}
 
 interface GameState {
   screen: Screen;
-  mode: Mode;
-  category: string | null;
-  difficulty: Difficulty;
+  gameConfig: GameConfig;
 
-  currentQuestionIndex: number;
-  score: number;
-  correctAnswers: number;
-  totalQuestions: number;
-  sessionFinished: boolean;
+  // Load Player Data
+  getPlayer: () => Player;
 
+  // Game Actions
   setScreen: (screen: Screen) => void;
-  setMode: (mode: Mode) => void;
-  setCategory: (category: string) => void;
-  setDifficulty: (difficulty: Difficulty) => void;
+  setGameConfig: (config: Partial<GameConfig>) => void;
 
-  startSession: () => void;
-  addCorrectAnswer: (points: number) => void;
-  nextQuestion: () => void;
-  finishSession: () => void;
-  resetSession: () => void;
+  // Game configuration actions
+  setMode: (mode: Mode) => void;
+  setCategory: (category: Category) => void;
+  setDifficulty: (difficulty: Difficulty) => void;
+  setQuestionLimit: (limit: number) => void;
+  setQuestionTimer: (seconds: number) => void;
+  setAnswerTimer: (seconds: number) => void;
 }
 
-export const useGameStore = create<GameState>((set) => ({
+export const useGameStore = create<GameState>((set, get) => ({
+  // Basic navigation state
   screen: "home",
-  mode: null,
-  category: null,
-  difficulty: null,
 
-  currentQuestionIndex: 0,
-  score: 0,
-  correctAnswers: 0,
-  totalQuestions: 15,
-  sessionFinished: false,
+  // Game configuration state
+  gameConfig: {
+    mode: null,
+    category: null,
+    difficulty: null,
+    questionLimit: null,
+    questionTimer: null,
+    answerTimer: null,
+  },
 
+  // Actions
+  getPlayer: () => usePlayerStore.getState().getPlayer(),
   setScreen: (screen) => set({ screen }),
-  setMode: (mode) => set({ mode }),
-  setCategory: (category) => set({ category }),
-  setDifficulty: (difficulty) => set({ difficulty }),
-
-  startSession: () =>
-    set({
-      currentQuestionIndex: 0,
-      score: 0,
-      correctAnswers: 0,
-      sessionFinished: false,
-      screen: "question",
-    }),
-
-  addCorrectAnswer: (points) =>
-    set((state) => ({
-      score: state.score + points,
-      correctAnswers: state.correctAnswers + 1,
-    })),
-
-  nextQuestion: () =>
-    set((state) => ({
-      currentQuestionIndex: state.currentQuestionIndex + 1,
-    })),
-
-  finishSession: () =>
-    set({
-      sessionFinished: true,
-      screen: "result",
-    }),
-
-  resetSession: () =>
-    set({
-      currentQuestionIndex: 0,
-      score: 0,
-      correctAnswers: 0,
-      sessionFinished: false,
-    }),
+  setGameConfig: (config) => {
+    const currentConfig = get().gameConfig;
+    set({ 
+      gameConfig: { 
+        ...currentConfig, 
+        ...config 
+      } 
+    });
+  },
+  // Convenience setters for individual config properties
+  setMode: (mode) => set((s) => ({ gameConfig: { ...s.gameConfig, mode } })),
+  setCategory: (category) => set((s) => ({ gameConfig: { ...s.gameConfig, category } })),
+  setDifficulty: (difficulty) => set((s) => ({ gameConfig: { ...s.gameConfig, difficulty } })),
+  setQuestionLimit: (limit) => set((s) => ({ gameConfig: { ...s.gameConfig, questionLimit: limit } })),
+  setQuestionTimer: (seconds) => set((s) => ({ gameConfig: { ...s.gameConfig, questionTimer: seconds } })),
+  setAnswerTimer: (seconds) => set((s) => ({ gameConfig: { ...s.gameConfig, answerTimer: seconds } })),
 }));

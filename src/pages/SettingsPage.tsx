@@ -1,4 +1,5 @@
-import { Button, Container, Typography, Box } from "@mui/material";
+import { Container, Typography, Box } from "@mui/material";
+import { Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 
 const SettingsPage = () => {
@@ -17,7 +18,8 @@ const SettingsPage = () => {
 
         <Button
           variant="contained"
-          sx={{ mt: 4 }}
+          color="primary"
+          className="mt-4"
           onClick={() => setScreen("home")}
         >
           Back

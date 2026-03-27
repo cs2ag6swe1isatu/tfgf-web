@@ -1,4 +1,4 @@
-import { Button, Container, Typography, Box } from "@mui/material";
+import { Container, Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 
 const ModeSelectPage = () => {
@@ -15,7 +15,7 @@ const ModeSelectPage = () => {
         <Box sx={{ mt: 4, display: "grid", gap: 2 }}>
           <Button
             variant="contained"
-            size="large"
+            color="primary"
             onClick={() => {
               setMode("solo");
               setScreen("category");
@@ -26,7 +26,7 @@ const ModeSelectPage = () => {
 
           <Button
             variant="outlined"
-            size="large"
+            color="primary"
             onClick={() => {
               setMode("multiplayer");
               setScreen("multiplayer-menu");
@@ -36,8 +36,8 @@ const ModeSelectPage = () => {
           </Button>
 
           <Button
-            variant="text"
-            size="large"
+            variant="outlined"
+            color="primary"
             onClick={() => setScreen("home")}
           >
             Back

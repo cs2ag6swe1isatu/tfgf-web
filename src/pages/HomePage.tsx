@@ -1,4 +1,4 @@
-import { Button, Container, Typography, Box } from "@mui/material";
+import { Container, Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 
 const HomePage = () => {
@@ -7,14 +7,14 @@ const HomePage = () => {
   return (
     <Container maxWidth="sm">
       <Box sx={{ mt: 8, textAlign: "center" }}>
-        <Typography variant="h3" gutterBottom>
+        <Typography variant="h1" gutterBottom>
           Think Fast, Guess Faster
         </Typography>
 
         <Box sx={{ mt: 5, display: "grid", gap: 2 }}>
           <Button
             variant="contained"
-            size="large"
+            color="primary"
             onClick={() => setScreen("mode-select")}
           >
             Play
@@ -22,7 +22,7 @@ const HomePage = () => {
 
           <Button
             variant="outlined"
-            size="large"
+            color="primary"
             onClick={() => setScreen("profile")}
           >
             Profile
@@ -30,7 +30,7 @@ const HomePage = () => {
 
           <Button
             variant="outlined"
-            size="large"
+            color="primary"
             onClick={() => setScreen("settings")}
           >
             Settings
@@ -38,7 +38,7 @@ const HomePage = () => {
 
           <Button
             variant="outlined"
-            size="large"
+            color="primary"
             onClick={() => setScreen("standing")}
           >
             Standing

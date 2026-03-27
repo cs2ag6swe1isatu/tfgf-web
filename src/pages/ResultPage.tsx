@@ -1,17 +1,16 @@
-import { Button, Container, Typography, Box } from "@mui/material";
+import { Container, Typography, Box } from "@mui/material";
+import { Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
+import { useTriviaStore } from "../store/triviaStore";
 
 const ResultPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
 
-  const score = useGameStore((state) => state.score);
-  const correctAnswers = useGameStore(
-    (state) => state.correctAnswers
-  );
-  const totalQuestions = useGameStore(
-    (state) => state.totalQuestions
-  );
+  const score = useTriviaStore((state) => state.score);
+  const questions = useTriviaStore((state) => state.questions);
 
+  const totalQuestions = questions.length;
+  const correctAnswers = score;
   const accuracy =
     totalQuestions > 0
       ? Math.round(
@@ -43,7 +42,8 @@ const ResultPage = () => {
 
         <Button
           variant="contained"
-          sx={{ mt: 5 }}
+          color="primary"
+          className="mt-5"
           onClick={() => setScreen("home")}
         >
           Back to Home

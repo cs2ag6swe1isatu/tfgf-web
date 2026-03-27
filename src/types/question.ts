@@ -1,7 +1,9 @@
 export interface Question {
-  question: string;
-  choices: string[];
-  answer: string;
+  id: string;
   category: string;
-  difficulty: "easy" | "medium" | "hard";
+  difficulty: 'easy' | 'medium' | 'hard';
+  text: string;
+  correctAnswer: string;
+  incorrectAnswers: string[];
+  allAnswers: string[];
 }

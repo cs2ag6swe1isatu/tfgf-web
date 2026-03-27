@@ -2,6 +2,11 @@ import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 
+// having trouble on linux; disable HW acceleration there or when explicitly requested via env
+if (process.platform === 'linux' || process.env.ELECTRON_DISABLE_HARDWARE_ACCELERATION === '1') {
+  app.disableHardwareAcceleration();
+}
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
