@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { Question } from '../types/question';
+import { Mode, Difficulty, Category } from '../constants';
+import type { GameConfig } from './gameStore';
 import { loadQuestions } from '../utils/loadQuestions';
 
 /**
@@ -17,26 +19,35 @@ import { loadQuestions } from '../utils/loadQuestions';
  * This store handles ALL game-specific logic and state.
  * Navigation and screen management is handled by gameStore.ts.
  * This store coordinates with gameStore for category/difficulty selection.
+ * 
+ * PHASE RULES:
+ * - loading: Fetching questions, show animations or placeholders
+ * - asking: Showing question and starting question timer
+ * - answering: User is selecting answer, answer timer is running
+ * - scoring: Show correct answer and update score, short delay before next question
+ * - ranking: Show final results and rankings (for multiplayer)
+ * - end: Game over, show summary and options to view profile or return to menu
  */
 
 export type Phase = 'loading' | 'asking' | 'answering' | 'scoring' | 'ranking' | 'end';
-export type GameMode = 'solo' | 'multi';
 
 export interface TriviaState {
   questions: Question[];
   currentIndex: number;
   selectedAnswer: string;
   timer: number;
+  questionTimer: number;
+  answerTimer: number;
   score: number;
   phase: Phase;
-  mode: GameMode;
-  category: string | null;
-  difficulty: 'easy' | 'medium' | 'hard' | null;
+  mode: Mode | null;
+  category: Category | null;
+  difficulty: Difficulty | null;
   userAnswers: string[];
 }
 
 export interface TriviaActions {
-  startGame: (category: string, difficulty: 'easy' | 'medium' | 'hard', limit: number, timer: number, mode: GameMode) => Promise<void>;
+  startGame: (config: GameConfig) => Promise<void>;
   selectAnswer: (answer: string) => void;
   tickTimer: () => void;
   nextPhase: () => void;
@@ -47,7 +58,9 @@ const initialState: TriviaState = {
   questions: [],
   currentIndex: 0,
   selectedAnswer: "",
-  timer: 15,
+  timer: 0,
+  questionTimer: 10,
+  answerTimer: 10,
   score: 0,
   phase: 'loading',
   mode: 'solo',
@@ -60,42 +73,45 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   ...initialState,
 
   /* ---------- Game setup ---------- */
-  startGame: async (category, difficulty, limit, timer, mode) => {
+  startGame: async (cfg) => {
+    // Accept a snapshot config from the caller (separates UI store from session store)
+    const mode = cfg.mode ?? 'solo';
+    const questionTimer = cfg.questionTimer ?? 15;
+    const answerTimer = cfg.answerTimer ?? 5;
+    const category = cfg.category;
+    const difficulty = cfg.difficulty;
+    const questionLimit = cfg.questionLimit;
+
     // Input validation
     if (!category || !difficulty || !mode) {
       console.error("Invalid game parameters:", { category, difficulty, mode });
       set({ phase: 'end' });
       return;
     }
-    
-    if (limit <= 0 || timer <= 0) {
-      console.error("Invalid game parameters: limit and timer must be positive");
+    if (questionLimit <= 0 || questionTimer <= 0 || answerTimer <= 0) {
+      console.error("Invalid game parameters: limit and timers must be positive");
       set({ phase: 'end' });
       return;
     }
-    
+
     set({ phase: 'loading', category, difficulty });
-    
+
     try {
-      const questions = await loadQuestions(category, difficulty, mode, limit);
-      
+      const questions = await loadQuestions(category, difficulty, questionLimit);
+
       if (questions.length === 0) {
         console.warn(`No questions found for category: ${category}, difficulty: ${difficulty}`);
-        set({ 
-          phase: 'end',
-          questions: [],
-          currentIndex: 0,
-          selectedAnswer: "",
-          score: 0,
-        });
+        get().resetGame();
         return;
       }
-      
+
       set({ 
-        questions, 
-        timer: timer, 
-        mode: mode,
-        phase: 'asking',
+        questions,
+        timer: questionTimer,
+        questionTimer,
+        answerTimer,
+        mode,
+        phase: mode === 'multiplayer' ? 'asking' : 'answering',
         currentIndex: 0,
         selectedAnswer: "",
         score: 0,
@@ -137,6 +153,8 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     const newUserAnswers = [...userAnswers];
     newUserAnswers[currentIndex] = answer;
     
+    const answerTimer = get().answerTimer;
+
     if (mode === 'solo') {
       // Update score immediately
       const newScore = isCorrect ? score + 1 : score;
@@ -148,15 +166,15 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         selectedAnswer: answer,
         score: newScore,
         phase: isLastQuestion ? 'ranking' : 'scoring',
-        timer: isLastQuestion ? 0 : 5,
+        timer: isLastQuestion ? 0 : answerTimer,
         userAnswers: newUserAnswers,
       });
-    } else if (mode === 'multi') {
+    } else if (mode === 'multiplayer') {
       // Multiplayer logic to be implemented
       set({
         selectedAnswer: answer,
         phase: 'scoring',
-        timer: 5,
+        timer: answerTimer,
         userAnswers: newUserAnswers,
       });
     }
@@ -165,6 +183,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   /* ---------- Timer ---------- */
   tickTimer: () => {
     const { timer, phase, selectedAnswer, questions, currentIndex } = get();
+    const answerTimer = get().answerTimer;
     
     if (phase === 'answering' || phase === 'asking') {
       if (timer > 0) {
@@ -176,12 +195,12 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
           if (!selectedAnswer) {
             // Set timer to 0 to prevent multiple submissions
             set({ timer: 0 });
-            
+
             // Move to scoring phase with no answer selected (will show as wrong)
             const isLastQuestion = currentIndex + 1 >= questions.length;
             set({
               phase: isLastQuestion ? 'ranking' : 'scoring',
-              timer: isLastQuestion ? 0 : 5,
+              timer: isLastQuestion ? 0 : answerTimer,
             });
           } else {
             // Answer was selected, submit it normally
@@ -199,32 +218,36 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
     switch (phase) {
       case 'loading':
-        // Only transition to asking if we have questions
+        // Only transition to asking if we have questions or mode is multiplayer
         if (questions.length > 0) {
-          set({ phase: 'asking' });
+          if(get().mode === "multiplayer"){
+            set({ phase: 'asking' });
+          } else if(get().mode === "solo"){
+            set({ phase: 'answering' });
+          }
         } else {
           set({ phase: 'end' });
         }
         break;
 
       case 'asking':
-        // Start answering phase with full timer
-        set({ phase: 'answering', timer: 15 });
+        {
+          const questionTimer = get().questionTimer;
+          set({ phase: 'answering', timer: questionTimer });
+        }
         break;
 
       case 'answering':
-        // This should only be called manually, not automatically
-        // The timer should handle the auto-advance
         if (timer > 0) {
-          // If timer is still running, don't advance
           return;
         }
         
         // Timer expired, advance to scoring
         if (currentIndex + 1 < questions.length) {
+          const answerTimer = get().answerTimer;
           set({
             phase: 'scoring',
-            timer: 5,
+            timer: answerTimer,
           });
         } else {
           set({ phase: 'ranking' });
@@ -234,11 +257,12 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       case 'scoring':
         // After scoring delay, move to next question or end
         if (currentIndex + 1 < questions.length) {
+          const questionTimer = get().questionTimer;
           set({
             phase: 'asking',
             currentIndex: currentIndex + 1,
             selectedAnswer: '',
-            timer: 15,
+            timer: questionTimer,
           });
         } else {
           set({ phase: 'ranking' });
@@ -250,7 +274,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         break;
 
       case 'end':
-        // Stay at end, user must reset or navigate away
+        // Stay at end, user must navigate away
         break;
 
       default:

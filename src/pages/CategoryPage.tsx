@@ -1,15 +1,28 @@
-import { Container, Typography, Box } from "@mui/material";
-import { Button } from "@mui/material";
+import { Container, Typography, Box, Button} from "@mui/material";
 import { useGameStore } from "../store/gameStore";
+import { Category } from "../constants";
 
 const CategoryPage = () => {
+  const mode = useGameStore((state) => state.gameConfig.mode);
   const setCategory = useGameStore((state) => state.setCategory);
   const setScreen = useGameStore((state) => state.setScreen);
 
-  const handleSelect = (category: string) => {
+  const handleSelect = (category: Category) => {
     setCategory(category);
-    setScreen("difficulty");
+    if(mode === "solo") {
+      setScreen("difficulty");
+    } else if(mode === "multiplayer") {
+      setScreen("multiplayer-lobby");
+    }
   };
+
+  const handleBack = () => {
+    if(mode === "solo") {
+      setScreen("mode-select");
+    } else if(mode === "multiplayer") {
+      setScreen("multiplayer-lobby");
+    }
+  }
 
   return (
     <Container maxWidth="sm">
@@ -23,7 +36,7 @@ const CategoryPage = () => {
             General Knowledge
           </Button>
 
-          <Button variant="contained" color="secondary" onClick={() => handleSelect("Science and Technology")}>
+          <Button variant="contained" color="primary" onClick={() => handleSelect("Science and Technology")}>
             Science and Technology
           </Button>
 
@@ -31,7 +44,7 @@ const CategoryPage = () => {
             History
           </Button>
 
-          <Button variant="contained" color="secondary" onClick={() => handleSelect("Geography")}>
+          <Button variant="contained" color="primary" onClick={() => handleSelect("Geography")}>
             Geography
           </Button>
 
@@ -39,7 +52,7 @@ const CategoryPage = () => {
             Mathematics
           </Button>
 
-          <Button variant="contained" color="secondary" onClick={() => handleSelect("Language and Literature")}>
+          <Button variant="contained" color="primary" onClick={() => handleSelect("Language and Literature")}>
             Language and Literature
           </Button>
 
@@ -51,7 +64,7 @@ const CategoryPage = () => {
             variant="outlined"
             color="primary"
             className="mt-1"
-            onClick={() => setScreen("mode-select")}
+            onClick={() => handleBack()}
           >
             Back
           </Button>

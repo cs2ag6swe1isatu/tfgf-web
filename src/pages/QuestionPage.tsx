@@ -1,22 +1,7 @@
 import { useEffect, useMemo } from "react";
-import { Container, Box, Typography } from "@mui/material";
-import { Button } from "@mui/material";
+import { Container, Box, Typography, Button, Card } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
-
-// Custom loading spinner component
-const LoadingSpinner = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => {
-  const sizeClasses = {
-    sm: "w-6 h-6",
-    md: "w-10 h-10",
-    lg: "w-16 h-16",
-  };
-  return (
-    <div
-      className={`${sizeClasses[size]} border-4 border-green-500 border-t-transparent rounded-full animate-spin`}
-    />
-  );
-};
 
 const QuestionPage = () => {
   const {
@@ -25,6 +10,8 @@ const QuestionPage = () => {
     phase,
     selectedAnswer,
     timer,
+    questionTimer,
+    answerTimer,
     score,
     category,
     difficulty,
@@ -35,10 +22,6 @@ const QuestionPage = () => {
 
   const { setScreen } = useGameStore();
 
-  // Get current question
-  const currentQuestion = questions[currentIndex];
-
-  // Handle answer selection
   const handleAnswerSelect = (answer: string) => {
     if (phase !== 'answering') return;
     selectAnswer(answer);
@@ -60,12 +43,12 @@ const QuestionPage = () => {
     if (phase === 'asking') {
       const timeout = setTimeout(() => {
         nextPhase();
-      }, 3000); 
+      }, questionTimer * 1000); 
       return () => clearTimeout(timeout);
     } if (phase === 'scoring') {
       const timeout = setTimeout(() => {
         nextPhase();
-      }, 2000);
+      }, answerTimer * 1000);
       return () => clearTimeout(timeout);
     }
   }, [phase, nextPhase]);
@@ -77,19 +60,40 @@ const QuestionPage = () => {
     }
   }, [phase, setScreen]);
 
-  // Check if answer was correct
+  const currentQuestion = questions[currentIndex];
+  const nextQuestion = questions[currentIndex];
   const isCorrect = useMemo(() => {
     if (!currentQuestion || !selectedAnswer) return false;
     return selectedAnswer === currentQuestion.correctAnswer;
   }, [currentQuestion, selectedAnswer]);
+  const isTimeout = !selectedAnswer && !isCorrect;  // Check if this is a timeout (no answer selected)
 
-  // Render based on phase
+  // Render based on phase and mode
+  const renderHUD = () => (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        mb: 2,
+        pb: 2,
+        borderBottom: '1px solid #333',
+      }}
+    >
+      <Typography variant="body2" sx={{ color: '#666' }}>
+        {currentIndex + 1} / {questions.length}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* <TimerIcon fontSize="small" /> */}
+        <Typography variant="body2">{timer}</Typography>
+      </Box>
+    </Box>
+  );
   const renderContent = () => {
     switch (phase) {
       case 'loading':
         return (
           <Box sx={{ textAlign: 'center', py: 8 }}>
-            <LoadingSpinner size="lg" />
             <Typography variant="h6">
               Loading questions...
             </Typography>
@@ -100,39 +104,29 @@ const QuestionPage = () => {
         );
 
       case 'asking':
-        // Show the next question text with a 2-second countdown
-        const nextQuestion = questions[currentIndex];
+        // Question preview should display on multiplayer mode only
         return (
           <Box sx={{ py: 4 }}>
-            {nextQuestion ? (
-              <>
-                {/* Question Preview */}
-                <Box sx={{ mb: 4, p: 3, textAlign: 'center' }}>
-                  <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
-                    {nextQuestion.text}
-                  </Typography>
-                </Box>
-
-                {/* Countdown */}
-                <Box sx={{ textAlign: 'center', mb: 3 }}>
-                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    Ready...
-                  </Typography>
-                </Box>
-
-                {/* Progress */}
-                <Typography variant="caption" sx={{ color: '#666', mb: 2, display: 'block', textAlign: 'center' }}>
-                  Question {currentIndex + 1} / {questions.length}
+            {renderHUD()}
+            <Box sx={{ 
+              variant: 'outlined',
+              minHeight: '300px',
+              p: 3,
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {nextQuestion ? (
+                <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
+                  {nextQuestion.text}
                 </Typography>
-              </>
-            ) : (
-              <Box sx={{ textAlign: 'center', py: 8 }}>
-                <Typography variant="h6" sx={{ color: '#999999', mb: 2 }}>
+              ) : (
+                <Typography variant="h6" sx={{ color: '#999999' }}>
                   Loading question...
                 </Typography>
-                <LoadingSpinner size="md" />
-              </Box>
-            )}
+              )}
+            </Box>
           </Box>
         );
 
@@ -143,42 +137,28 @@ const QuestionPage = () => {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Loading question...
               </Typography>
-                <LoadingSpinner size="md" />
             </Box>
           );
         }
 
         return (
           <Box sx={{ py: 4 }}>
-            {/* Timer */}
-            <Box sx={{ textAlign: 'center', mb: 3 }}>
-              <Typography 
-                variant="h3" 
-                sx={{ 
-                  color: timer <= 5 ? '#ff3333' : '#000',
-                  fontWeight: 'bold',
-                }}
-              >
-                {timer}
-              </Typography>
-              <Typography variant="caption">
-                seconds remaining
-              </Typography>
-            </Box>
-
-            {/* Question */}
-            <Box sx={{ mb: 4, p: 3, textAlign: 'center' }}>
+            {renderHUD()}
+            {/* Question text - top half */}
+            <Card sx={{ 
+              variant: 'paper',
+              minHeight: '300px',
+              p: 3,
+              display: 'flex',
+              textAlign: 'center',
+              alignItems: 'center',
+              mb: 3
+            }}>
               <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
                 {currentQuestion.text}
               </Typography>
-            </Box>
-
-            {/* Progress */}
-            <Typography variant="caption" sx={{ mb: 2, display: 'block' }}>
-              Question {currentIndex + 1} / {questions.length}
-            </Typography>
-
-            {/* Answers */}
+            </Card>
+            {/* Answer buttons - bottom half */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {currentQuestion.allAnswers.map((answer, index) => (
                 <Button
@@ -186,6 +166,8 @@ const QuestionPage = () => {
                   variant="outlined"
                   color="primary"
                   onClick={() => handleAnswerSelect(answer)}
+                  size="large"
+                  sx={{ py: 2 }}
                 >
                   {answer}
                 </Button>
@@ -195,9 +177,6 @@ const QuestionPage = () => {
         );
 
       case 'scoring':
-        // Check if this is a timeout (no answer selected)
-        const isTimeout = !selectedAnswer && !isCorrect;
-        
         return (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <Typography 
@@ -276,25 +255,6 @@ const QuestionPage = () => {
 
   return (
     <Container maxWidth="sm" sx={{ minHeight: '80vh', py: 4 }}>
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 3,
-          pb: 2,
-          borderBottom: '1px solid #333',
-        }}
-      >
-        <Typography variant="caption" sx={{ color: '#666' }}>
-          {category} • {difficulty}
-        </Typography>
-        <Typography variant="caption" >
-          Score: {score}
-        </Typography>
-      </Box>
-
       {renderContent()}
     </Container>
   );

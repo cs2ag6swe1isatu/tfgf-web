@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { Player, LobbyRole, LobbyState, ModalState, GameConfig } from "../types/multiplayer";
-
+import { Category, Difficulty, Mode } from "../constants";
+import { usePlayerStore, Player } from "./playerStore";
 /**
  * Game Store - Navigation and Session Setup
  * 
@@ -29,128 +29,54 @@ type Screen =
   | "standing"
   | "multiplayer-menu"
   | "multiplayer-lobby"
-  | "client-discovery";
+  | "multiplayer-discovery";
 
-type Mode = "solo" | "multiplayer" | null;
-type Difficulty = "easy" | "medium" | "hard" | null;
+export interface GameConfig {
+  mode?: Mode;
+  category?: Category;
+  difficulty?: Difficulty;
+  questionLimit?: number;
+  questionTimer?: number;
+  answerTimer?: number;
+}
 
 interface GameState {
-  // Basic navigation state
   screen: Screen;
-  mode: Mode;
-  category: string | null;
-  difficulty: Difficulty;
-
-  // Multiplayer state
-  lobbyRole: LobbyRole | null;
-  lobbyId: string | null;
-  hostId: string;
-  players: Player[];
-  isHostReady: boolean;
-  lobbyState: LobbyState;
-  modalState: ModalState;
   gameConfig: GameConfig;
 
-  // Actions
+  // Load Player Data
+  getPlayer: () => Player;
+
+  // Game Actions
   setScreen: (screen: Screen) => void;
-  setMode: (mode: Mode) => void;
-  setCategory: (category: string) => void;
-  setDifficulty: (difficulty: Difficulty) => void;
-  
-  // Multiplayer actions
-  setLobbyRole: (role: LobbyRole) => void;
-  setLobbyId: (id: string) => void;
-  setHostId: (id: string) => void;
-  addPlayer: (player: Player) => void;
-  removePlayer: (playerId: string) => void;
-  setPlayerReady: (playerId: string, ready: boolean) => void;
-  setHostReady: (ready: boolean) => void;
-  setLobbyState: (state: LobbyState) => void;
-  setModalState: (modal: keyof ModalState, open: boolean) => void;
   setGameConfig: (config: Partial<GameConfig>) => void;
-  resetMultiplayer: () => void;
+
+  // Game configuration actions
+  setMode: (mode: Mode) => void;
+  setCategory: (category: Category) => void;
+  setDifficulty: (difficulty: Difficulty) => void;
+  setQuestionLimit: (limit: number) => void;
+  setQuestionTimer: (seconds: number) => void;
+  setAnswerTimer: (seconds: number) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
   // Basic navigation state
   screen: "home",
-  mode: null,
-  category: null,
-  difficulty: null,
 
-  // Multiplayer state
-  lobbyRole: null,
-  lobbyId: null,
-  hostId: null,
-  players: [],
-  isHostReady: false,
-  lobbyState: 'lobby',
-  modalState: {
-    category: false,
-    difficulty: false,
-  },
+  // Game configuration state
   gameConfig: {
+    mode: null,
     category: null,
     difficulty: null,
-    questionLimit: 10,
-    timer: 15,
+    questionLimit: null,
+    questionTimer: null,
+    answerTimer: null,
   },
 
   // Actions
+  getPlayer: () => usePlayerStore.getState().getPlayer(),
   setScreen: (screen) => set({ screen }),
-  setMode: (mode) => set({ mode }),
-  setCategory: (category) => set({ category }),
-  setDifficulty: (difficulty) => set({ difficulty }),
-  
-  // Multiplayer actions
-  setLobbyRole: (role) => set({ lobbyRole: role }),
-  setLobbyId: (id) => set({ lobbyId: id }),
-  setHostId: (id) => set({ hostId: id }),
-  
-  addPlayer: (player) => {
-    const currentPlayers = get().players;
-    const existingPlayer = currentPlayers.find(p => p.id === player.id);
-    
-    if (existingPlayer) {
-      // Update existing player
-      const updatedPlayers = currentPlayers.map(p => 
-        p.id === player.id ? { ...p, ...player } : p
-      );
-      set({ players: updatedPlayers });
-    } else {
-      // Add new player
-      set({ players: [...currentPlayers, player] });
-    }
-  },
-  
-  removePlayer: (playerId) => {
-    const currentPlayers = get().players;
-    const filteredPlayers = currentPlayers.filter(p => p.id !== playerId);
-    set({ players: filteredPlayers });
-  },
-  
-  setPlayerReady: (playerId, ready) => {
-    const currentPlayers = get().players;
-    const updatedPlayers = currentPlayers.map(p => 
-      p.id === playerId ? { ...p, isReady: ready } : p
-    );
-    set({ players: updatedPlayers });
-  },
-  
-  setHostReady: (ready) => set({ isHostReady: ready }),
-  
-  setLobbyState: (state) => set({ lobbyState: state }),
-  
-  setModalState: (modal, open) => {
-    const currentModalState = get().modalState;
-    set({ 
-      modalState: { 
-        ...currentModalState, 
-        [modal]: open 
-      } 
-    });
-  },
-  
   setGameConfig: (config) => {
     const currentConfig = get().gameConfig;
     set({ 
@@ -160,23 +86,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       } 
     });
   },
-  
-  resetMultiplayer: () => set({
-    lobbyRole: null,
-    lobbyId: null,
-    hostId: null,
-    players: [],
-    isHostReady: false,
-    lobbyState: 'lobby',
-    modalState: {
-      category: false,
-      difficulty: false,
-    },
-    gameConfig: {
-      category: null,
-      difficulty: null,
-      questionLimit: 10,
-      timer: 15,
-    },
-  }),
+  // Convenience setters for individual config properties
+  setMode: (mode) => set((s) => ({ gameConfig: { ...s.gameConfig, mode } })),
+  setCategory: (category) => set((s) => ({ gameConfig: { ...s.gameConfig, category } })),
+  setDifficulty: (difficulty) => set((s) => ({ gameConfig: { ...s.gameConfig, difficulty } })),
+  setQuestionLimit: (limit) => set((s) => ({ gameConfig: { ...s.gameConfig, questionLimit: limit } })),
+  setQuestionTimer: (seconds) => set((s) => ({ gameConfig: { ...s.gameConfig, questionTimer: seconds } })),
+  setAnswerTimer: (seconds) => set((s) => ({ gameConfig: { ...s.gameConfig, answerTimer: seconds } })),
 }));

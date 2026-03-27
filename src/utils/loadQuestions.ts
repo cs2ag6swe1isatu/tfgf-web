@@ -3,7 +3,7 @@ import type { JSONQuestion } from "src/types/jsonQuestion";
 
 // no need to convert base64, our devtool already do this
 
-export async function loadQuestions(category: string, difficulty: 'easy' | 'medium' | 'hard', mode: 'solo' | 'multi', limit: number): Promise<Question[]> {
+export async function loadQuestions(category: string, difficulty: 'easy' | 'medium' | 'hard', limit: number): Promise<Question[]> {
   try {
     const data = await fetch('/data/Questions.json');
     const json: JSONQuestion[] = await data.json();

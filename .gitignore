@@ -93,3 +93,5 @@ out/
 
 *.db
 *.mdb
+# React Component Preview
+previewConfig.json

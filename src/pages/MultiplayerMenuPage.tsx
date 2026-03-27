@@ -1,16 +1,19 @@
 import { Container, Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
+import { useMultiplayerStore } from "../store/multiplayerStore";
 
 const MultiplayerMenuPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
-  const setLobbyRole = useGameStore((state) => state.setLobbyRole);
+  const setLobbyRole = useMultiplayerStore((state) => state.setLobbyRole);
 
   const handleHostGame = () => {
+    setLobbyRole("host");
     setScreen("multiplayer-lobby");
   };
 
   const handleJoinGame = () => {
-    setScreen("client-discovery");
+    setLobbyRole("client");
+    setScreen("multiplayer-discovery");
   };
 
   return (
@@ -46,8 +49,8 @@ const MultiplayerMenuPage = () => {
           </Button>
 
           <Button
-            variant="contained"
-            color="secondary"
+            variant="outlined"
+            color="primary"
             onClick={() => setScreen("mode-select")}
             sx={{
               fontWeight: "bold",

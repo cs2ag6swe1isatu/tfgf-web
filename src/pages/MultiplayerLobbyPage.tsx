@@ -1,52 +1,75 @@
-import { Container, Typography, Box, Button, Chip } from "@mui/material";
+import { useMemo, useEffect } from "react";
+import { Container, Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
+import { usePlayerStore } from "../store/playerStore";
+import { useMultiplayerStore } from "../store/multiplayerStore";
+import { useTriviaStore } from "../store/triviaStore";
 import { PlayerList } from "../components/multiplayer/PlayerList";
-import { HostControls } from "../components/multiplayer/HostControls";
-import { CategoryModal } from "../components/multiplayer/CategoryModal";
-import { DifficultyModal } from "../components/multiplayer/DifficultyModal";
-import { ContentCopy } from "@mui/icons-material";
 
-const MultiplayerLobbyPage = () => {
-  const {
-    lobbyRole,
-    lobbyId,
-    players,
-    modalState,
-    setScreen,
-    setModalState,
-    setGameConfig,
-    resetMultiplayer,
-  } = useGameStore();
+const MultiplayerLobby = () => {
+  const setScreen = useGameStore((s) => s.setScreen);
+  const gameConfig = useGameStore((s) => s.gameConfig);
 
-  // Generate a mock lobby ID if none exists
-  const currentLobbyId = lobbyId || "LOBBY-" + Math.random().toString(36).substr(2, 6).toUpperCase();
+  const lobbyRole = useMultiplayerStore((s) => s.lobbyRole);
+  const lobbyId = useMultiplayerStore((s) => s.lobbyId);
+  const players = useMultiplayerStore((s) => s.players);
+  const addOrUpdatePlayer = useMultiplayerStore((s) => s.addOrUpdatePlayer);
+  const setPlayerReady = useMultiplayerStore((s) => s.setPlayerReady);
+  const setCurrentPlayerId = useMultiplayerStore((s) => s.setCurrentPlayerId);
+  const setLobbyId = useMultiplayerStore((s) => s.setLobbyId);
+  const resetMultiplayer = useMultiplayerStore((s) => s.resetMultiplayer);
+  
+  const player = usePlayerStore((s) => s.getPlayer());
+  const currentPlayer = useMultiplayerStore((s) => s.currentPlayer());
+  const isReady = currentPlayer?.isReady ?? false;
 
-  // Mock host player (for demonstration)
-  const hostPlayer = {
-    id: "host-001",
-    name: "HostPlayer",
-    avatar: "",
-    level: 25,
-    isReady: true,
-    isHost: true,
+  const startGame = useTriviaStore((s) => s.startGame);
+  const resetGame = useTriviaStore((s) => s.resetGame);
+
+  const currentLobbyId = useMemo(() => {
+    return lobbyId ?? `LOBBY-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  }, [lobbyId]);
+
+  const handleCreateLobby = () => {
+    setLobbyId(currentLobbyId);
+    addOrUpdatePlayer(
+      player,
+      { isHost: true, isReady: true }
+    );
+    setCurrentPlayerId(player.id);
   };
 
-  // Add host to players list if not already present
-  const allPlayers = players.length > 0 ? players : [hostPlayer];
-
-  const handleCategoryOpen = () => {
-    setModalState("category", true);
-  };
-
-  const handleDifficultyOpen = () => {
-    setModalState("difficulty", true);
-  };
-
-  const handleStartGame = () => {
-    // Set game mode to multiplayer
-    setGameConfig({ category: null, difficulty: "medium" });
+  /**
+   * Generates mock host data for a lobby when no actual host exists.
+   * Uses the lobby ID to create deterministic mock data.
+   */
+  const generateMockHost = (lobbyId: string) => {
+    const seed = lobbyId.split('-').pop() || '0000';
     
-    // Navigate to question page
+    return {
+      id: `host-${lobbyId}`,
+      name: `Host-${seed.toUpperCase()}`,
+      avatar: '',
+      xp: 0,
+      level: 1,
+      rank: { name: "Host", icon: "", minLevel: 0, maxLevel: 999 },
+      totalScore: 0,
+      gamesPlayed: 0,
+      gamesWon: 0,
+      lastActive: new Date(),
+    };
+  };
+
+  const handleStartGame = async () => {
+    resetGame();
+    await startGame({
+      category: gameConfig.category ?? "General Knowledge",
+      difficulty: gameConfig.difficulty ?? "easy",
+      questionLimit: 5,
+      mode: "multiplayer",
+      questionTimer: gameConfig.questionTimer ?? 15,
+      answerTimer: gameConfig.answerTimer ?? 5,
+    });
     setScreen("question");
   };
 
@@ -55,88 +78,92 @@ const MultiplayerLobbyPage = () => {
     setScreen("multiplayer-menu");
   };
 
+  const handleReadyToggle = (playerId: string, ready: boolean) => {
+    const player = players.find(p => p.id === playerId);
+    if (player && !player.isHost) {
+      setPlayerReady(playerId, ready);
+    }
+  };
+
+  const allPlayers = players;
+
+  const isCategorySelected = Boolean(gameConfig.category);
+  const isDifficultySelected = Boolean(gameConfig.difficulty);
+  const canStart = isCategorySelected && isDifficultySelected;
+
+  // Auto-add players to lobby based on role
+  useEffect(() => {
+    if (lobbyRole === "host" && players.length === 0) {
+      // Host: create lobby with host player
+      handleCreateLobby();
+    } else if (lobbyRole === "client" && players.length === 0 && lobbyId) {
+      // Client: add mock host and current player
+      const mockHost = generateMockHost(lobbyId);
+      addOrUpdatePlayer(mockHost, { isHost: true, isReady: true });
+      addOrUpdatePlayer(player, { isHost: false, isReady: false });
+      setCurrentPlayerId(player.id);
+    }
+  }, [lobbyRole, players.length, lobbyId, player]);
+
+  // Conditional rendering based on lobby
+  // HOST: text/label lobbyid, list of players, controls for category/difficulty, start game button (disabled until ready)
+  // CLIENT: text/label lobbyid, list of players, ready button
   return (
     <Container maxWidth="md">
       <Box sx={{ mt: 4 }}>
-        {/* Header */}
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 3,
-            p: 3,
-            border: "1px solid",
-          }}
-        >
-          <Box>
-            <Typography variant="h5" sx={{ mb: 1 }}>
-              Host Lobby
-            </Typography>
-          </Box>
-          
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Chip
-              label={currentLobbyId}
-              variant="outlined"
-              sx={{
-                fontWeight: "bold",
-              }}
-            />
-          </Box>
-        </Box>
-
-        {/* Main Content Grid */}
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" }, gap: 3 }}>
-
-          <Box>
-            <PlayerList
-              players={allPlayers}
-              isHost={true}
-              onReadyToggle={(playerId, ready) => {
-                // Host ready toggle logic
-              }}
-              onAllReady={handleStartGame}
-            />
-          </Box>
-
-          <Box>
-            <HostControls
-              onCategoryOpen={handleCategoryOpen}
-              onDifficultyOpen={handleDifficultyOpen}
-              onStartGame={handleStartGame}
-            />
-          </Box>
-        </Box>
-
-        {/* Footer Actions */}
-        <Box sx={{ mt: 3, display: "flex", justifyContent: "space-between", gap: 2 }}>
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={handleLeaveLobby}
-            sx={{
-              flex: 1,
-              textTransform: "uppercase",
-            }}
-          >
-            Leave Lobby
+        {/* Top: Host ID */}
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+          <Typography variant="h6">Lobby: {currentLobbyId}</Typography>
+          <Button onClick={handleLeaveLobby}>
+            Back
           </Button>
         </Box>
-      </Box>
 
-      {/* Modals */}
-      <CategoryModal
-        open={modalState.category}
-        onClose={() => setModalState("category", false)}
-      />
-      
-      <DifficultyModal
-        open={modalState.difficulty}
-        onClose={() => setModalState("difficulty", false)}
-      />
+        {/* Middle: Main Container */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h5" sx={{ mb: 2 }}>Players</Typography>
+          <PlayerList 
+            players={allPlayers} 
+            isHost={lobbyRole === "host"}
+          />
+        </Box>
+
+        {/* Bottom: Controls */}
+        <Box sx={{ display: "flex", justifyContent: "center", gap: 2, maxWidth: "600px", mx: "auto" }}>
+           {lobbyRole === "host" ? (
+            // Host Controls: Category, Start Game, Difficulty
+            <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
+              <Button variant="outlined" onClick={() => setScreen("category")} sx={{ flex: 1 }}>
+                { gameConfig.category || "Select Category"}
+              </Button>
+              <Button 
+                variant="contained" 
+                onClick={handleStartGame} 
+                disabled={!canStart}
+                sx={{ flex: 1 }}
+              >
+                Start Game
+              </Button>
+              <Button variant="outlined" onClick={() => setScreen("difficulty")} sx={{ flex: 1 }}>
+                { gameConfig.difficulty || "Select Difficulty" }
+              </Button>
+            </Box>
+          ) : (
+            // Client Controls: Ready Toggle
+            <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
+              <Button 
+                variant="contained" 
+                onClick={() => handleReadyToggle(currentPlayer.id, !isReady)}
+                sx={{ flex: 1 }}
+              >
+                {currentPlayer?.isReady ? "Not Ready" : "Ready"}
+              </Button>
+            </Box>
+          )}
+        </Box>
+      </Box>
     </Container>
   );
 };
 
-export default MultiplayerLobbyPage;
+export default MultiplayerLobby;

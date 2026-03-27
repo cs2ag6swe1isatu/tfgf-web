@@ -1,5 +1,4 @@
-import { Container, Typography, Box } from "@mui/material";
-import { Button } from "@mui/material";
+import { Container, Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 
 const HomePage = () => {
@@ -16,7 +15,6 @@ const HomePage = () => {
           <Button
             variant="contained"
             color="primary"
-            size="large"
             onClick={() => setScreen("mode-select")}
           >
             Play
@@ -25,7 +23,6 @@ const HomePage = () => {
           <Button
             variant="outlined"
             color="primary"
-            size="large"
             onClick={() => setScreen("profile")}
           >
             Profile
@@ -34,7 +31,6 @@ const HomePage = () => {
           <Button
             variant="outlined"
             color="primary"
-            size="large"
             onClick={() => setScreen("settings")}
           >
             Settings
@@ -43,7 +39,6 @@ const HomePage = () => {
           <Button
             variant="outlined"
             color="primary"
-            size="large"
             onClick={() => setScreen("standing")}
           >
             Standing
