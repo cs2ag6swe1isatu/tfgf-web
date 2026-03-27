@@ -153,7 +153,8 @@ const MultiplayerLobby = () => {
             <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
               <Button 
                 variant="contained" 
-                onClick={() => handleReadyToggle(currentPlayer.id, !isReady)}
+                disabled={!currentPlayer}
+                onClick={() => currentPlayer && handleReadyToggle(currentPlayer.id, !isReady)}
                 sx={{ flex: 1 }}
               >
                 {currentPlayer?.isReady ? "Not Ready" : "Ready"}

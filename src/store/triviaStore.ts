@@ -257,13 +257,24 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       case 'scoring':
         // After scoring delay, move to next question or end
         if (currentIndex + 1 < questions.length) {
-          const questionTimer = get().questionTimer;
-          set({
-            phase: 'asking',
-            currentIndex: currentIndex + 1,
-            selectedAnswer: '',
-            timer: questionTimer,
-          });
+          const mode = get().mode;
+          if (mode === 'multiplayer') {
+            const questionTimer = get().questionTimer;
+            set({
+              phase: 'asking',
+              currentIndex: currentIndex + 1,
+              selectedAnswer: '',
+              timer: questionTimer,
+            });
+          } else {
+            const answerTimer = get().answerTimer;
+            set({
+              phase: 'answering',
+              currentIndex: currentIndex + 1,
+              selectedAnswer: '',
+              timer: answerTimer,
+            });
+          }
         } else {
           set({ phase: 'ranking' });
         }
