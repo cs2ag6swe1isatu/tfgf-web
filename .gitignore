@@ -91,7 +91,10 @@ typings/
 # Electron-Forge
 out/
 
+# indexing
 *.db
 *.mdb
+.cocoindex_code
+
 # React Component Preview
 previewConfig.json
