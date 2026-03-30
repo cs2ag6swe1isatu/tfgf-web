@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Container, Typography, Box, Button} from "@mui/material";
+import { useState } from 'react';
+import { Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { CATEGORIES, Category } from "../constants";
 import { ChevronLeft2, ChevronRight2 } from 'pixelarticons/react';
