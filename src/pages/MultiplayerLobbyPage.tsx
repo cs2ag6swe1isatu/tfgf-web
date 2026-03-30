@@ -65,10 +65,10 @@ const MultiplayerLobby = () => {
     await startGame({
       category: gameConfig.category ?? "General Knowledge",
       difficulty: gameConfig.difficulty ?? "easy",
-      questionLimit: 5,
+      questionLimit: 15,
       mode: "multiplayer",
-      questionTimer: gameConfig.questionTimer ?? 15,
-      answerTimer: gameConfig.answerTimer ?? 5,
+      questionTimer: gameConfig.questionTimer ?? 5,
+      answerTimer: gameConfig.answerTimer ?? 10,
     });
     setScreen("question");
   };
@@ -109,7 +109,16 @@ const MultiplayerLobby = () => {
   // HOST: text/label lobbyid, list of players, controls for category/difficulty, start game button (disabled until ready)
   // CLIENT: text/label lobbyid, list of players, ready button
   return (
-    <Container maxWidth="md">
+    <Box sx={{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '40px',
+      boxSizing: 'border-box',
+      color: 'primary.main',
+      overflow: 'hidden'
+    }}>
       <Box sx={{ mt: 4 }}>
         {/* Top: Host ID */}
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
@@ -163,7 +172,7 @@ const MultiplayerLobby = () => {
           )}
         </Box>
       </Box>
-    </Container>
+    </Box>
   );
 };
 

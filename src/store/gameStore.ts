@@ -7,6 +7,7 @@ import { usePlayerStore, Player } from "./playerStore";
  * RESPONSIBILITIES:
  * - Application navigation between screens/pages
  * - Game mode selection (solo/multiplayer)
+ * - Game settings configuration
  * - Category and difficulty selection for game configuration
  * - Multiplayer lobby state management
  * - Basic session setup state management
@@ -40,8 +41,16 @@ export interface GameConfig {
   answerTimer?: number;
 }
 
+export interface Settings {
+  useCase: boolean;
+  useScanlines: boolean;
+  useFlicker: boolean;
+}
+
 interface GameState {
   screen: Screen;
+  resolution: { width: number, height: number, label: string };
+  settings: Settings;
   gameConfig: GameConfig;
 
   // Load Player Data
@@ -49,6 +58,8 @@ interface GameState {
 
   // Game Actions
   setScreen: (screen: Screen) => void;
+  setResolution: (width: number, height: number, label: string) => void;
+  toggleSetting: (key: keyof Settings) => void;
   setGameConfig: (config: Partial<GameConfig>) => void;
 
   // Game configuration actions
@@ -64,6 +75,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Basic navigation state
   screen: "home",
 
+  resolution: { width: 1024, height: 768, label: 'XGA (Default)' },
+  settings: {
+    useCase: false,
+    useScanlines: false,
+    useFlicker: false,
+  },
+
   // Game configuration state
   gameConfig: {
     mode: null,
@@ -77,6 +95,16 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Actions
   getPlayer: () => usePlayerStore.getState().getPlayer(),
   setScreen: (screen) => set({ screen }),
+  setResolution: (width, height, label) => {
+    set({ resolution: { width, height, label } });
+  },
+  toggleSetting: (key) => set((state) => ({
+    settings: {
+      ...state.settings,
+      [key]: !state.settings[key]
+    }
+  })),
+
   setGameConfig: (config) => {
     const currentConfig = get().gameConfig;
     set({ 

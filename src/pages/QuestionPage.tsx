@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from "react";
-import { Container, Box, Typography, Button, Card } from "@mui/material";
+import { Box, Typography, Button, Card } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
+import { Clock } from 'pixelarticons/react';
 
 const QuestionPage = () => {
   const {
@@ -71,11 +72,11 @@ const QuestionPage = () => {
   const renderHUD = () => (
     <Box
       sx={{
+        gridRow: '1',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        mb: 2,
-        pb: 2,
+        px: 2,
         borderBottom: '1px solid #333',
       }}
     >
@@ -83,149 +84,70 @@ const QuestionPage = () => {
         {currentIndex + 1} / {questions.length}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {/* <TimerIcon fontSize="small" /> */}
-        <Typography variant="body2">{timer}</Typography>
+        <Clock />
+        <Typography variant="body2">{ phase==='scoring' && !selectedAnswer ? 'TIME\'S UP!' : timer }</Typography>
       </Box>
     </Box>
   );
   const renderContent = () => {
     switch (phase) {
       case 'loading':
-        return (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <Typography variant="h6">
-              Loading questions...
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#999999', mt: 1 }}>
-              Category: {category} | Difficulty: {difficulty}
-            </Typography>
-          </Box>
-        );
+        return <Typography sx={{ gridRow: '2 / span 2', alignSelf: 'center', textAlign: 'center' }}>Loading...</Typography>;
 
+      case 'answering':
+      case 'scoring':
       case 'asking':
         // Question preview should display on multiplayer mode only
         return (
-          <Box sx={{ py: 4 }}>
-            {renderHUD()}
-            <Card variant="outlined" sx={{ 
-              minHeight: '300px',
-              p: 3,
-              textAlign: 'center',
+          <>
+          <Card
+            variant="outlined"
+            sx={{
+              gridRow: phase === 'asking' ? '2 / span 2' : '2',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              {currentQuestion ? (
-                <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
-                  {currentQuestion.text}
-                </Typography>
-              ) : (
-                <Typography variant="h6" sx={{ color: '#999999' }}>
-                  Loading question...
-                </Typography>
-              )}
-            </Card>
-          </Box>
-        );
+              justifyContent: 'center',
+              p: 4,
+              m: 1,
+              transition: 'all 0.5s ease-in-out'
+            }}
+          >
+            <Typography variant="h4" textAlign="center">
+              {currentQuestion?.text || "Loading..."}
+            </Typography>
+          </Card>
 
-      case 'answering':
-        if (!currentQuestion) {
-          return (
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Loading question...
-              </Typography>
-            </Box>
-          );
-        }
-
-        return (
-          <Box sx={{ py: 4 }}>
-            {renderHUD()}
-            {/* Question text - top half */}
-            <Card sx={{ 
-              minHeight: '300px',
-              p: 3,
-              display: 'flex',
-              textAlign: 'center',
-              alignItems: 'center',
-              mb: 3
+          {phase !== 'asking' && (
+            <Box sx={{
+              gridRow: '3',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 2,
+              p: 1
             }}>
-              <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
-                {currentQuestion.text}
-              </Typography>
-            </Card>
-            {/* Answer buttons - bottom half */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {currentQuestion.allAnswers.map((answer, index) => (
+              {currentQuestion?.allAnswers.map((answer, index) => (
                 <Button
+                  fullWidth
                   key={index}
-                  variant="outlined"
-                  color="primary"
-                  onClick={() => handleAnswerSelect(answer)}
-                  size="large"
-                  sx={{ py: 2 }}
+                  variant={selectedAnswer === answer ? "contained" : "outlined"}
+                  disabled={phase === 'scoring'}
+                  onClick={() => selectAnswer(answer)}
+                  sx={{ py: 2, fontSize: '1.1rem' }}
                 >
                   {answer}
                 </Button>
               ))}
             </Box>
-          </Box>
+          )}
+          </>
         );
 
-      case 'scoring':
-        return (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <Typography 
-              variant="h4" 
-              sx={{ 
-                mb: 2,
-                fontWeight: 'bold'
-              }}
-            >
-              {isTimeout ? 'Time\'s Up!' : (isCorrect ? 'Correct!' : 'Wrong!')}
-            </Typography>
-            {currentQuestion && (
-              <Typography variant="body1">
-                {isCorrect 
-                  ? 'Great job!' 
-                  : isTimeout
-                  ? 'You ran out of time!'
-                  : `The correct answer was: ${currentQuestion.correctAnswer}`}
-              </Typography>
-            )}
-            <Typography variant="h6" sx={{ mt: 3 }}>
-              Score: {score}
-            </Typography>
-          </Box>
-        );
 
       case 'ranking':
         return (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <Typography variant="h4" sx={{ mb: 3, fontWeight: 'bold'  }}>
-              Game Complete!
-            </Typography>
-            <Typography variant="h5" sx={{ mb: 2 }}>
-              Final Score: {score} / {questions.length}
-            </Typography>
-            <Typography variant="body1" sx={{ mb: 4 }}>
-              {score === questions.length
-                ? "Perfect score!"
-                : score >= questions.length * 0.7
-                ? "Great job!"
-                : "Better luck next time!"}
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => {
-                resetGame();
-                setScreen('home');
-              }}
-            >
-              Back to Menu
-            </Button>
+          <Box sx={{ gridRow: '2 / span 2', textAlign: 'center', p: 4 }}>
+             <Typography variant="h4">Game Over</Typography>
+             <Button onClick={() => setScreen('home')}>Back Home</Button>
           </Box>
         );
 
@@ -251,9 +173,18 @@ const QuestionPage = () => {
   };
 
   return (
-    <Container maxWidth="sm" sx={{ minHeight: '80vh', py: 4 }}>
+    <Box sx={{ width: '100%',
+      height: '100%',
+      display: 'grid',
+      gridTemplateRows: '1fr 3fr 4fr',
+      padding: '40px',
+      boxSizing: 'border-box',
+      bgcolor: 'background.default',
+      overflow: 'hidden'
+    }}>
+      {renderHUD()}
       {renderContent()}
-    </Container>
+    </Box>
   );
 };
 

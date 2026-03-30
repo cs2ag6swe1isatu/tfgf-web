@@ -1,6 +1,7 @@
 import { Container, Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
+import { Globe, MapPin } from 'pixelarticons/react';
 
 const MultiplayerMenuPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
@@ -17,51 +18,55 @@ const MultiplayerMenuPage = () => {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 8, textAlign: "center" }}>
-        <Typography variant="h4" gutterBottom>
+     <Box sx={{
+      width: "100%",
+      height: "100%",
+      display: "grid",
+      gridTemplateRows: "1fr 3fr 1fr",
+      padding: "40px",
+      boxSizing: "border-box",
+      position: "relative"
+    }}>
+      <Box sx={{  textAlign: "center" }}>
+        <Typography variant="h1" gutterBottom>
           Multiplayer
         </Typography>
+      </Box>
 
-        <Box sx={{ mt: 4, display: "grid", gap: 2 }}>
+        <Box sx={{ display: "flex", gap: 2, p: 2 }}>
           <Button
-            variant="contained"
-            color="primary"
+            fullWidth
+            variant="outlined"
+            color="secondary"
             onClick={handleHostGame}
-            sx={{
-              fontWeight: "bold",
-              textTransform: "uppercase"
-            }}
+            sx={{ display: "grid" }}
           >
+            <Globe width={148} height={148} />
             Host Game
           </Button>
 
           <Button
-            variant="contained"
-            color="primary"
+            fullWidth
+            variant="outlined"
+            color="secondary"
             onClick={handleJoinGame}
-            sx={{
-              fontWeight: "bold",
-              textTransform: "uppercase"
-            }}
+            sx={{ display: "grid" }}
           >
+            <MapPin width={148} height={148}/>
             Join Game
           </Button>
-
+        </Box>
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
           <Button
             variant="outlined"
-            color="primary"
+            color="secondary"
             onClick={() => setScreen("mode-select")}
-            sx={{
-              fontWeight: "bold",
-              textTransform: "uppercase",
-            }}
+            sx={{ width: "25%" }}
           >
             Back
           </Button>
         </Box>
-      </Box>
-    </Container>
+    </Box>
   );
 };
 
