@@ -28,7 +28,7 @@ const SettingsPage = () => {
       return (
         <Grid item xs={6} key={key}>
           <Box
-            onClick={() => toggleSetting(key as keyof VisualSettings)}
+            onClick={() => toggleSetting(key as keyof settings)}
             sx={{
               cursor: "pointer",
               width: "100%",
