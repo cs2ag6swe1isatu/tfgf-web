@@ -179,7 +179,7 @@ const QuestionPage = () => {
       gridTemplateRows: '1fr 3fr 4fr',
       padding: '40px',
       boxSizing: 'border-box',
-      bgColor: 'background.default',
+      bgcolor: 'background.default',
       overflow: 'hidden'
     }}>
       {renderHUD()}
