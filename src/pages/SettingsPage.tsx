@@ -102,7 +102,7 @@ const SettingsPage = () => {
     }}>
 
       <Box sx={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', mb: 4, gap: 2 }}>
-        <Settings2 sx={{ fontSize: '3rem' }} />
+        <Settings2 style={{ fontSize: '3rem' }} />
         <Typography variant="h3" sx={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
           Settings
         </Typography>
