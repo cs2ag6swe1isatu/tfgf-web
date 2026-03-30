@@ -1,72 +1,127 @@
-import { createTheme } from '@mui/material/styles';
+import { createTheme, alpha } from '@mui/material/styles'
+import { Palette, PaletteOptions } from '@mui/material/styles';
+
+declare module '@mui/material/styles' {
+  interface Palette {
+    accent: Palette['primary'];
+  }
+  interface PaletteOptions {
+    accent?: PaletteOptions['primary'];
+  }
+}
+declare module '@mui/material/Button' {
+  interface ButtonPropsColorOverrides {
+    accent: true;
+  }
+}
+
+const NEON_GREEN = '#34D216';
+const PRIMARY_BLUE = '#00fefc';
 
 const theme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#00ff9d',
+      main: NEON_GREEN,
     },
     secondary: {
-      main: '#ffffff',
+      main: PRIMARY_BLUE,
     },
     background: {
-      default: '#121212',
-      paper: '#1e1e1e',
+      default: '#050505',
+      paper: '#0a0a0a',
     },
     text: {
-      primary: '#39ff14',
-      secondary: '#b0b0b0',
+      primary: NEON_GREEN,
+      secondary: alpha(NEON_GREEN, 0.7),
     },
   },
   typography: {
-    fontFamily: 'pixelsboldpixels, sans-serif',
-    h1: {
-      fontSize: '4rem',
-      fontWeight: 700,
+    fontFamily: '"pixelsboldpixels", "Courier New", monospace',
+    allVariants: {
+      fontSmooth: 'never',
+      WebkitFontSmoothing: 'none',
+      textTransform: 'uppercase',
+      letterSpacing: '2px',
     },
-    h2: {
-      fontSize: '3.5rem',
-      fontWeight: 700,
-    },
-    h3: {
-      fontSize: '3rem',
-      fontWeight: 700,
-    },
-    h4: {
-      fontSize: '2.5rem',
-      fontWeight: 700,
-    },
-    h5: {
-      fontSize: '2.25rem',
-      fontWeight: 700,
-    },
-    h6: {
-      fontSize: '2rem',
-      fontWeight: 700,
-    },
-    body1: {
-      fontSize: '2rem',
-      fontWeight: 400,
-    },
-    body2: {
-      fontSize: '1.75rem',
-      fontWeight: 400,
-    },
-    caption: {
-      fontSize: '1.5rem',
-      fontWeight: 400,
-    },
-    button: {
-      fontSize: '1.5rem',
-      fontWeight: 700,
-    },
+    h1: { fontSize: '5rem', textShadow: `4px 4px 0px ${alpha(NEON_GREEN, 0.2)}`},
+    h2: { fontSize: '3.5rem' },
+    button: { fontSize: '1.2rem', fontWeight: 700 },
   },
   components: {
-   
-    MuiCard: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          imageRendering: 'pixelated',
+          backgroundColor: '#000',
+          // Custom scrollbar to look like a retro terminal
+          '&::-webkit-scrollbar': { width: '8px' },
+          '&::-webkit-scrollbar-track': { background: '#000' },
+          '&::-webkit-scrollbar-thumb': { background: NEON_GREEN },
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: ({ theme, ownerState }) => {
+          const colorProp = ownerState.color || 'primary';
+          const mainColor = (theme.palette as any)[colorProp]?.main || theme.palette.primary.main;
+          const shadowColor = alpha(mainColor, 0.3);
+          const hoverShadowColor = alpha(mainColor, 0.5);
+
+          return {
+            borderRadius: 0,
+            border: `4px solid ${mainColor}`,
+            padding: '12px 24px',
+            position: 'relative',
+            transition: 'none',
+
+            boxShadow: `4px 4px 0px ${shadowColor}`,
+
+            '&:hover': {
+              backgroundColor: mainColor,
+              color: '#000',
+              border: `4px solid ${mainColor}`,
+              boxShadow: `6px 6px 0px ${hoverShadowColor}`,
+              '& .MuiTouchRipple-root': { color: '#000' },
+            },
+            '&:active': {
+              transform: 'translate(2px, 2px)',
+              boxShadow: `1px 1px 0px ${mainColor}`,
+            },
+          };
+        },
+      },
+    },
+    MuiTouchRipple: {
       styleOverrides: {
         root: {
-          backgroundColor: '#252525',
+          borderRadius: '0 !important',
+          overflow: 'hidden !important',
+
+          '& .MuiTouchRipple-child': {
+            /* Stepped, axis-aligned polygon to simulate a pixelated circle */
+            clipPath: `polygon(100.00% 50.00%, 100.00% 62.50%, 100.00% 75.00%, 87.50% 75.00%, 87.50% 87.50%, 75.00% 87.50%, 75.00% 100.00%, 62.50% 100.00%, 50.00% 100.00%, 37.50% 100.00%, 25.00% 100.00%, 25.00% 87.50%, 12.50% 87.50%, 12.50% 75.00%, 0.00% 75.00%, 0.00% 62.50%, 0.00% 50.00%, 0.00% 37.50%, 0.00% 25.00%, 12.50% 25.00%, 12.50% 12.50%, 25.00% 12.50%, 25.00% 0.00%, 37.50% 0.00%, 50.00% 0.00%, 62.50% 0.00%, 75.00% 0.00%, 75.00% 12.50%, 87.50% 12.50%, 87.50% 25.00%, 100.00% 25.00%, 100.00% 37.50%, 100.00% 50.00%)`,
+            imageRendering: 'pixelated',
+            borderRadius: '0 !important',
+            opacity: '0.5 !important',
+          },
+
+          '& .MuiTouchRipple-rippleVisible': {
+            // keep 24 fps
+            animation: 'pixel-ripple 375ms steps(9) forwards !important', // close enough
+          },
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: ({ theme, ownerState }) => {
+          const colorProp = ownerState.color || 'primary';
+          return {
+            backgroundColor: (theme.palette as any)[colorProp]?.main || theme.palette.primary.main,
+            color: "#000"
+          };
         },
       },
     },

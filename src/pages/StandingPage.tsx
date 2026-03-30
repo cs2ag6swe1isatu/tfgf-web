@@ -6,7 +6,15 @@ const StandingPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
 
   return (
-    <Container maxWidth="sm">
+    <Box sx={{
+      width: "100%",
+      height: "100%",
+      display: "grid",
+      gridTemplateRows: "1fr 3fr 1fr",
+      padding: "40px",
+      boxSizing: "border-box",
+      position: "relative"
+    }}>
       <Box sx={{ mt: 8, textAlign: "center" }}>
         <Typography variant="h4" gutterBottom>
           Standing
@@ -25,7 +33,7 @@ const StandingPage = () => {
           Back
         </Button>
       </Box>
-    </Container>
+    </Box>
   );
 };
 
