@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Container, Box, Typography, Button, Card } from "@mui/material";
+import { Box, Typography, Button, Card } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
 import { Clock } from 'pixelarticons/react';
