@@ -1,4 +1,4 @@
-// utitlity dev scripts for themed pixel animations
+// utility dev scripts for themed pixel animations
 // use in dev tool console
 
 /**
