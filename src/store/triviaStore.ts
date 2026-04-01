@@ -22,6 +22,7 @@ import { loadQuestions } from '../utils/loadQuestions';
  * 
  * PHASE RULES:
  * - loading: Fetching questions, show animations or placeholders
+ * - readying: Show "Get Ready" screen, short countdown before first question
  * - asking: Showing question and starting question timer
  * - answering: User is selecting answer, answer timer is running
  * - scoring: Show correct answer and update score, short delay before next question
@@ -53,6 +54,8 @@ export interface TriviaActions {
   nextPhase: () => void;
   resetGame: () => void;
 }
+
+const readyTimer = 3; // Seconds to show "Get Ready" before asking first question 
 
 const initialState: TriviaState = {
   questions: [],
@@ -94,8 +97,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       return;
     }
 
-    set({ phase: 'loading', category, difficulty });
-
     try {
       const questions = await loadQuestions(category, difficulty, questionLimit);
 
@@ -107,11 +108,11 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
       set({ 
         questions,
-        timer: mode === 'multiplayer' ? questionTimer : answerTimer,
+        timer: mode === 'multiplayer' ? readyTimer : answerTimer,
         questionTimer,
         answerTimer,
         mode,
-        phase: mode === 'multiplayer' ? 'asking' : 'answering',
+        phase: mode === 'multiplayer' ? 'readying' : 'answering',
         currentIndex: 0,
         selectedAnswer: "",
         score: 0,
@@ -214,7 +215,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       const answerTimer = get().answerTimer;
       const isLastQuestion = currentIndex + 1 >= questions.length;
       set({
-        phase: isLastQuestion ? 'ranking' : 'scoring',
+        phase: isLastQuestion ? get().mode === 'multiplayer' ? 'ranking' : 'scoring' : 'scoring',
         timer: isLastQuestion ? 0 : answerTimer,
       });
       return;

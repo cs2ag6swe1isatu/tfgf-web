@@ -51,6 +51,7 @@ export interface Settings {
 
 interface GameState {
   screen: Screen;
+  modalScreen: Screen | null;
   resolution: { width: number, height: number, label: string };
   settings: Settings;
   gameConfig: GameConfig;
@@ -60,6 +61,7 @@ interface GameState {
 
   // Game Actions
   setScreen: (screen: Screen) => void;
+  setModalScreen: (screen: Screen | null) => void;
   setResolution: (width: number, height: number, label: string) => void;
   toggleSetting: (key: keyof Settings) => void;
   setGameConfig: (config: Partial<GameConfig>) => void;
@@ -76,7 +78,9 @@ interface GameState {
 export const useGameStore = create<GameState>((set, get) => ({
   // Basic navigation state
   screen: "home",
+  modalScreen: null,
 
+  // Display settings
   resolution: { width: 1024, height: 768, label: 'XGA (Default)' },
   settings: {
     useCase: false,
@@ -97,6 +101,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Actions
   getPlayer: () => usePlayerStore.getState().getPlayer(),
   setScreen: (screen) => set({ screen }),
+  setModalScreen: (modalScreen) => set({ modalScreen }),
   setResolution: (width, height, label) => {
     set({ resolution: { width, height, label } });
   },

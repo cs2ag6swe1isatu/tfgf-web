@@ -15,6 +15,7 @@ type MultiplayerPacket =
 	| { type: "lobby-broadcast"; snapshot: MultiplayerLobbySnapshot }
 	| { type: "join-request"; payload: MultiplayerJoinRequest }
 	| { type: "ready-update"; payload: MultiplayerReadyUpdate }
+	| { type: "heartbeat"; payload: { lobbyId: string; playerId: string } }
 	| { type: "leave-request"; payload: { lobbyId: string; hostAddress: string; playerId: string } }
 	| { type: "host-exit"; payload: MultiplayerHostExitPayload };
 
@@ -30,6 +31,7 @@ const onPlayerLeftCbs = new Set<(playerId: string) => void>();
 const onHostExitCbs = new Set<(payload: MultiplayerHostExitPayload) => void>();
 let activeSnapshot: MultiplayerLobbySnapshot | null = null;
 let activeMode: "host" | "client" | null = null;
+const playerHeartbeats = new Map<string, number>();
 
 function createSocket() {
 	if (socket) return socket;
@@ -79,6 +81,30 @@ function broadcastSnapshot(snapshot: MultiplayerLobbySnapshot) {
 	s.send(payload, 0, payload.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
 		void err;
 	});
+}
+
+function pruneStalePlayers(staleMs = 10000) {
+	if (!activeSnapshot) return;
+
+	const now = Date.now();
+	const stalePlayerIds = activeSnapshot.players
+		.filter((p) => p.id !== activeSnapshot?.hostId)
+		.filter((p) => {
+			const lastSeen = playerHeartbeats.get(p.id);
+			return lastSeen !== undefined && now - lastSeen > staleMs;
+		})
+		.map((p) => p.id);
+
+	if (stalePlayerIds.length === 0) return;
+
+	activeSnapshot = {
+		...activeSnapshot,
+		players: activeSnapshot.players.filter((p) => !stalePlayerIds.includes(p.id)),
+		playerCount: activeSnapshot.players.filter((p) => !stalePlayerIds.includes(p.id)).length,
+	};
+
+	stalePlayerIds.forEach((playerId) => onPlayerLeftCbs.forEach((cb) => cb(playerId)));
+	broadcastSnapshot(activeSnapshot);
 }
 
 function sendHostExitMessage(lobbyId: string) {
@@ -142,6 +168,12 @@ function handlePacket(raw: string, senderAddress: string) {
 
 	if (activeMode !== "host" || !activeSnapshot) return;
 
+	if (packet.type === "heartbeat") {
+		if (!activeSnapshot || packet.payload.lobbyId !== activeSnapshot.lobbyId) return;
+		playerHeartbeats.set(packet.payload.playerId, Date.now());
+		return;
+	}
+
 	if (packet.type === "join-request") {
 		if (!activeSnapshot || packet.payload.lobbyId !== activeSnapshot.lobbyId) return;
 		console.log('[preload] join-request for lobby', packet.payload.lobbyId, 'from', senderAddress, 'player', packet.payload.player.id);
@@ -165,6 +197,7 @@ function handlePacket(raw: string, senderAddress: string) {
 	if (packet.type === "ready-update") {
 		if (!activeSnapshot || packet.payload.lobbyId !== activeSnapshot.lobbyId) return;
 		console.log('[preload] ready-update for', packet.payload.playerId, 'ready=', packet.payload.ready);
+		playerHeartbeats.set(packet.payload.playerId, Date.now());
 		updateHostSnapshot((current) => ({
 			...current,
 			players: current.players.map((player) =>
@@ -179,6 +212,13 @@ function handlePacket(raw: string, senderAddress: string) {
 	if (packet.type === "leave-request") {
 		if (packet.payload.lobbyId !== activeSnapshot.lobbyId) return;
 		console.log('[preload] leave-request for player', packet.payload.playerId);
+		playerHeartbeats.delete(packet.payload.playerId);
+		activeSnapshot = {
+			...activeSnapshot,
+			players: activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId),
+			playerCount: activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId).length,
+		};
+		broadcastSnapshot(activeSnapshot);
 		onPlayerLeftCbs.forEach((cb) => cb(packet.payload.playerId));
 	}
 }
@@ -205,9 +245,9 @@ function startBroadcast(snapshot: MultiplayerLobbySnapshot) {
 
 	if (broadcastInterval) clearInterval(broadcastInterval);
 	broadcastInterval = setInterval(() => {
-		if (activeSnapshot) {
-			broadcastSnapshot(activeSnapshot);
-		}
+		if (!activeSnapshot) return;
+		pruneStalePlayers(9000);
+		broadcastSnapshot(activeSnapshot);
 	}, 2000);
 }
 
@@ -220,6 +260,7 @@ function stopBroadcast() {
 		clearInterval(broadcastInterval);
 		broadcastInterval = null;
 	}
+	playerHeartbeats.clear();
 	if (activeMode === "host") {
 		activeMode = null;
 	}
@@ -252,6 +293,17 @@ function setReady(payload: MultiplayerReadyUpdate) {
 	// Send via broadcast so host (and other listeners) on the LAN receive it
 	s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
 		if (err) console.warn('[preload] send ready-update error', err);
+	});
+}
+
+function sendHeartbeat(payload: { lobbyId: string; hostAddress: string; playerId: string }) {
+	console.log('[preload] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
+	const s = createSocket();
+	const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, playerId: payload.playerId } };
+	const data = Buffer.from(JSON.stringify(packet));
+	// Broadcast so host receives heartbeat.
+	s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
+		if (err) console.warn('[preload] send heartbeat error', err);
 	});
 }
 
@@ -302,6 +354,7 @@ contextBridge.exposeInMainWorld("multiplayer", {
 	},
 	requestJoin,
 	setReady,
+	sendHeartbeat,
 	leaveLobby,
 	updateLobbySnapshot,
 });

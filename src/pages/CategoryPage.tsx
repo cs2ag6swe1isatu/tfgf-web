@@ -23,13 +23,14 @@ const CategoryPage = () => {
   const mode = useGameStore((state) => state.gameConfig.mode);
   const setCategory = useGameStore((state) => state.setCategory);
   const setScreen = useGameStore((state) => state.setScreen);
+  const setScreenModal = useGameStore((state) => state.setModalScreen);
 
   const handleSelect = (category: Category) => {
     setCategory(category);
     if(mode === "solo") {
       setScreen("difficulty");
     } else if(mode === "multiplayer") {
-      setScreen("multiplayer-lobby");
+      setScreenModal(null);
     }
   };
 
@@ -37,7 +38,7 @@ const CategoryPage = () => {
     if(mode === "solo") {
       setScreen("mode-select");
     } else if(mode === "multiplayer") {
-      setScreen("multiplayer-lobby");
+      setScreenModal(null);
     }
   }
 

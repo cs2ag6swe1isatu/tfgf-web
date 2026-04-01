@@ -30,7 +30,8 @@ const SessionSummaryPage = () => {
       gridTemplateRows: "1fr 3fr 1fr",
       padding: "40px",
       boxSizing: "border-box",
-      position: "relative"
+      position: "relative",
+      overflowY: "auto",
     }}>
       <Box sx={{ mt: 6 }}>
         <Typography variant="h4" gutterBottom textAlign="center">

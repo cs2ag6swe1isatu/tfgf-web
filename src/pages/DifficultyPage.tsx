@@ -10,7 +10,8 @@ const DifficultyPage = () => {
 
   const setDifficulty = useGameStore((state) => state.setDifficulty);
   const setScreen = useGameStore((state) => state.setScreen);
-  
+  const setScreenModal = useGameStore((state) => state.setModalScreen);
+
   const startGame = useTriviaStore((state) => state.startGame);
   const resetGame = useTriviaStore((state) => state.resetGame);
 
@@ -29,7 +30,7 @@ const DifficultyPage = () => {
       });
       setScreen("question");
     } else if(mode === "multiplayer"){
-      setScreen("multiplayer-lobby");
+      setScreenModal(null);
     }
   };
 
@@ -37,7 +38,7 @@ const DifficultyPage = () => {
     if(mode === "solo") {
       setScreen("category");
     } else if(mode === "multiplayer") {
-      setScreen("multiplayer-lobby");
+      setScreenModal(null);
     }
   };
 

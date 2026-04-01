@@ -17,6 +17,7 @@ import type {
   MultiplayerDiscoveredPayload,
   MultiplayerHostExitPayload,
   MultiplayerJoinRequest,
+  MultiplayerLeaveRequest,
   MultiplayerLobbySnapshot,
   MultiplayerReadyUpdate,
   MultiplayerBridge,
@@ -26,8 +27,10 @@ type MultiplayerPacket =
   | { type: "lobby-broadcast"; snapshot: MultiplayerLobbySnapshot }
   | { type: "join-request"; payload: MultiplayerJoinRequest }
   | { type: "ready-update"; payload: MultiplayerReadyUpdate }
-  | { type: "leave-request"; payload: { lobbyId: string; hostAddress: string; playerId: string } }
+  | { type: "leave-request"; payload: MultiplayerLeaveRequest }
+  | { type: "heartbeat"; payload: { lobbyId: string; playerId: string } }
   | { type: "host-exit"; payload: MultiplayerHostExitPayload };
+  // | { type: "game-start"; payload: };
 
 class MockMultiplayerBridge implements MultiplayerBridge {
   private channel: BroadcastChannel;
@@ -41,6 +44,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   private activeMode: "host" | "client" | null = null;
   private broadcastInterval: number | null = null;
   private pendingHostExitTimeout: number | null = null;
+  private playerHeartbeats = new Map<string, number>();
 
   constructor() {
     this.channel = new BroadcastChannel("tfgf-multiplayer");
@@ -83,6 +87,9 @@ class MockMultiplayerBridge implements MultiplayerBridge {
       if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
       console.log('[mock] join-request for lobby', packet.payload.lobbyId, 'player', packet.payload.player.id);
       
+      // Update heartbeat as soon as player joins
+      this.playerHeartbeats.set(packet.payload.player.id, Date.now());
+
       // Update snapshot
       this.activeSnapshot = this.upsertLobbyMember(this.activeSnapshot, {
         ...packet.payload.player,
@@ -108,6 +115,9 @@ class MockMultiplayerBridge implements MultiplayerBridge {
       if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
       console.log('[mock] ready-update for', packet.payload.playerId, 'ready=', packet.payload.ready);
       
+      // Update heartbeat (client is active)
+      this.playerHeartbeats.set(packet.payload.playerId, Date.now());
+
       // Update snapshot
       this.activeSnapshot = {
         ...this.activeSnapshot,
@@ -124,6 +134,12 @@ class MockMultiplayerBridge implements MultiplayerBridge {
       return;
     }
 
+    if (packet.type === "heartbeat") {
+      if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
+      this.playerHeartbeats.set(packet.payload.playerId, Date.now());
+      return;
+    }
+
     if (packet.type === "leave-request") {
       if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
       console.log('[mock] leave-request for player', packet.payload.playerId);
@@ -134,6 +150,8 @@ class MockMultiplayerBridge implements MultiplayerBridge {
         players: this.activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId),
         playerCount: this.activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId).length,
       };
+
+      this.playerHeartbeats.delete(packet.payload.playerId);
       
       // Broadcast updated snapshot
       this.broadcastSnapshot(this.activeSnapshot);
@@ -162,6 +180,29 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   private broadcastSnapshot(snapshot: MultiplayerLobbySnapshot) {
     const packet: MultiplayerPacket = { type: "lobby-broadcast", snapshot };
     this.channel.postMessage(packet);
+  }
+
+  private pruneStalePlayers(staleMs = 10000) {
+    if (!this.activeSnapshot) return;
+
+    const now = Date.now();
+    const stalePlayerIds = this.activeSnapshot.players
+      .filter((p) => p.id !== this.activeSnapshot?.hostId)
+      .filter((p) => {
+        const lastSeen = this.playerHeartbeats.get(p.id);
+        return lastSeen !== undefined && now - lastSeen > staleMs;
+      })
+      .map((p) => p.id);
+
+    if (stalePlayerIds.length === 0) return;
+
+    this.activeSnapshot = {
+      ...this.activeSnapshot,
+      players: this.activeSnapshot.players.filter((p) => !stalePlayerIds.includes(p.id)),
+      playerCount: this.activeSnapshot.players.filter((p) => !stalePlayerIds.includes(p.id)).length,
+    };
+
+    stalePlayerIds.forEach((playerId) => this.onPlayerLeftCbs.forEach((cb) => cb(playerId)));
   }
 
   private sendHostExit(lobbyId: string) {
@@ -239,6 +280,11 @@ class MockMultiplayerBridge implements MultiplayerBridge {
       clearInterval(this.broadcastInterval);
     }
     this.broadcastInterval = window.setInterval(() => {
+      if (!this.activeSnapshot) return;
+
+      // Prune clients that have not sent a heartbeat in a while
+      this.pruneStalePlayers(9000);
+
       if (this.activeSnapshot) {
         this.broadcastSnapshot(this.activeSnapshot);
       }
@@ -271,6 +317,8 @@ class MockMultiplayerBridge implements MultiplayerBridge {
       clearInterval(this.broadcastInterval);
       this.broadcastInterval = null;
     }
+
+    this.playerHeartbeats.clear();
     this.activeMode = null;
     this.activeSnapshot = null;
   }
@@ -284,6 +332,13 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   setReady(payload: MultiplayerReadyUpdate): void {
     console.log('[mock] sending ready-update player', payload.playerId, 'ready', payload.ready);
     const packet: MultiplayerPacket = { type: "ready-update", payload };
+    this.channel.postMessage(packet);
+  }
+
+  sendHeartbeat(payload: { lobbyId: string; hostAddress: string; playerId: string }): void {
+    // For mock we don't actually need hostAddress, but keep prototype compatible.
+    console.log('[mock] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
+    const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, playerId: payload.playerId } };
     this.channel.postMessage(packet);
   }
 

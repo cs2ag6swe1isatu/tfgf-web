@@ -37,6 +37,12 @@ export interface MultiplayerJoinRequest {
   player: LobbyMember;
 }
 
+export interface MultiplayerLeaveRequest { 
+  lobbyId: string; 
+  hostAddress: string; 
+  playerId: string
+}
+
 export interface MultiplayerReadyUpdate {
   lobbyId: string;
   hostAddress: string;
@@ -79,6 +85,7 @@ export interface MultiplayerBridge {
   requestJoin: (payload: MultiplayerJoinRequest) => void;
   setReady: (payload: MultiplayerReadyUpdate) => void;
   leaveLobby: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;
+  sendHeartbeat?: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;
   stopBroadcast: () => void;
 }
 

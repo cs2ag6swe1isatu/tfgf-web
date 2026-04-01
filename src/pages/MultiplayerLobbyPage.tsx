@@ -9,6 +9,7 @@ import type { MultiplayerBridge, MultiplayerDiscoveredPayload, MultiplayerLobbyS
 
 const MultiplayerLobby = () => {
   const setScreen = useGameStore((s) => s.setScreen);
+  const setModalScreen = useGameStore((s) => s.setModalScreen);
   const gameConfig = useGameStore((s) => s.gameConfig);
 
   const lobbyRole = useMultiplayerStore((s) => s.lobbyRole);
@@ -100,6 +101,16 @@ const MultiplayerLobby = () => {
       }
     };
 
+    const sendLeaveOnUnload = () => {
+      if (lobbyId && hostAddress && player.id) {
+        multiplayerBridge.leaveLobby({ lobbyId, hostAddress, playerId: player.id });
+      }
+    };
+
+    const onBeforeUnload = () => {
+      sendLeaveOnUnload();
+    };
+
     hostDisconnectIntervalRef.current = window.setInterval(checkHostHeartbeat, HOST_CHECK_INTERVAL_MS);
 
     multiplayerBridge.startDiscovery();
@@ -117,17 +128,27 @@ const MultiplayerLobby = () => {
       }
     };
 
+    window.addEventListener('beforeunload', onBeforeUnload);
     multiplayerBridge.onHostFound(onHostFoundCb);
     multiplayerBridge.onHostExit(onHostExitCb);
+
+    const heartbeatInterval = window.setInterval(() => {
+      if (lobbyId && hostAddress && player.id && multiplayerBridge.sendHeartbeat) {
+        multiplayerBridge.sendHeartbeat({ lobbyId, hostAddress, playerId: player.id });
+      }
+    }, 3000);
 
     return () => {
       if (hostDisconnectIntervalRef.current) {
         window.clearInterval(hostDisconnectIntervalRef.current);
         hostDisconnectIntervalRef.current = null;
       }
+      window.clearInterval(heartbeatInterval);
       multiplayerBridge.offHostFound?.(onHostFoundCb);
       multiplayerBridge.offHostExit?.(onHostExitCb);
       multiplayerBridge.stopDiscovery();
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      sendLeaveOnUnload();
     };
   }, [
     lobbyId,
@@ -177,11 +198,11 @@ const MultiplayerLobby = () => {
 
     multiplayerBridge.startBroadcast(payload);
 
+    // clean up listeners on unmount
     return () => {
       multiplayerBridge.offPlayerJoined?.(handlePlayerJoined);
       multiplayerBridge.offPlayerReadyChanged?.(handlePlayerReadyChanged);
       multiplayerBridge.offPlayerLeft?.(handlePlayerLeft);
-      multiplayerBridge.stopBroadcast();
     };
   }, [lobbyRole, lobbyId, multiplayerBridge, player.id, player.name, player.level, addOrUpdatePlayer, setPlayerReady, removePlayer]);
 
@@ -271,13 +292,13 @@ const MultiplayerLobby = () => {
         <Box sx={{ display: "flex", justifyContent: "center", gap: 2, maxWidth: "600px", mx: "auto" }}>
           {lobbyRole === "host" ? (
             <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
-              <Button variant="outlined" onClick={() => setScreen("category")} sx={{ flex: 1 }}>
+              <Button variant="outlined" onClick={() => setModalScreen("category")} sx={{ flex: 1 }}>
                 {gameConfig.category || "Select Category"}
               </Button>
               <Button variant="contained" onClick={handleStartGame} disabled={!canStart} sx={{ flex: 1 }}>
                 Start Game
               </Button>
-              <Button variant="outlined" onClick={() => setScreen("difficulty")} sx={{ flex: 1 }}>
+              <Button variant="outlined" onClick={() => setModalScreen("difficulty")} sx={{ flex: 1 }}>
                 {gameConfig.difficulty || "Select Difficulty"}
               </Button>
             </Box>

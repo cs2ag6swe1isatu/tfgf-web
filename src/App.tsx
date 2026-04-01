@@ -12,9 +12,30 @@ import MultiplayerLobbyPage from "./pages/MultiplayerLobbyPage";
 import MultiplayerDiscoveryPage from "./pages/MultiplayerDiscoveryPage";
 import { useGameStore } from "./store/gameStore";
 import './ui/fonts.css';
+import { useTheme } from "@mui/material/styles";
+
+const Overlay: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const theme = useTheme();
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: theme.palette.background.default,
+        zIndex: 99,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
 
 export default function App() {
   const screen = useGameStore((state) => state.screen);
+  const modalScreen = useGameStore((state) => state.modalScreen);
 
   switch (screen) {
     case "mode-select":
@@ -36,7 +57,21 @@ export default function App() {
     case "multiplayer-menu":
       return <MultiplayerMenuPage />;
     case "multiplayer-lobby":
-      return <MultiplayerLobbyPage />;
+      return (
+      <>
+        <MultiplayerLobbyPage />
+        {modalScreen === "category" && (
+          <Overlay>
+            <CategoryPage />
+          </Overlay>
+        )}
+        {modalScreen === "difficulty" && (
+          <Overlay>
+            <DifficultyPage />
+          </Overlay>
+        )}
+      </>
+      );
     case "multiplayer-discovery":
       return <MultiplayerDiscoveryPage />;
     case "home":
