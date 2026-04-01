@@ -42,6 +42,7 @@ const MultiplayerDiscovery = () => {
         name: player.name,
         avatar: player.avatar,
         level: player.level,
+        rank: player.rank,
         isReady: false,
         isHost: false,
       },
