@@ -64,7 +64,14 @@ const theme = createTheme({
       styleOverrides: {
         root: ({ theme, ownerState }) => {
           const colorProp = ownerState.color || 'primary';
-          const mainColor = (theme.palette as any)[colorProp]?.main || theme.palette.primary.main;
+          const paletteColor = theme.palette[colorProp as keyof typeof theme.palette];
+          const mainColor =
+            typeof paletteColor === 'object' &&
+            paletteColor !== null &&
+            'main' in paletteColor &&
+            typeof paletteColor.main === 'string'
+              ? paletteColor.main
+              : theme.palette.primary.main;
           const shadowColor = alpha(mainColor, 0.3);
           const hoverShadowColor = alpha(mainColor, 0.5);
 
@@ -116,10 +123,21 @@ const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: ({ theme, ownerState }) => {
+          const isOutlined = ownerState.variant === 'outlined';
           const colorProp = ownerState.color || 'primary';
+          const paletteColor = theme.palette[colorProp as keyof typeof theme.palette];
+          const filledBackground =
+            typeof paletteColor === 'object' &&
+            paletteColor !== null &&
+            'main' in paletteColor &&
+            typeof paletteColor.main === 'string'
+              ? paletteColor.main
+              : theme.palette.primary.main;
           return {
-            backgroundColor: (theme.palette as any)[colorProp]?.main || theme.palette.primary.main,
-            color: "#000"
+            backgroundColor: isOutlined
+              ? theme.palette.background.paper
+              : filledBackground,
+            color: isOutlined ? theme.palette.text.primary : '#000',
           };
         },
       },

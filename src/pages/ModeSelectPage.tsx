@@ -1,4 +1,4 @@
-import { Container, Typography, Box, Button } from "@mui/material";
+import { Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { User, Users } from "pixelarticons/react"
 

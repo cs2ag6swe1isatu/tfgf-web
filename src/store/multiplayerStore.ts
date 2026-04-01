@@ -1,22 +1,20 @@
 import { create } from "zustand";
-import { Player } from "./playerStore";
+import { Player } from "../types/player";
+import type { DiscoveredHost, LobbyMember, MultiplayerLobbySnapshot } from "../types/multiplayer";
+import { getRankForLevel } from "../constants";
 
 type LobbyRole = "host" | "client";
 type LobbyState = "lobby" | "discovering";
-
-export interface LobbyMember extends Player {
-  isReady: boolean;
-  isHost: boolean;
-}
-
 
 export interface MultiplayerStateData {
   lobbyRole: LobbyRole | null;
   lobbyId: string | null;
   hostId: string | null;
+  hostAddress: string | null;
   players: LobbyMember[];
   lobbyState: LobbyState;
   currentPlayerId: string | null;
+  discoveredHosts: DiscoveredHost[];
 }
 
 export interface MultiplayerSelectors {
@@ -30,12 +28,18 @@ export interface MultiplayerActions {
   setLobbyRole: (role: LobbyRole | null) => void;
   setLobbyId: (id: string | null) => void;
   setHostId: (id: string | null) => void;
-  addOrUpdatePlayer: (player: Player, opts?: { isHost?: boolean; isReady?: boolean }) => void;
+  addOrUpdatePlayer: (player: Player | LobbyMember, opts?: { isHost?: boolean; isReady?: boolean }) => void;
   removePlayer: (playerId: string) => void;
   setPlayerReady: (playerId: string, ready: boolean) => void;
   setCurrentPlayerId: (id: string | null) => void;
   setLobbyState: (state: LobbyState) => void;
   resetMultiplayer: () => void;
+  syncLobbySnapshot: (snapshot: MultiplayerLobbySnapshot, hostAddress?: string | null) => void;
+  // Discovered hosts management
+  addOrUpdateDiscoveredHost: (host: Partial<DiscoveredHost>) => void;
+  removeDiscoveredHost: (lobbyId: string) => void;
+  pruneStaleDiscoveredHosts: (ttlMs: number) => void;
+  clearDiscoveredHosts: () => void;
 }
 
 export type MultiplayerState = MultiplayerStateData & MultiplayerSelectors & MultiplayerActions;
@@ -44,9 +48,11 @@ const initialState: MultiplayerStateData = {
   lobbyRole: null,
   lobbyId: null,
   hostId: null,
+  hostAddress: null,
   players: [],
   lobbyState: "lobby",
   currentPlayerId: null,
+  discoveredHosts: [],
 };
 
 export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
@@ -74,12 +80,54 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   setLobbyId: (id) => set({ lobbyId: id }),
   setHostId: (id) => set({ hostId: id }),
 
-  addOrUpdatePlayer: (player, opts) => {
+  addOrUpdateDiscoveredHost: (host) => {
+    if (!host.lobbyId || !host.hostId) return;
+    const now = Date.now();
     set((state) => {
-      // Prevent duplicate players
+      const existingIndex = state.discoveredHosts.findIndex((h) => h.lobbyId === host.lobbyId);
+      const entry: DiscoveredHost = {
+        lobbyId: host.lobbyId,
+        hostId: host.hostId,
+        hostName: host.hostName,
+        hostLevel: host.hostLevel,
+        hostAddress: host.hostAddress,
+        playerCount: host.playerCount,
+        maxPlayers: host.maxPlayers,
+        category: host.category,
+        difficulty: host.difficulty,
+        lastSeen: now,
+      };
+
+      if (existingIndex >= 0) {
+        const arr = [...state.discoveredHosts];
+        arr[existingIndex] = { ...arr[existingIndex], ...entry };
+        return { discoveredHosts: arr };
+      }
+
+      return { discoveredHosts: [...state.discoveredHosts, entry] };
+    });
+  },
+
+  removeDiscoveredHost: (lobbyId) =>
+    set((state) => ({ discoveredHosts: state.discoveredHosts.filter((h) => h.lobbyId !== lobbyId) })),
+
+  pruneStaleDiscoveredHosts: (ttlMs) => {
+    const now = Date.now();
+    set((state) => ({ discoveredHosts: state.discoveredHosts.filter((h) => now - h.lastSeen <= ttlMs) }));
+  },
+
+  clearDiscoveredHosts: () => set({ discoveredHosts: [] }),
+
+  addOrUpdatePlayer: (player, opts) => {
+
+    set((state) => {
       const existingIndex = state.players.findIndex((p) => p.id === player.id);
       const member: LobbyMember = {
-        ...player,
+        id: player.id,
+        name: player.name,
+        avatar: player.avatar,
+        level: player.level,
+        rank: getRankForLevel(player.level),
         isReady: opts?.isReady ?? false,
         isHost: opts?.isHost ?? false,
       };
@@ -102,6 +150,19 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
   setCurrentPlayerId: (id) => set({ currentPlayerId: id }),
   setLobbyState: (stateValue) => set({ lobbyState: stateValue }),
+
+  syncLobbySnapshot: (snapshot, hostAddress) =>
+    set((state) => ({
+      lobbyRole: state.lobbyRole,
+      lobbyId: snapshot.lobbyId,
+      hostId: snapshot.hostId,
+      hostAddress: hostAddress ?? state.hostAddress,
+      players: snapshot.players.map((p) => ({
+        ...p,
+        rank: getRankForLevel(p.level),
+      })),
+      lobbyState: state.lobbyState,
+    })),
 
   resetMultiplayer: () => set({ ...initialState }),
 }));

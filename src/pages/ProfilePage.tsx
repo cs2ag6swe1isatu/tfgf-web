@@ -1,14 +1,32 @@
-import { Container, Typography, Box, Button } from "@mui/material";
+import { Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
+import { usePlayerStore } from "../store/playerStore";
 
 const ProfilePage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
+  const player = usePlayerStore((state) => state.getPlayer());
+  const resetPlayer = usePlayerStore((state) => state.resetPlayer);
 
-  // Temporary placeholder values
-  const playerName = "Player 1";
-  const level = 1;
-  const xp = 0;
-  const rank = "Beginner";
+  const handleReset = () => {
+    if (confirm('Are you sure you want to delete all player data? This cannot be undone.')) {
+      resetPlayer();
+      setScreen('home');
+    }
+  };
+
+  const playerName = player.name;
+  const level = player.level;
+  const xp = player.totalXp;
+  const xpToNextLevel = player.xpToNextLevel;
+  const rank = player.rank.name;
+  const totalScore = player.totalScore;
+  const topScore = player.topScore;
+  const soloGamesPlayed = player.soloGamesPlayed;
+  const multiplayerGamesPlayed = player.multiplayerGamesPlayed;
+  const totalQuestionsAnswered = player.totalQuestionsAnswered;
+  const correctAnswers = player.correctAnswers;
+  const gamesMastered = player.gamesMastered;
+  const achievements = player.achievements;
 
   return (
     <Box sx={{
@@ -20,36 +38,56 @@ const ProfilePage = () => {
       boxSizing: "border-box",
       position: "relative"
     }}>
-      <Box sx={{ mt: 8, textAlign: "center" }}>
+      <Box sx={{ textAlign: "center" }}>
         <Typography variant="h4" gutterBottom>
           Profile
         </Typography>
+      </Box>
 
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h6">
-            Name: {playerName}
-          </Typography>
+      <Box sx={{ overflowY: "auto", px: 4 }}>
+        <Typography>Name: {playerName}</Typography>
+        <Typography>Level: {level}</Typography>
+        <Typography>Rank: {rank}</Typography>
+        <Typography>Total XP: {xp}</Typography>
+        <Typography>XP to Next Level: {xpToNextLevel}</Typography>
 
-          <Typography variant="h6">
-            Level: {level}
-          </Typography>
+        <Typography sx={{ mt: 3 }}>Total Score: {totalScore}</Typography>
+        <Typography>Top Score: {topScore}</Typography>
 
-          <Typography variant="h6">
-            Rank: {rank}
-          </Typography>
+        <Typography sx={{ mt: 3 }}>Solo Games Played: {soloGamesPlayed}</Typography>
+        <Typography>Multiplayer Games Played: {multiplayerGamesPlayed}</Typography>
+        <Typography>Games Mastered: {gamesMastered}</Typography>
 
-          <Typography variant="h6">
-            XP: {xp}
-          </Typography>
-        </Box>
+        <Typography sx={{ mt: 3 }}>Total Questions Answered: {totalQuestionsAnswered}</Typography>
+        <Typography>Correct Answers: {correctAnswers}</Typography>
+        <Typography>Accuracy: {totalQuestionsAnswered > 0 ? ((correctAnswers / totalQuestionsAnswered) * 100).toFixed(2) : 0}%</Typography>
 
+        <Typography sx={{ mt: 3 }}>Achievements: {achievements.length}</Typography>
+        {achievements.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            {achievements.map((achievement) => (
+              <Typography key={achievement.id}>
+                • {achievement.name}: {achievement.description}
+              </Typography>
+            ))}
+          </Box>
+        )}
+      </Box>
+
+      <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>
         <Button
           variant="contained"
           color="primary"
-          className="mt-5"
           onClick={() => setScreen("home")}
         >
           Back
+        </Button>
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={handleReset}
+        >
+          Reset Player Data
         </Button>
       </Box>
     </Box>

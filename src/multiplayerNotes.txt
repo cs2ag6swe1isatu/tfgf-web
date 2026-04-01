@@ -1,0 +1,158 @@
+1. Game State Synchronization (Critical)
+
+Issue: No mechanism to sync question transitions, timers, answers, or scores across clients.
+
+What the skill recommends:
+
+ - Host-authoritative state with broadcast snapshots
+ - Event-driven updates (start-question, answer-submit, end-question)
+ - Tick-based or phase-based sync depending on gameplay
+
+For your trivia game:
+
+ - Host controls question timing and transitions
+ - Clients display questions synchronized to host clock
+ - Host collects answers and computes scores
+ - Host broadcasts ranking after each question
+
+2. Message Protocol Design
+
+Current: 4 packet types (lobby-broadcast, join/ready/leave-request)
+
+Needed for gameplay:
+
+ // Add to MultiplayerPacket type
+ | { type: "game-start"; payload: { questionCount: number; category: string; difficulty: string } }
+ | { type: "question-start"; payload: { questionIndex: number; question: Question; startTime: number; duration: number } }
+ | { type: "answer-submit"; payload: { playerId: string; questionIndex: number; answer: string; timestamp: number } }
+ | { type: "question-end"; payload: { questionIndex: number; correctAnswer: string; playerScores: Record<string, number> } }
+ | { type: "ranking-update"; payload: { rankings: Array<{playerId: string; score: number; rank: number}> } }
+ | { type: "game-end"; payload: { finalRankings: Array<{playerId: string; score: number}> } }
+
+3. Timer Synchronization
+
+Issue: No host clock synchronization for question timers.
+
+Skill pattern: Host sends startTime (server timestamp), clients compute elapsed = Date.now() - startTime.
+
+Implementation:
+
+ - Host broadcasts question-start with server timestamp
+ - Clients sync their local timer to host clock
+ - Drift compensation: clients adjust if they receive a broadcast with different elapsed time
+
+4. Loading/Waiting Phases
+
+Issue: No intermediate states between questions or during score calculation.
+
+Skill pattern: Use explicit phase states (lobby, playing, scoring, waiting, finished).
+
+For trivia:
+
+ - lobby: Waiting for players and ready state (✅ you have this)
+ - playing: Active question with timer
+ - scoring: Brief pause showing correct answer + per-player results
+ - waiting: Between questions (optional countdown)
+ - finished: Final rankings
+
+5. Anti-Cheat & Validation
+
+Current risk: No validation of answer timing or duplicate submissions.
+
+Skill recommendations:
+
+ - Server-side validation: Host checks answer-submit timestamp against question start/end
+ - Reject late answers after timer expires
+ - Prevent duplicate answers for same question
+ - Don't trust client-side scores
+
+6. Disconnection Handling
+
+Issue: No graceful handling of client disconnects during gameplay.
+
+Skill pattern: 
+
+ - Mark disconnected players as inactive
+ - Continue game for remaining players
+ - Allow reconnect with state resync
+
+Recommended Implementation Plan
+
+Phase 1: Core Game State Sync (Priority 1)
+
+ 1. Extend packet types in src/types/multiplayer.ts
+ 2. Add game phase state to multiplayerStore (phase: 'lobby' | 'playing' | 'scoring' | 'waiting' | 'finished')
+ 3. Host-driven question flow:
+  - Host broadcasts game-start when clicking "Start Game"
+  - Host sends question-start for each question with server timestamp
+  - Host collects answer-submit packets
+  - Host broadcasts question-end with correct answer and scores
+ 4. Client reaction:
+  - On question-start: Navigate to QuestionPage, start timer, render question
+  - On answer: Send answer-submit to host, disable UI
+  - On question-end: Show scoring overlay with rankings
+
+Phase 2: Timer & Clock Sync (Priority 2)
+
+ 1. Add clock sync to initial handshake (measure RTT, compute offset)
+ 2. Adjust client timers based on host timestamp in broadcasts
+ 3. Auto-submit when timer expires on client (host also enforces deadline)
+
+Phase 3: Loading & Transitions (Priority 3)
+
+ 1. Add loading screen component that shows:
+  - "Waiting for next question..."
+  - Player ready indicators
+  - Countdown to next question
+ 2. Scoring phase (3-5 seconds):
+  - Show correct answer
+  - Animate score changes
+  - Display current rankings
+ 3. "Next" flow:
+  - Clients send player-ready for next question
+  - Host waits for all (or timeout, e.g., 10s)
+  - Host broadcasts question-start when ready
+
+Phase 4: Resilience & Polish (Priority 4)
+
+ 1. Validate answer timestamps (reject if after timer expiration)
+ 2. Handle disconnects: Mark player inactive, continue for others
+ 3. Reconnect support: Send full game state snapshot on reconnect
+ 4. Message deduplication: Use sequence numbers or questionIndex
+ 5. Add logging to all new packet handlers
+
+Code Structure Recommendations
+
+ src/
+ ├── preload.ts                    # Add new packet handlers
+ ├── types/multiplayer.ts          # Extend packet types
+ ├── store/
+ │   ├── multiplayerStore.ts       # Add phase, questionState, rankings
+ │   └── triviaStore.ts            # Adapt for multiplayer mode
+ ├── pages/
+ │   ├── MultiplayerLobbyPage.tsx  # ✅ Working
+ │   ├── QuestionPage.tsx          # Add multiplayer mode handling
+ │   ├── MultiplayerScoringPage.tsx # NEW: Show scores between questions
+ │   └── MultiplayerLoadingPage.tsx # NEW: Waiting/loading state
+ └── components/
+     └── multiplayer/
+         ├── PlayerList.tsx        # ✅ Working
+         ├── RankingsList.tsx      # NEW: Live rankings display
+         └── TimerSync.tsx         # NEW: Synchronized countdown
+
+Key Decision Points
+
+ 1. Tick-based vs Event-driven?
+  - Recommendation: Event-driven for trivia (no continuous simulation needed)
+  - Only use ticks if you add realtime features (e.g., buzzer racing)
+ 2. Who computes scores?
+  - Recommendation: Host-authoritative (prevents cheating)
+  - Host validates answer correctness and timing
+  - Clients display host-computed scores
+ 3. Hybrid or server-authoritative netcode?
+  - Recommendation: Server-authoritative (host = server)
+  - Clients send intents (answers), host computes results
+  - No need for client prediction in turn-based trivia
+ 4. UDP broadcast vs direct addressing?
+  - Current: Broadcast for everything ✅ (works for LAN)
+  - Future: For internet play, you'd need a relay server or Rivet Actors

@@ -1,5 +1,4 @@
-import { Container, Typography, Box } from "@mui/material";
-import { Button } from "@mui/material";
+import { Button, Typography, Box } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
 
@@ -8,9 +7,12 @@ const ResultPage = () => {
 
   const score = useTriviaStore((state) => state.score);
   const questions = useTriviaStore((state) => state.questions);
+  const userAnswers = useTriviaStore((state) => state.userAnswers);
 
   const totalQuestions = questions.length;
-  const correctAnswers = score;
+  const correctAnswers = questions.reduce((total, question, index) => {
+    return total + (userAnswers[index] === question.correctAnswer ? 1 : 0);
+  }, 0);
   const accuracy =
     totalQuestions > 0
       ? Math.round(

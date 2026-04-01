@@ -1,4 +1,4 @@
-import { Container, Typography, Box, Button } from "@mui/material";
+import { Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { Globe, MapPin } from 'pixelarticons/react';

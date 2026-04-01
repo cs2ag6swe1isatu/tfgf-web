@@ -76,11 +76,11 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   startGame: async (cfg) => {
     // Accept a snapshot config from the caller (separates UI store from session store)
     const mode = cfg.mode ?? 'solo';
-    const questionTimer = cfg.questionTimer ?? 15;
-    const answerTimer = cfg.answerTimer ?? 5;
+    const questionTimer = cfg.questionTimer ?? get().questionTimer;
+    const answerTimer = cfg.answerTimer ?? get().answerTimer;
     const category = cfg.category;
     const difficulty = cfg.difficulty;
-    const questionLimit = cfg.questionLimit;
+    const questionLimit = cfg.questionLimit ?? 10;
 
     // Input validation
     if (!category || !difficulty || !mode) {
@@ -107,7 +107,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
       set({ 
         questions,
-        timer: questionTimer,
+        timer: mode === 'multiplayer' ? questionTimer : answerTimer,
         questionTimer,
         answerTimer,
         mode,
@@ -165,7 +165,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       set({
         selectedAnswer: answer,
         score: newScore,
-        phase: isLastQuestion ? 'ranking' : 'scoring',
+        phase: isLastQuestion ? 'end' : 'scoring',
         timer: isLastQuestion ? 0 : answerTimer,
         userAnswers: newUserAnswers,
       });
@@ -182,34 +182,59 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
   /* ---------- Timer ---------- */
   tickTimer: () => {
-    const { timer, phase, selectedAnswer, questions, currentIndex } = get();
-    const answerTimer = get().answerTimer;
-    
-    if (phase === 'answering' || phase === 'asking') {
-      if (timer > 0) {
-        set({ timer: timer - 1 });
-      } else {
-        // Timer expired - handle timeout explicitly
-        if (phase === 'answering') {
-          // If no answer was selected when timer runs out, treat as timeout (no points)
-          if (!selectedAnswer) {
-            // Set timer to 0 to prevent multiple submissions
-            set({ timer: 0 });
+    const { timer, phase, selectedAnswer, questions, currentIndex, mode } = get();
 
-            // Move to scoring phase with no answer selected (will show as wrong)
-            const isLastQuestion = currentIndex + 1 >= questions.length;
-            set({
-              phase: isLastQuestion ? 'ranking' : 'scoring',
-              timer: isLastQuestion ? 0 : answerTimer,
-            });
-          } else {
-            // Answer was selected, submit it normally
-            set({ timer: 0 });
-            get().selectAnswer(selectedAnswer);
-          }
-        }
-      }
+    if (phase !== 'answering' && phase !== 'asking' && phase !== 'scoring') return;
+
+    if (timer > 1) {
+      set({ timer: timer - 1 });
+      return;
     }
+
+    if (phase === 'asking') {
+      const answerTimer = get().answerTimer;
+      set({ phase: 'answering', timer: answerTimer });
+      return;
+    }
+
+    if (phase === 'answering') {
+      if (selectedAnswer) {
+        set({ timer: 0 });
+        get().selectAnswer(selectedAnswer);
+        return;
+      }
+
+      const answerTimer = get().answerTimer;
+      const isLastQuestion = currentIndex + 1 >= questions.length;
+      set({
+        phase: isLastQuestion ? 'ranking' : 'scoring',
+        timer: isLastQuestion ? 0 : answerTimer,
+      });
+      return;
+    }
+
+    if (currentIndex + 1 < questions.length) {
+      if (mode === 'multiplayer') {
+        const questionTimer = get().questionTimer;
+        set({
+          phase: 'asking',
+          currentIndex: currentIndex + 1,
+          selectedAnswer: '',
+          timer: questionTimer,
+        });
+      } else {
+        const answerTimer = get().answerTimer;
+        set({
+          phase: 'answering',
+          currentIndex: currentIndex + 1,
+          selectedAnswer: '',
+          timer: answerTimer,
+        });
+      }
+      return;
+    }
+
+    set({ phase: 'ranking', timer: 0 });
   },
 
   /* ---------- Phase machine ---------- */
@@ -232,8 +257,8 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
       case 'asking':
         {
-          const questionTimer = get().questionTimer;
-          set({ phase: 'answering', timer: questionTimer });
+          const answerTimer = get().answerTimer;
+          set({ phase: 'answering', timer: answerTimer });
         }
         break;
 

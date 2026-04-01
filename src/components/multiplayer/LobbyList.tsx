@@ -12,6 +12,7 @@ interface Lobby {
 
 interface LobbyListProps {
   onJoinLobby: (lobbyId: string) => void;
+  lobbies?: Lobby[];
 }
 
 const mockLobbies: Lobby[] = [
@@ -44,10 +45,13 @@ const mockLobbies: Lobby[] = [
   },
 ];
 
-export const LobbyList = ({ onJoinLobby }: LobbyListProps) => {
+export const LobbyList = ({ onJoinLobby, lobbies }: LobbyListProps) => {
+  const hasExternalList = lobbies !== undefined;
+  const list = hasExternalList ? lobbies : mockLobbies;
+
   return (
     <Box sx={{ width: "100%" }}>
-      {mockLobbies.map((lobby) => (
+      {list.map((lobby) => (
         <Box key={lobby.id} sx={{ mb: 2 }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <Box>
@@ -72,7 +76,7 @@ export const LobbyList = ({ onJoinLobby }: LobbyListProps) => {
         </Box>
       ))}
 
-      {mockLobbies.length === 0 && (
+      {list.length === 0 && hasExternalList && (
         <Box sx={{ textAlign: "center", py: 2 }}>
           <Typography variant="body1">No active lobbies found</Typography>
           <Typography variant="body2">Try creating a new lobby or check back later</Typography>

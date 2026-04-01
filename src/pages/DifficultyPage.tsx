@@ -1,4 +1,4 @@
-import { Container, Typography, Box, Button  } from "@mui/material";
+import { Typography, Box, Button  } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
 import { Difficulty } from "../constants";
@@ -42,35 +42,45 @@ const DifficultyPage = () => {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box sx={{ mt: 8, textAlign: "center" }}>
-        <Typography variant="h4" gutterBottom>
+    <Box sx={{
+      width: "100%",
+      height: "100%",
+      display: "grid",
+      gridTemplateRows: "1fr 3fr 1fr",
+      padding: "40px",
+      boxSizing: "border-box",
+      position: "relative"
+    }}>
+      <Box sx={{ textAlign: "center" }}>
+        <Typography variant="h1" gutterBottom>
           Select Difficulty
         </Typography>
+      </Box>
 
-        <Box sx={{ mt: 4, display: "grid", gap: 2 }}>
-          <Button variant="contained" color="primary" onClick={() => handleSelect("easy")}>
-            Easy
-          </Button>
+      <Box sx={{ display: "flex", gap: 2, alignItems: "center", justifyContent: "center" }}>
+        <Button sx={{ height: 192 }} fullWidth variant="contained" color="primary" onClick={() => handleSelect("easy")}>
+          Easy
+        </Button>
 
-          <Button variant="contained" color="primary" onClick={() => handleSelect("medium")}>
-            Medium
-          </Button>
+        <Button sx={{ height: 192 }} fullWidth variant="contained" color="primary" onClick={() => handleSelect("medium")}>
+          Medium
+        </Button>
 
-          <Button variant="contained" color="primary" onClick={() => handleSelect("hard")}>
-            Hard
-          </Button>
+        <Button sx={{ height: 192 }} fullWidth variant="contained" color="primary" onClick={() => handleSelect("hard")}>
+          Hard
+        </Button>
+      </Box>
 
-          <Button
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <Button sx={{ width: "25%" }}
             variant="outlined"
             color="primary"
             onClick={() => handleBack()}
           >
             Back
-          </Button>
-        </Box>
+        </Button>
       </Box>
-    </Container>
+    </Box>
   );
 };
 

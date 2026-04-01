@@ -1,6 +1,6 @@
 import { Box, Typography, Avatar } from "@mui/material";
-import { CheckCircleOutline, CancelOutlined, PersonOutline } from "@mui/icons-material";
-import { LobbyMember } from "../../store/multiplayerStore";
+import { LobbyMember } from "../../types/multiplayer";
+import { UserSharp, Robot, RobotFaceHappy } from "pixelarticons/react";
 
 interface PlayerListProps {
   players: LobbyMember[];
@@ -26,13 +26,13 @@ export const PlayerList = ({ players, isHost, onReadyToggle }: PlayerListProps) 
     <Box sx={{ width: "100%" }}>
       {sortedPlayers.map((player) => (
         <Box key={player.id} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2}}>
             <Avatar
               src={player.avatar}
               alt={player.name}
               sx={{ width: 32, height: 32 }}
             >
-              {!player.avatar && <PersonOutline />}
+              {!player.avatar && <UserSharp />}
             </Avatar>
             <Box>
               <Typography variant="body2">
@@ -40,6 +40,7 @@ export const PlayerList = ({ players, isHost, onReadyToggle }: PlayerListProps) 
                 {player.isHost && " (Host)"}
               </Typography>
               <Typography variant="subtitle1">Level {player.level}</Typography>
+              <Typography variant="subtitle1">Rank {player.rank.name}</Typography>
             </Box>
           </Box>
 
@@ -47,14 +48,14 @@ export const PlayerList = ({ players, isHost, onReadyToggle }: PlayerListProps) 
           </Typography>
           
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            {player.isReady ? (
-              <CheckCircleOutline sx={{ fontSize: 16 }} />
-            ) : (
-              <CancelOutlined sx={{ fontSize: 16 }} />
-            )}
             <Typography variant="body2">
               {player.isReady ? "Ready" : "Waiting"}
             </Typography>
+            {player.isReady ? (
+              <RobotFaceHappy width={16} height={16} />
+            ) : (
+              <Robot width={16} height={16} />
+            )}
           </Box>
         </Box>
       ))}

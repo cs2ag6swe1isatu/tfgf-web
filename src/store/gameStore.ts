@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Category, Difficulty, Mode } from "../constants";
-import { usePlayerStore, Player } from "./playerStore";
+import { usePlayerStore } from "./playerStore";
+import { Player } from "../types/player";
 /**
  * Game Store - Navigation and Session Setup
  * 
@@ -11,9 +12,10 @@ import { usePlayerStore, Player } from "./playerStore";
  * - Category and difficulty selection for game configuration
  * - Multiplayer lobby state management
  * - Basic session setup state management
+ * - Player data access
  * 
  * SEPARATION OF CONCERNS:
- * This store handles ONLY navigation and game configuration.
+ * This store handles ONLY navigation, game configuration, and player data.
  * All game-specific logic (questions, scoring, timers, phases) 
  * is managed by triviaStore.ts.
  */
@@ -33,12 +35,12 @@ type Screen =
   | "multiplayer-discovery";
 
 export interface GameConfig {
-  mode?: Mode;
-  category?: Category;
-  difficulty?: Difficulty;
-  questionLimit?: number;
-  questionTimer?: number;
-  answerTimer?: number;
+  mode: Mode | null;
+  category: Category | null;
+  difficulty: Difficulty | null;
+  questionLimit: number | null;
+  questionTimer: number | null;
+  answerTimer: number | null;
 }
 
 export interface Settings {

@@ -6,6 +6,9 @@ import App from "./App";
 import theme from "./ui/theme";
 import "./index.css";
 
+// Initialize mock multiplayer bridge for Vite dev mode
+import "./multiplayer-mock";
+
 import { useGameStore } from "./store/gameStore";
 
 const CASE_COLOR = '#14271D';
@@ -180,7 +183,11 @@ if (rootElement) {
   if ((import.meta as any).hot) {
     (import.meta as any).hot.dispose(() => {
       if (anyWindow.__react_root) {
-        try { anyWindow.__react_root.unmount(); } catch (e) {}
+        try {
+          anyWindow.__react_root.unmount();
+        } catch (e) {
+          console.warn("Hot reload unmount failed", e);
+        }
         anyWindow.__react_root = null;
       }
     });

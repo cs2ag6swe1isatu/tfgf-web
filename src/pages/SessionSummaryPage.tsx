@@ -1,7 +1,7 @@
-import { Container, Typography, Box, Divider } from "@mui/material";
-import { Button } from "@mui/material";
+import { Typography, Box, Divider, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
+import { Question } from "../types/question";
 
 const SessionSummaryPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
@@ -12,8 +12,10 @@ const SessionSummaryPage = () => {
 
   const sessionQuestions = questions;
   const totalQuestions = questions.length;
-  const correctAnswers = score;
   const userAnswers = useTriviaStore((state) => state.userAnswers);
+  const correctAnswers = questions.reduce((total, question, index) => {
+    return total + (userAnswers[index] === question.correctAnswer ? 1 : 0);
+  }, 0);
 
   const accuracy =
     totalQuestions > 0
@@ -48,9 +50,9 @@ const SessionSummaryPage = () => {
         <Divider sx={{ mb: 3 }} />
 
         <Box sx={{ display: "grid", gap: 3 }}>
-          {sessionQuestions.map((q: any, index: number) => {
+          {sessionQuestions.map((q: Question, index: number) => {
             const playerAnswer = userAnswers[index] ?? "No answer";
-            const isCorrect = playerAnswer === q.answer;
+            const isCorrect = playerAnswer === q.correctAnswer;
 
             return (
               <Box
@@ -62,7 +64,7 @@ const SessionSummaryPage = () => {
                 }}
               >
                 <Typography variant="h6">
-                  {index + 1}. {q.question}
+                  {index + 1}. {q.text}
                 </Typography>
 
                 <Typography sx={{ mt: 1 }}>
@@ -70,7 +72,7 @@ const SessionSummaryPage = () => {
                 </Typography>
 
                 <Typography>
-                  Correct Answer: {q.answer}
+                  Correct Answer: {q.correctAnswer}
                 </Typography>
 
                 <Typography
