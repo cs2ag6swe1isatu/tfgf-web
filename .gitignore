@@ -98,3 +98,4 @@ out/
 
 # React Component Preview
 previewConfig.json
+.github/copilot-instructions.md

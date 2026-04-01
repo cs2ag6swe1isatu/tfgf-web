@@ -226,6 +226,12 @@ function stopBroadcast() {
 	activeSnapshot = null;
 }
 
+function updateLobbySnapshot(snapshot: MultiplayerLobbySnapshot) {
+	console.log('[preload] updateLobbySnapshot lobby', snapshot.lobbyId);
+	activeSnapshot = snapshot;
+	broadcastSnapshot(snapshot);
+}
+
 function requestJoin(payload: MultiplayerJoinRequest) {
 	// Use broadcast to ensure hosts on the same machine / LAN receive join-requests.
 	console.log('[preload] sending join-request to', payload.hostAddress, 'lobby', payload.lobbyId, 'player', payload.player?.id, 'via broadcast');
@@ -297,4 +303,5 @@ contextBridge.exposeInMainWorld("multiplayer", {
 	requestJoin,
 	setReady,
 	leaveLobby,
+	updateLobbySnapshot,
 });

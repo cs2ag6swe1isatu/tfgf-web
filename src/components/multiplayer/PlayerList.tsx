@@ -8,7 +8,7 @@ interface PlayerListProps {
   onReadyToggle?: (playerId: string, ready: boolean) => void;
 }
 
-export const PlayerList = ({ players, isHost, onReadyToggle }: PlayerListProps) => {
+export const PlayerList = ({ players }: PlayerListProps) => {
   const sortedPlayers = [...players].sort((a, b) => {
     // Host always first
     if (a.isHost && !b.isHost) return -1;

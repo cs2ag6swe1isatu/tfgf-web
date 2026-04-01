@@ -12,7 +12,7 @@ if (started) {
   app.quit();
 }
 
-// Support for multiple sessions for testing
+// Support for multiple sessions for testing, remove later
 if (process.env.SESSION_ID) {
   const currentPath = app.getPath('userData');
   app.setPath('userData', `${currentPath}-${process.env.SESSION_ID}`);
@@ -38,7 +38,7 @@ const createWindow = () => {
     );
   }
 
-  // Open the DevTools.
+  // Open the DevTools. remove later
   mainWindow.webContents.openDevTools();
 };
 

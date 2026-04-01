@@ -29,7 +29,7 @@ import { loadQuestions } from '../utils/loadQuestions';
  * - end: Game over, show summary and options to view profile or return to menu
  */
 
-export type Phase = 'loading' | 'asking' | 'answering' | 'scoring' | 'ranking' | 'end';
+export type Phase = 'loading' | 'readying' | 'asking' | 'answering' | 'scoring' | 'ranking' | 'end';
 
 export interface TriviaState {
   questions: Question[];
@@ -184,10 +184,17 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   tickTimer: () => {
     const { timer, phase, selectedAnswer, questions, currentIndex, mode } = get();
 
-    if (phase !== 'answering' && phase !== 'asking' && phase !== 'scoring') return;
+    if (phase !== 'readying' && phase !== 'answering' && phase !== 'asking' && phase !== 'scoring') return;
 
     if (timer > 1) {
       set({ timer: timer - 1 });
+      return;
+    }
+
+    // Timer expired, advance phase
+    if (phase === 'readying') {
+      const questionTimer = get().questionTimer;
+      set({ phase: 'asking', timer: questionTimer });
       return;
     }
 
@@ -246,13 +253,17 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         // Only transition to asking if we have questions or mode is multiplayer
         if (questions.length > 0) {
           if(get().mode === "multiplayer"){
-            set({ phase: 'asking' });
+            set({ phase: 'readying' });
           } else if(get().mode === "solo"){
-            set({ phase: 'answering' });
+            set({ phase: 'loading' });
           }
         } else {
           set({ phase: 'end' });
         }
+        break;
+
+      case 'readying':
+        set({ phase: 'asking', timer: get().questionTimer });
         break;
 
       case 'asking':

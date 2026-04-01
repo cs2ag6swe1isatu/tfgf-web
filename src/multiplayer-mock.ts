@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 /**
  * Mock Multiplayer Bridge for Vite Development
  * 
@@ -38,6 +40,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   private activeSnapshot: MultiplayerLobbySnapshot | null = null;
   private activeMode: "host" | "client" | null = null;
   private broadcastInterval: number | null = null;
+  private pendingHostExitTimeout: number | null = null;
 
   constructor() {
     this.channel = new BroadcastChannel("tfgf-multiplayer");
@@ -49,6 +52,8 @@ class MockMultiplayerBridge implements MultiplayerBridge {
 
   private handlePacket(packet: MultiplayerPacket) {
     console.log('[mock] received packet', packet.type, 'activeMode=', this.activeMode);
+
+    // client / host handlers
 
     if (packet.type === "lobby-broadcast") {
       this.activeMode = this.activeMode ?? "client";
@@ -62,6 +67,16 @@ class MockMultiplayerBridge implements MultiplayerBridge {
       return;
     }
 
+    if (packet.type === "host-exit") {
+      console.log('[mock] host-exit detected for lobby', packet.payload.lobbyId);
+      this.onHostExitCbs.forEach((cb) => cb(packet.payload));
+      this.activeSnapshot = null;
+      this.activeMode = null;
+      
+      return;
+    }
+
+    // host only handlers
     if (this.activeMode !== "host" || !this.activeSnapshot) return;
 
     if (packet.type === "join-request") {
@@ -125,13 +140,6 @@ class MockMultiplayerBridge implements MultiplayerBridge {
       
       // Notify renderer
       this.onPlayerLeftCbs.forEach((cb) => cb(packet.payload.playerId));
-      return;
-    }
-
-    if (packet.type === "host-exit") {
-      if (packet.payload.lobbyId !== this.activeSnapshot?.lobbyId) return;
-      console.log('[mock] host-exit detected for lobby', packet.payload.lobbyId);
-      this.onHostExitCbs.forEach((cb) => cb(packet.payload));
       return;
     }
   }
@@ -215,6 +223,14 @@ class MockMultiplayerBridge implements MultiplayerBridge {
 
   startBroadcast(payload: MultiplayerLobbySnapshot): void {
     console.log('[mock] startBroadcast lobby', payload.lobbyId);
+    // If a host-exit was scheduled recently, cancel it — this avoids
+    // briefly broadcasting a host-exit when the host effect re-runs
+    // and restarts broadcasting (common during quick state updates).
+    if (this.pendingHostExitTimeout) {
+      clearTimeout(this.pendingHostExitTimeout);
+      this.pendingHostExitTimeout = null;
+    }
+
     this.activeMode = "host";
     this.activeSnapshot = payload;
     this.broadcastSnapshot(payload);
@@ -229,18 +245,33 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     }, 2000);
   }
 
+  updateLobbySnapshot(payload: MultiplayerLobbySnapshot): void {
+    console.log('[mock] updateLobbySnapshot lobby', payload.lobbyId);
+    this.activeSnapshot = payload;
+    this.broadcastSnapshot(payload);
+  }
+
   stopBroadcast(): void {
     console.log('[mock] stopBroadcast');
+    // Schedule sending a host-exit after a short delay. If a new
+    // `startBroadcast` call arrives quickly (e.g. effect cleanup ->
+    // re-run), the timeout is cleared and no host-exit is emitted.
     if (this.activeSnapshot) {
-      this.sendHostExit(this.activeSnapshot.lobbyId);
+      const lobbyId = this.activeSnapshot.lobbyId;
+      if (this.pendingHostExitTimeout) {
+        clearTimeout(this.pendingHostExitTimeout);
+      }
+      this.pendingHostExitTimeout = window.setTimeout(() => {
+        this.sendHostExit(lobbyId);
+        this.pendingHostExitTimeout = null;
+      }, 250);
     }
+
     if (this.broadcastInterval) {
       clearInterval(this.broadcastInterval);
       this.broadcastInterval = null;
     }
-    if (this.activeMode === "host") {
-      this.activeMode = null;
-    }
+    this.activeMode = null;
     this.activeSnapshot = null;
   }
 
@@ -264,9 +295,15 @@ class MockMultiplayerBridge implements MultiplayerBridge {
 }
 
 // Initialize and expose mock bridge in development (only if not already provided by Electron)
-if (import.meta.env.DEV && typeof window !== 'undefined' && !(window as any).multiplayer) {
+declare global {
+  interface Window {
+    multiplayer?: MultiplayerBridge;
+  }
+}
+
+if (import.meta.env.DEV && typeof window !== 'undefined' && !window.multiplayer) {
   console.log('[mock] Initializing mock multiplayer bridge for Vite dev mode');
-  (window as any).multiplayer = new MockMultiplayerBridge();
-} else if ((window as any).multiplayer) {
+  window.multiplayer = new MockMultiplayerBridge();
+} else if (window.multiplayer) {
   console.log('[mock] Electron multiplayer bridge detected, skipping mock');
 }

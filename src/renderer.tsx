@@ -164,7 +164,7 @@ export const ResolutionFixer: React.FC<{ children: React.ReactNode }> = ({ child
 const rootElement = document.getElementById("root");
 
 if (rootElement) {
-  const anyWindow = window as any;
+  const anyWindow = window as Window & { __react_root?: ReturnType<typeof createRoot> };
   if (!anyWindow.__react_root) {
     anyWindow.__react_root = createRoot(rootElement);
   }
@@ -180,8 +180,9 @@ if (rootElement) {
     </ThemeProvider>
   );
 
-  if ((import.meta as any).hot) {
-    (import.meta as any).hot.dispose(() => {
+  const importMeta = import.meta as ImportMeta & { hot?: { dispose: (cb: () => void) => void } };
+  if (importMeta.hot) {
+    importMeta.hot.dispose(() => {
       if (anyWindow.__react_root) {
         try {
           anyWindow.__react_root.unmount();

@@ -75,6 +75,7 @@ export interface MultiplayerBridge {
   onHostExit: (cb: (payload: MultiplayerHostExitPayload) => void) => void;
   offHostExit: (cb: (payload: MultiplayerHostExitPayload) => void) => void;
   startBroadcast: (payload: MultiplayerLobbySnapshot) => void;
+  updateLobbySnapshot?: (payload: MultiplayerLobbySnapshot) => void;
   requestJoin: (payload: MultiplayerJoinRequest) => void;
   setReady: (payload: MultiplayerReadyUpdate) => void;
   leaveLobby: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;

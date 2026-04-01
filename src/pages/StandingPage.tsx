@@ -1,5 +1,4 @@
-import { Container, Typography, Box } from "@mui/material";
-import { Button } from "@mui/material";
+import { Button, Typography, Box } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 
 const StandingPage = () => {

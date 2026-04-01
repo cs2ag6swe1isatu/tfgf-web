@@ -5,7 +5,7 @@ import { usePlayerStore } from "../store/playerStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { useTriviaStore } from "../store/triviaStore";
 import { PlayerList } from "../components/multiplayer/PlayerList";
-import type { MultiplayerBridge, MultiplayerDiscoveredPayload, MultiplayerLobbySnapshot } from "../types/multiplayer";
+import type { MultiplayerBridge, MultiplayerDiscoveredPayload, MultiplayerLobbySnapshot, LobbyMember } from "../types/multiplayer";
 
 const MultiplayerLobby = () => {
   const setScreen = useGameStore((s) => s.setScreen);
@@ -43,6 +43,7 @@ const MultiplayerLobby = () => {
   const HOST_CHECK_INTERVAL_MS = 2000;
 
   const handleHostExit = useCallback(() => {
+    console.log('[renderer] handling host exit for lobby', lobbyId);
     if (hasHandledHostExitRef.current) return;
     hasHandledHostExitRef.current = true;
     if (hostDisconnectIntervalRef.current) {
@@ -50,6 +51,7 @@ const MultiplayerLobby = () => {
       hostDisconnectIntervalRef.current = null;
     }
     multiplayerBridge?.stopDiscovery();
+    multiplayerBridge?.stopBroadcast();
     resetMultiplayer();
     setScreen("multiplayer-menu");
   }, [multiplayerBridge, resetMultiplayer, setScreen]);
@@ -76,14 +78,11 @@ const MultiplayerLobby = () => {
 
   const handleLeaveLobby = () => {
     if (lobbyRole === "client" && lobbyId && hostAddress) {
-      multiplayerBridge?.leaveLobby({
-        lobbyId,
-        hostAddress,
-        playerId: player.id,
-      });
+      multiplayerBridge?.leaveLobby({ lobbyId, hostAddress, playerId: player.id});
     }
-
-    multiplayerBridge?.stopBroadcast();
+    else if(lobbyRole === "host") {
+      multiplayerBridge.stopBroadcast();  
+    }
     resetMultiplayer();
     setScreen("multiplayer-menu");
   };
@@ -111,9 +110,11 @@ const MultiplayerLobby = () => {
       syncLobbySnapshot(payload, payload.hostAddress);
     };
 
-    const onHostExitCb = (payload: { lobbyId: string }) => {
-      if (payload.lobbyId !== lobbyId) return;
-      handleHostExit();
+    const onHostExitCb = (payload : { lobbyId: string }) => {
+      console.log('[renderer] onHostExitCb', payload, { lobbyId });
+      if (!lobbyId || payload.lobbyId === lobbyId){
+        handleHostExit();
+      }
     };
 
     multiplayerBridge.onHostFound(onHostFoundCb);
@@ -142,23 +143,23 @@ const MultiplayerLobby = () => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
     // Set up listeners for player events (host only)
-    const handlePlayerJoined = (p: any) => {
+    const handlePlayerJoined = (p: LobbyMember) => {
       console.log('[renderer] onPlayerJoined', p?.id);
       addOrUpdatePlayer(p, { isHost: false, isReady: false });
     };
-    multiplayerBridge.onPlayerJoined(handlePlayerJoined as any);
+    multiplayerBridge.onPlayerJoined(handlePlayerJoined);
 
     const handlePlayerReadyChanged = (playerId: string, ready: boolean) => {
       console.log('[renderer] onPlayerReadyChanged', playerId, ready);
       setPlayerReady(playerId, ready);
     };
-    multiplayerBridge.onPlayerReadyChanged(handlePlayerReadyChanged as any);
+    multiplayerBridge.onPlayerReadyChanged(handlePlayerReadyChanged);
 
     const handlePlayerLeft = (playerId: string) => {
       console.log('[renderer] onPlayerLeft', playerId);
       removePlayer(playerId);
     };
-    multiplayerBridge.onPlayerLeft(handlePlayerLeft as any);
+    multiplayerBridge.onPlayerLeft(handlePlayerLeft);
 
 
     const payload: MultiplayerLobbySnapshot = {
@@ -177,12 +178,34 @@ const MultiplayerLobby = () => {
     multiplayerBridge.startBroadcast(payload);
 
     return () => {
-      multiplayerBridge.offPlayerJoined?.(handlePlayerJoined as any);
-      multiplayerBridge.offPlayerReadyChanged?.(handlePlayerReadyChanged as any);
-      multiplayerBridge.offPlayerLeft?.(handlePlayerLeft as any);
+      multiplayerBridge.offPlayerJoined?.(handlePlayerJoined);
+      multiplayerBridge.offPlayerReadyChanged?.(handlePlayerReadyChanged);
+      multiplayerBridge.offPlayerLeft?.(handlePlayerLeft);
       multiplayerBridge.stopBroadcast();
     };
-  }, [lobbyRole, lobbyId, players, gameConfig, multiplayerBridge, player.id, player.name, player.level, addOrUpdatePlayer, setPlayerReady, removePlayer]);
+  }, [lobbyRole, lobbyId, multiplayerBridge, player.id, player.name, player.level, addOrUpdatePlayer, setPlayerReady, removePlayer]);
+
+  // Send incremental snapshot updates when players or gameConfig changes
+  useEffect(() => {
+    if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
+
+    const payload: MultiplayerLobbySnapshot = {
+      lobbyId,
+      hostId: player.id,
+      hostName: player.name,
+      hostLevel: player.level,
+      playerCount: players.length || 1,
+      maxPlayers: 4,
+      category: gameConfig.category,
+      difficulty: gameConfig.difficulty,
+      lastActive: new Date().toISOString(),
+      players,
+    };
+
+    if (typeof multiplayerBridge.updateLobbySnapshot === "function") {
+      multiplayerBridge.updateLobbySnapshot(payload);
+    }
+  }, [players, gameConfig, lobbyId, lobbyRole, multiplayerBridge, player.id, player.name, player.level]);
 
   const handleReadyToggle = (playerId: string, ready: boolean) => {
     const targetPlayer = players.find((p) => p.id === playerId);

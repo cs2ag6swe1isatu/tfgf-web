@@ -24,7 +24,7 @@ const QuestionPage = () => {
 
   // Timer effect
   useEffect(() => {
-    if (phase !== 'answering' && phase !== 'asking' && phase !== 'scoring') return;
+    if (phase !== 'readying' && phase !== 'answering' && phase !== 'asking' && phase !== 'scoring') return;
 
     const timerInterval = setInterval(() => {
       useTriviaStore.getState().tickTimer();
@@ -190,7 +190,17 @@ const QuestionPage = () => {
     switch (phase) {
       case 'loading':
         return <Typography sx={{ gridRow: '2 / span 2', alignSelf: 'center', textAlign: 'center' }}>Loading...</Typography>;
-
+      case 'readying':
+        return (
+          <Box sx={{ gridRow: '2 / span 2', alignSelf: 'center', textAlign: 'center' }}>
+            <Typography variant="h5" sx={{ mb: 2 }}>
+              Get ready!
+            </Typography>
+            <Typography variant="body1">
+              Starting in {Math.ceil(timer)}...
+            </Typography>
+          </Box>
+        );
       case 'scoring':
         return renderScoringPhase();
 
