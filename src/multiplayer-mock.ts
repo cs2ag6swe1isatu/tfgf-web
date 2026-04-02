@@ -25,6 +25,7 @@ import type {
 
 type MultiplayerPacket =
   | { type: "lobby-broadcast"; snapshot: MultiplayerLobbySnapshot }
+  | { type: "discovery-request" }
   | { type: "join-request"; payload: MultiplayerJoinRequest }
   | { type: "ready-update"; payload: MultiplayerReadyUpdate }
   | { type: "leave-request"; payload: MultiplayerLeaveRequest }
@@ -38,6 +39,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   private onPlayerJoinedCbs = new Set<(player: LobbyMember) => void>();
   private onPlayerReadyChangedCbs = new Set<(playerId: string, ready: boolean) => void>();
   private onPlayerLeftCbs = new Set<(playerId: string) => void>();
+  private onDiscoveryResponseCbs = new Set<(payload: MultiplayerDiscoveredPayload) => void>();
   private onHostExitCbs = new Set<(payload: MultiplayerHostExitPayload) => void>();
   
   private activeSnapshot: MultiplayerLobbySnapshot | null = null;
@@ -57,30 +59,51 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   private handlePacket(packet: MultiplayerPacket) {
     console.log('[mock] received packet', packet.type, 'activeMode=', this.activeMode);
 
-    // client / host handlers
-
+    // ------- shared discovery behavior (client+host) -------
     if (packet.type === "lobby-broadcast") {
       this.activeMode = this.activeMode ?? "client";
-      this.onHostFoundCbs.forEach((cb) =>
-        cb({
-          ...packet.snapshot,
-          hostAddress: "localhost",
-          lastSeen: Date.now(),
-        }),
-      );
+      const payload = {
+        ...packet.snapshot,
+        hostAddress: "localhost",
+        lastSeen: Date.now(),
+      } as MultiplayerDiscoveredPayload;
+
+      this.onHostFoundCbs.forEach((cb) => cb(payload));
+      this.onDiscoveryResponseCbs.forEach((cb) => cb(payload));
+      return;
+    }
+
+    // If a client asks for discovery, respond immediately when we're a host.
+    if (packet.type === "discovery-request") {
+      if (this.activeMode === "host" && this.activeSnapshot) {
+        // Private lobbies do not answer discovery requests.
+        if (this.activeSnapshot.isPrivate) {
+          console.log('[mock] ignoring discovery request for private lobby', this.activeSnapshot.lobbyId);
+          return;
+        }
+
+        // Respond with current snapshot so the requester learns about us.
+        console.log('[mock] responding to discovery request with lobby', this.activeSnapshot.lobbyId);
+        this.broadcastSnapshot(this.activeSnapshot);
+      }
       return;
     }
 
     if (packet.type === "host-exit") {
       console.log('[mock] host-exit detected for lobby', packet.payload.lobbyId);
       this.onHostExitCbs.forEach((cb) => cb(packet.payload));
-      this.activeSnapshot = null;
-      this.activeMode = null;
+
+      // Only clear local host state if it is the same lobby that just exited.
+      if (this.activeMode === "host" && this.activeSnapshot?.lobbyId === packet.payload.lobbyId) {
+        console.log('[mock] clearing host state for lobby', packet.payload.lobbyId);
+        this.activeSnapshot = null;
+        this.activeMode = null;
+      }
       
       return;
     }
 
-    // host only handlers
+    // ------- host-only handler block -------
     if (this.activeMode !== "host" || !this.activeSnapshot) return;
 
     if (packet.type === "join-request") {
@@ -178,6 +201,8 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   }
 
   private broadcastSnapshot(snapshot: MultiplayerLobbySnapshot) {
+    // Do not broadcast snapshots for private lobbies — private lobbies
+    // should not be discoverable via BroadcastChannel.
     const packet: MultiplayerPacket = { type: "lobby-broadcast", snapshot };
     this.channel.postMessage(packet);
   }
@@ -206,6 +231,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   }
 
   private sendHostExit(lobbyId: string) {
+    console.log('[mock] sending host-exit for lobby', lobbyId);
     const packet: MultiplayerPacket = { type: "host-exit", payload: { lobbyId } };
     this.channel.postMessage(packet);
   }
@@ -213,6 +239,13 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   startDiscovery(): void {
     console.log('[mock] startDiscovery');
     this.activeMode = "client";
+    this.discoveryRequest();
+  }
+
+  discoveryRequest(): void {
+    console.log('[mock] sending discovery-request');
+    const packet: MultiplayerPacket = { type: "discovery-request" };
+    this.channel.postMessage(packet);
   }
 
   stopDiscovery(): void {
@@ -224,6 +257,14 @@ class MockMultiplayerBridge implements MultiplayerBridge {
 
   onHostFound(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
     this.onHostFoundCbs.add(cb);
+  }
+
+  onDiscoveryResponse(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
+    this.onDiscoveryResponseCbs.add(cb);
+  }
+
+  offDiscoveryResponse(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
+    this.onDiscoveryResponseCbs.delete(cb);
   }
 
   offHostFound(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
@@ -264,9 +305,6 @@ class MockMultiplayerBridge implements MultiplayerBridge {
 
   startBroadcast(payload: MultiplayerLobbySnapshot): void {
     console.log('[mock] startBroadcast lobby', payload.lobbyId);
-    // If a host-exit was scheduled recently, cancel it — this avoids
-    // briefly broadcasting a host-exit when the host effect re-runs
-    // and restarts broadcasting (common during quick state updates).
     if (this.pendingHostExitTimeout) {
       clearTimeout(this.pendingHostExitTimeout);
       this.pendingHostExitTimeout = null;
@@ -282,12 +320,9 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     this.broadcastInterval = window.setInterval(() => {
       if (!this.activeSnapshot) return;
 
-      // Prune clients that have not sent a heartbeat in a while
       this.pruneStalePlayers(9000);
 
-      if (this.activeSnapshot) {
-        this.broadcastSnapshot(this.activeSnapshot);
-      }
+      this.broadcastSnapshot(this.activeSnapshot);
     }, 2000);
   }
 
@@ -299,10 +334,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
 
   stopBroadcast(): void {
     console.log('[mock] stopBroadcast');
-    // Schedule sending a host-exit after a short delay. If a new
-    // `startBroadcast` call arrives quickly (e.g. effect cleanup ->
-    // re-run), the timeout is cleared and no host-exit is emitted.
-    if (this.activeSnapshot) {
+    if (this.activeMode === 'host' && this.activeSnapshot) {
       const lobbyId = this.activeSnapshot.lobbyId;
       if (this.pendingHostExitTimeout) {
         clearTimeout(this.pendingHostExitTimeout);
@@ -341,6 +373,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, playerId: payload.playerId } };
     this.channel.postMessage(packet);
   }
+
 
   leaveLobby(payload: { lobbyId: string; hostAddress: string; playerId: string }): void {
     console.log('[mock] sending leave-request player', payload.playerId);

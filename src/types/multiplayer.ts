@@ -21,6 +21,7 @@ export interface MultiplayerBroadcastPayload {
   category?: string;
   difficulty?: string;
   lastActive?: string;
+  isPrivate?: boolean;
 }
 
 export interface MultiplayerDiscoveredPayload extends MultiplayerLobbySnapshot {
@@ -62,6 +63,7 @@ export type DiscoveredHost = {
   hostAddress?: string;
   playerCount?: number;
   maxPlayers?: number;
+  isPrivate?: boolean;
   category?: string;
   difficulty?: string;
   lastSeen: number; // epoch ms
@@ -70,6 +72,9 @@ export type DiscoveredHost = {
 export interface MultiplayerBridge {
   startDiscovery: () => void;
   stopDiscovery: () => void;
+  discoveryRequest: () => void;
+  onDiscoveryResponse: (cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
+  offDiscoveryResponse: (cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   onHostFound: (cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   offHostFound: (cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   onPlayerJoined: (cb: (player: LobbyMember) => void) => void;
@@ -78,12 +83,15 @@ export interface MultiplayerBridge {
   offPlayerReadyChanged: (cb: (playerId: string, ready: boolean) => void) => void;
   onPlayerLeft: (cb: (playerId: string) => void) => void;
   offPlayerLeft: (cb: (playerId: string) => void) => void;
+  onPlayerKicked?: (cb: (lobbyId: string, playerId: string) => void) => void;
+  offPlayerKicked?: (cb: (lobbyId: string, playerId: string) => void) => void;
   onHostExit: (cb: (payload: MultiplayerHostExitPayload) => void) => void;
   offHostExit: (cb: (payload: MultiplayerHostExitPayload) => void) => void;
   startBroadcast: (payload: MultiplayerLobbySnapshot) => void;
   updateLobbySnapshot?: (payload: MultiplayerLobbySnapshot) => void;
   requestJoin: (payload: MultiplayerJoinRequest) => void;
   setReady: (payload: MultiplayerReadyUpdate) => void;
+  kickPlayer?: (payload: { lobbyId: string; playerId: string }) => void;
   leaveLobby: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;
   sendHeartbeat?: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;
   stopBroadcast: () => void;

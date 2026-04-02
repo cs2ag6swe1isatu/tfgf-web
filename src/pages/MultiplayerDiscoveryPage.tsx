@@ -4,16 +4,18 @@ import { useGameStore } from "../store/gameStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { usePlayerStore } from "../store/playerStore";
 import { LobbyList } from "../components/multiplayer/LobbyList";
-import type { MultiplayerBridge, MultiplayerDiscoveredPayload } from "../types/multiplayer";
+import type { MultiplayerBridge, MultiplayerDiscoveredPayload, MultiplayerHostExitPayload } from "../types/multiplayer";
 
 const MultiplayerDiscovery = () => {
   const setScreen = useGameStore((s) => s.setScreen);
   const setLobbyId = useMultiplayerStore((s) => s.setLobbyId);
   const setLobbyRole = useMultiplayerStore((s) => s.setLobbyRole);
+  const setHostAddress = useMultiplayerStore((s) => s.setHostAddress);
   const setCurrentPlayerId = useMultiplayerStore((s) => s.setCurrentPlayerId);
   const addOrUpdatePlayer = useMultiplayerStore((s) => s.addOrUpdatePlayer);
   const addOrUpdateDiscoveredHost = useMultiplayerStore((s) => s.addOrUpdateDiscoveredHost);
   const discoveredHosts = useMultiplayerStore((s) => s.discoveredHosts);
+  const removeDiscoveredHost = useMultiplayerStore((s) => s.removeDiscoveredHost);
   const pruneStaleDiscoveredHosts = useMultiplayerStore((s) => s.pruneStaleDiscoveredHosts);
 
   const player = usePlayerStore((s) => s.getPlayer());
@@ -31,6 +33,7 @@ const MultiplayerDiscovery = () => {
 
     setLobbyId(selectedLobbyId);
     setLobbyRole("client");
+    setHostAddress(discovered.hostAddress);
     setCurrentPlayerId(player.id);
     addOrUpdatePlayer(player, { isHost: false, isReady: false });
     console.log('[discovery] requesting join to', discovered.hostAddress, 'lobby', selectedLobbyId, 'player', player.id);
@@ -60,31 +63,50 @@ const MultiplayerDiscovery = () => {
 
   const handleBack = () => setScreen("multiplayer-menu");
 
-  // Start LAN discovery on mount
+  // Start discovery on mount. request every few seconds, and subscribe to host arrival.
   useEffect(() => {
     if (!multiplayerBridge) return;
 
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
-      addOrUpdateDiscoveredHost(payload);
+      if(payload.isPrivate){
+        removeDiscoveredHost(payload.lobbyId);
+      } else {
+        addOrUpdateDiscoveredHost(payload);
+      }
     };
+
+    const onHostExitCb = (payload: MultiplayerHostExitPayload) => {
+      console.log(`[discovery] host left, lobbyId=${payload.lobbyId}`);
+      removeDiscoveredHost(payload.lobbyId);
+    }
 
     multiplayerBridge.startDiscovery();
     multiplayerBridge.onHostFound(onHostFoundCb);
+    multiplayerBridge.onHostExit?.(onHostExitCb);
+
+    const discoveryTick = () => {
+      multiplayerBridge.discoveryRequest?.();
+    };
+
+    discoveryTick();
+    const intervalId = window.setInterval(discoveryTick, 3000);
 
     return () => {
       try {
         multiplayerBridge.offHostFound?.(onHostFoundCb);
+        multiplayerBridge.offHostExit?.(onHostExitCb);
         multiplayerBridge.stopDiscovery();
       } catch {
         void 0;
       }
+      window.clearInterval(intervalId);
     };
-  }, [addOrUpdateDiscoveredHost, multiplayerBridge]);
+  }, [addOrUpdateDiscoveredHost, removeDiscoveredHost, multiplayerBridge]);
 
   // Periodically prune stale hosts
   useEffect(() => {
-    const TTL = 8000; // ms — consider ~4x broadcast interval
-    const INTERVAL = 3000;
+    const TTL = 4500; // ms — consider ~4x broadcast interval
+    const INTERVAL = 1500;
     const id = setInterval(() => {
       try {
         pruneStaleDiscoveredHosts(TTL);
@@ -133,7 +155,9 @@ const MultiplayerDiscovery = () => {
         {/* Middle: Active Lobbies */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h5" sx={{ mb: 2 }}>Active Lobbies</Typography>
-          <LobbyList onJoinLobby={handleJoinLobby} lobbies={discoveredHosts.map((d) => ({
+          <LobbyList onJoinLobby={handleJoinLobby} lobbies={discoveredHosts
+          .filter((d) => !d.isPrivate)
+          .map((d) => ({
             id: d.lobbyId,
             hostName: d.hostName || d.hostId,
             hostLevel: d.hostLevel ?? 1,
@@ -141,6 +165,7 @@ const MultiplayerDiscovery = () => {
             difficulty: d.difficulty,
             playerCount: d.playerCount || 1,
             maxPlayers: d.maxPlayers || 4,
+            isPrivate: d.isPrivate,
           }))} />
         </Box>
 

@@ -5,17 +5,30 @@ import { usePlayerStore } from "../store/playerStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { useTriviaStore } from "../store/triviaStore";
 import { PlayerList } from "../components/multiplayer/PlayerList";
+import { Globe, Lock } from "pixelarticons/react";
+
 import type { MultiplayerBridge, MultiplayerDiscoveredPayload, MultiplayerLobbySnapshot, LobbyMember } from "../types/multiplayer";
 
+/**
+ * Todo: make heartbeats dynamic; lower interval for lower player count; higher for higher player count;
+ */
 const MultiplayerLobby = () => {
+  /**
+   * --- shared game state / navigation ---
+   */
   const setScreen = useGameStore((s) => s.setScreen);
   const setModalScreen = useGameStore((s) => s.setModalScreen);
   const gameConfig = useGameStore((s) => s.gameConfig);
 
+  /**
+   * --- multiplayer store state ---
+   */
   const lobbyRole = useMultiplayerStore((s) => s.lobbyRole);
   const lobbyId = useMultiplayerStore((s) => s.lobbyId);
   const players = useMultiplayerStore((s) => s.players);
   const hostAddress = useMultiplayerStore((s) => s.hostAddress);
+  const isPrivate = useMultiplayerStore((s) => s.isPrivate);
+  const setPrivate = useMultiplayerStore((s) => s.setPrivate);
   const addOrUpdatePlayer = useMultiplayerStore((s) => s.addOrUpdatePlayer);
   const removePlayer = useMultiplayerStore((s) => s.removePlayer);
   const setLobbyRole = useMultiplayerStore((s) => s.setLobbyRole);
@@ -40,8 +53,8 @@ const MultiplayerLobby = () => {
   const lastHostSeenRef = useRef(Date.now());
   const hostDisconnectIntervalRef = useRef<number | null>(null);
   const hasHandledHostExitRef = useRef(false);
-  const HOST_DISCONNECT_TIMEOUT_MS = 9000;
-  const HOST_CHECK_INTERVAL_MS = 2000;
+  const HOST_DISCONNECT_TIMEOUT_MS = 6000;
+  const HOST_CHECK_INTERVAL_MS = 1000;
 
   const handleHostExit = useCallback(() => {
     console.log('[renderer] handling host exit for lobby', lobbyId);
@@ -52,7 +65,6 @@ const MultiplayerLobby = () => {
       hostDisconnectIntervalRef.current = null;
     }
     multiplayerBridge?.stopDiscovery();
-    multiplayerBridge?.stopBroadcast();
     resetMultiplayer();
     setScreen("multiplayer-menu");
   }, [multiplayerBridge, resetMultiplayer, setScreen]);
@@ -77,6 +89,27 @@ const MultiplayerLobby = () => {
     setScreen("question");
   };
 
+  const handleKick = (playerId: string) => {
+    if (lobbyRole !== "host" || !lobbyId) return;
+    console.log('[renderer] kicking player', playerId);
+    removePlayer(playerId);
+    const updatedPlayers = players.filter((p) => p.id !== playerId);
+    window.multiplayer?.updateLobbySnapshot({
+      lobbyId: lobbyId,
+      hostId: player.id,
+      hostName: player.name,
+      hostLevel: player.level,
+      playerCount: updatedPlayers.length || 1,
+      maxPlayers: 4,
+      category: gameConfig.category,
+      difficulty: gameConfig.difficulty,
+      isPrivate,
+      lastActive: new Date().toISOString(),
+      players: updatedPlayers,
+    });
+  };
+
+
   const handleLeaveLobby = () => {
     if (lobbyRole === "client" && lobbyId && hostAddress) {
       multiplayerBridge?.leaveLobby({ lobbyId, hostAddress, playerId: player.id});
@@ -88,6 +121,9 @@ const MultiplayerLobby = () => {
     setScreen("multiplayer-menu");
   };
 
+  /**
+   * Client path: detect host disconnect, maintain heartbeat, and keep lobby data synced.
+   */
   useEffect(() => {
     if (!multiplayerBridge || lobbyRole !== "client") return;
 
@@ -118,12 +154,19 @@ const MultiplayerLobby = () => {
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
       if (lobbyId && payload.lobbyId !== lobbyId) return;
       lastHostSeenRef.current = Date.now();
+      const amIStillInLobby = payload.players.some((p) => p.id === player.id);
+      if(!amIStillInLobby){
+        console.warn("Host found but current player is not in the lobby anymore, likely got kicked. Forcing leave.");
+        handleHostExit();
+        return;
+      }
       syncLobbySnapshot(payload, payload.hostAddress);
     };
 
     const onHostExitCb = (payload : { lobbyId: string }) => {
       console.log('[renderer] onHostExitCb', payload, { lobbyId });
-      if (!lobbyId || payload.lobbyId === lobbyId){
+      // Only handle host-exit for the lobby we're currently in.
+      if (lobbyId && payload.lobbyId === lobbyId) {
         handleHostExit();
       }
     };
@@ -133,8 +176,12 @@ const MultiplayerLobby = () => {
     multiplayerBridge.onHostExit(onHostExitCb);
 
     const heartbeatInterval = window.setInterval(() => {
-      if (lobbyId && hostAddress && player.id && multiplayerBridge.sendHeartbeat) {
-        multiplayerBridge.sendHeartbeat({ lobbyId, hostAddress, playerId: player.id });
+      if (lobbyId && player.id && multiplayerBridge.sendHeartbeat) {
+        multiplayerBridge.sendHeartbeat({
+          lobbyId,
+          hostAddress: hostAddress || "",
+          playerId: player.id,
+        });
       }
     }, 3000);
 
@@ -160,10 +207,12 @@ const MultiplayerLobby = () => {
     HOST_DISCONNECT_TIMEOUT_MS,
   ]);
 
+  /**
+   * Host path: accept join/ready/leave events from clients + broadcast current lobby snapshot.
+   */
   useEffect(() => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
-    // Set up listeners for player events (host only)
     const handlePlayerJoined = (p: LobbyMember) => {
       console.log('[renderer] onPlayerJoined', p?.id);
       addOrUpdatePlayer(p, { isHost: false, isReady: false });
@@ -192,6 +241,7 @@ const MultiplayerLobby = () => {
       maxPlayers: 4,
       category: gameConfig.category,
       difficulty: gameConfig.difficulty,
+      isPrivate,
       lastActive: new Date().toISOString(),
       players,
     };
@@ -219,6 +269,7 @@ const MultiplayerLobby = () => {
       maxPlayers: 4,
       category: gameConfig.category,
       difficulty: gameConfig.difficulty,
+      isPrivate,
       lastActive: new Date().toISOString(),
       players,
     };
@@ -226,7 +277,7 @@ const MultiplayerLobby = () => {
     if (typeof multiplayerBridge.updateLobbySnapshot === "function") {
       multiplayerBridge.updateLobbySnapshot(payload);
     }
-  }, [players, gameConfig, lobbyId, lobbyRole, multiplayerBridge, player.id, player.name, player.level]);
+  }, [players, gameConfig, lobbyId, lobbyRole, multiplayerBridge, player.id, player.name, player.level, isPrivate]);
 
   const handleReadyToggle = (playerId: string, ready: boolean) => {
     const targetPlayer = players.find((p) => p.id === playerId);
@@ -277,7 +328,22 @@ const MultiplayerLobby = () => {
       }}
     >
       <Box sx={{ mt: 4 }}>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+          <Box sx={{ display: "flex", justifyContent: "left", mt: 1 }}>
+            {lobbyRole === "host" && (
+              <Button
+                sx={{ gap: 1 }}
+                variant={isPrivate ? "contained" : "outlined"}
+                color={isPrivate ? "warning" : "secondary"}
+                onClick={() => setPrivate(!isPrivate)}
+              >
+                {isPrivate ? <Lock width={16} height={16} /> : <Globe width={16} height={16} />}
+                {isPrivate ? "Private" : "Public"}
+              </Button>
+            )}
+
+          </Box>
           <Typography variant="h6">Lobby: {currentLobbyId}</Typography>
           <Button onClick={handleLeaveLobby}>Back</Button>
         </Box>
@@ -286,22 +352,24 @@ const MultiplayerLobby = () => {
           <Typography variant="h5" sx={{ mb: 2 }}>
             Players
           </Typography>
-          <PlayerList players={allPlayers} isHost={lobbyRole === "host"} onReadyToggle={handleReadyToggle} />
+          <PlayerList players={allPlayers} isHost={lobbyRole === "host"} onReadyToggle={handleReadyToggle} onKick={handleKick} />
         </Box>
 
         <Box sx={{ display: "flex", justifyContent: "center", gap: 2, maxWidth: "600px", mx: "auto" }}>
           {lobbyRole === "host" ? (
-            <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
-              <Button variant="outlined" onClick={() => setModalScreen("category")} sx={{ flex: 1 }}>
-                {gameConfig.category || "Select Category"}
-              </Button>
-              <Button variant="contained" onClick={handleStartGame} disabled={!canStart} sx={{ flex: 1 }}>
-                Start Game
-              </Button>
-              <Button variant="outlined" onClick={() => setModalScreen("difficulty")} sx={{ flex: 1 }}>
-                {gameConfig.difficulty || "Select Difficulty"}
-              </Button>
-            </Box>
+            <>
+              <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
+                <Button variant="outlined" onClick={() => setModalScreen("category")} sx={{ flex: 1 }}>
+                  {gameConfig.category || "Select Category"}
+                </Button>
+                <Button variant="contained" onClick={handleStartGame} disabled={!canStart} sx={{ flex: 1 }}>
+                  Start Game
+                </Button>
+                <Button variant="outlined" onClick={() => setModalScreen("difficulty")} sx={{ flex: 1 }}>
+                  {gameConfig.difficulty || "Select Difficulty"}
+                </Button>
+              </Box>
+            </>
           ) : (
             <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
               <Button

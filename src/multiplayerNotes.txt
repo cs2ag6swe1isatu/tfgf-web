@@ -67,6 +67,9 @@ Skill recommendations:
  - Don't trust client-side scores
 
 6. Disconnection Handling
+- heartbeat intervals for both host and client to prune stale / disconnected players
+- internal callbacks for host-exit packets emitted from stopBroadcast
+
 
 Issue: No graceful handling of client disconnects during gameplay.
 

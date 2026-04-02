@@ -13,6 +13,7 @@ export interface MultiplayerStateData {
   hostAddress: string | null;
   players: LobbyMember[];
   lobbyState: LobbyState;
+  isPrivate: boolean;
   currentPlayerId: string | null;
   discoveredHosts: DiscoveredHost[];
 }
@@ -28,6 +29,8 @@ export interface MultiplayerActions {
   setLobbyRole: (role: LobbyRole | null) => void;
   setLobbyId: (id: string | null) => void;
   setHostId: (id: string | null) => void;
+  setHostAddress: (address: string | null) => void;
+  setPrivate: (isPrivate: boolean) => void;
   addOrUpdatePlayer: (player: Player | LobbyMember, opts?: { isHost?: boolean; isReady?: boolean }) => void;
   removePlayer: (playerId: string) => void;
   setPlayerReady: (playerId: string, ready: boolean) => void;
@@ -51,6 +54,7 @@ const initialState: MultiplayerStateData = {
   hostAddress: null,
   players: [],
   lobbyState: "lobby",
+  isPrivate: false,
   currentPlayerId: null,
   discoveredHosts: [],
 };
@@ -79,6 +83,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   setLobbyRole: (role) => set({ lobbyRole: role }),
   setLobbyId: (id) => set({ lobbyId: id }),
   setHostId: (id) => set({ hostId: id }),
+  setHostAddress: (address) => set({ hostAddress: address }),
+  setPrivate: (isPrivate) => set({ isPrivate }),
 
   addOrUpdateDiscoveredHost: (host) => {
     if (!host.lobbyId || !host.hostId) return;
@@ -108,7 +114,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     });
   },
 
-  removeDiscoveredHost: (lobbyId) =>
+  removeDiscoveredHost: (lobbyId: string) =>
     set((state) => ({ discoveredHosts: state.discoveredHosts.filter((h) => h.lobbyId !== lobbyId) })),
 
   pruneStaleDiscoveredHosts: (ttlMs) => {
@@ -162,7 +168,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         rank: getRankForLevel(p.level),
       })),
       lobbyState: state.lobbyState,
+      isPrivate: snapshot.isPrivate ?? state.isPrivate,
     })),
+
 
   resetMultiplayer: () => set({ ...initialState }),
 }));

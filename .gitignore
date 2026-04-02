@@ -87,6 +87,8 @@ typings/
 
 # Vite
 .vite/
+renderer/
+renderer/main_window/
 
 # Electron-Forge
 out/
