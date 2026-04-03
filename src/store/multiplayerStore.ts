@@ -16,6 +16,8 @@ export interface MultiplayerStateData {
   isPrivate: boolean;
   currentPlayerId: string | null;
   discoveredHosts: DiscoveredHost[];
+  joinStatus: 'idle' | 'joining' | 'joined'; // set grace period for joining to prevent multiple join attempts in quick succession / receiving stale snapshots
+  setJoinStatus: (status: 'idle' | 'joining' | 'joined') => void;
 }
 
 export interface MultiplayerSelectors {
@@ -57,6 +59,7 @@ const initialState: MultiplayerStateData = {
   isPrivate: false,
   currentPlayerId: null,
   discoveredHosts: [],
+  joinStatus: 'idle',
 };
 
 export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
@@ -85,6 +88,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   setHostId: (id) => set({ hostId: id }),
   setHostAddress: (address) => set({ hostAddress: address }),
   setPrivate: (isPrivate) => set({ isPrivate }),
+  setJoinStatus: (status) => set({ joinStatus: status }),
 
   addOrUpdateDiscoveredHost: (host) => {
     if (!host.lobbyId || !host.hostId) return;

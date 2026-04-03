@@ -369,7 +369,7 @@ function leaveLobby(payload: MultiplayerLeaveRequest) {
   const s = createSocket();
   const packet: MultiplayerPacket = { type: "leave-request", payload };
   const data = Buffer.from(JSON.stringify(packet));
-  s.send(data, 0, data.length, BROADCAST_PORT, payload.hostAddress, (err) => {
+  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
     if (err) console.warn('[preload] send leave-request error', err);
   });
 }

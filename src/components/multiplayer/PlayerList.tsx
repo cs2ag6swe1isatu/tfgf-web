@@ -49,9 +49,7 @@ export const PlayerList = ({ players, isHost, onKick }: PlayerListProps) => {
                 color="error"
                 size="small"
                 onClick={() => {
-                  if (window.confirm(`Kick ${player.name}?`)) {
-                    onKick(player.id);
-                  }
+                  onKick(player.id);
                 }}
               >
                 Kick

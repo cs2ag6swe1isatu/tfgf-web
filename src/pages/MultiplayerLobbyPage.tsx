@@ -53,6 +53,7 @@ const MultiplayerLobby = () => {
   const lastHostSeenRef = useRef(Date.now());
   const hostDisconnectIntervalRef = useRef<number | null>(null);
   const hasHandledHostExitRef = useRef(false);
+  const hasConfirmedJoinRef = useRef(false);
   const HOST_DISCONNECT_TIMEOUT_MS = 6000;
   const HOST_CHECK_INTERVAL_MS = 1000;
 
@@ -155,12 +156,20 @@ const MultiplayerLobby = () => {
       if (lobbyId && payload.lobbyId !== lobbyId) return;
       lastHostSeenRef.current = Date.now();
       const amIStillInLobby = payload.players.some((p) => p.id === player.id);
-      if(!amIStillInLobby){
-        console.warn("Host found but current player is not in the lobby anymore, likely got kicked. Forcing leave.");
-        handleHostExit();
-        return;
+      if(amIStillInLobby){
+        if(!hasConfirmedJoinRef.current){
+          hasConfirmedJoinRef.current = true;
+          console.log('[renderer] confirming join for lobby', payload.lobbyId);
+        }
+        syncLobbySnapshot(payload, payload.hostAddress);
+      } else {
+        if(hasConfirmedJoinRef.current){
+          console.warn('[renderer] host found but I am not in the player list, treating as host exit for lobby', payload.lobbyId);
+          handleHostExit();
+        } else {
+          console.log('[renderer] Ignoring host found because I have not confirmed join yet, lobbyId:', payload.lobbyId);
+        }
       }
-      syncLobbySnapshot(payload, payload.hostAddress);
     };
 
     const onHostExitCb = (payload : { lobbyId: string }) => {
