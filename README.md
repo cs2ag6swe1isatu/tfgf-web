@@ -82,6 +82,4 @@ A: Use `npm start` with Electron for real UDP networking.
 **Tip**: Keep Vite dev server running and just refresh browser tabs for instant feedback — much faster than restarting Electron!
 
 todo-next:
-- race condition on join, host heartbeat sends old snapshot packets, self-aware client
-kicks itself, host receive join request, update snapshot
-
+- gameplay packets and sync
