@@ -1,8 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { Box, Typography, Button, Card } from "@mui/material";
-import { useGameStore } from "../store/gameStore";
-import { useTriviaStore } from "../store/triviaStore";
-import { usePlayerStore } from "../store/playerStore";
+import { Phase, useTriviaStore, useMultiplayerStore, useGameStore, usePlayerStore  } from "../store";
 import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
 
@@ -13,25 +11,149 @@ const QuestionPage = () => {
     phase,
     selectedAnswer,
     timer,
-    selectAnswer,
+    playerScores,
+    rankings,
+    // selectAnswer,
+    submitAnswer,
+    receiveRemoteAnswer,
+    scoreCurrentQuestion,
+    finalizeRankings,
     nextPhase,
   } = useTriviaStore();
   const {
     applySessionProgress,
   } = usePlayerStore();
-
+  const {
+    lobbyRole,
+    players,
+  } = useMultiplayerStore();
   const { setScreen } = useGameStore();
+  const mode = useGameStore((state) => state.gameConfig.mode);
+  const multiplayerBridge = (window as any).multiplayer;
 
-  // Timer effect
+  const handleAnswerClick = useCallback(
+    (answer:string) => {
+      submitAnswer(answer);
+    },
+    [submitAnswer]
+  );
+
+  // Timer and sync effect
   useEffect(() => {
     if (phase !== 'readying' && phase !== 'answering' && phase !== 'asking' && phase !== 'scoring') return;
 
-    const timerInterval = setInterval(() => {
-      useTriviaStore.getState().tickTimer();
-    }, 1000);
+    let timerInterval: number;
 
-    return () => clearInterval(timerInterval);
+    if (mode === 'solo' || lobbyRole === 'host') {
+      timerInterval = window.setInterval(() => {
+        useTriviaStore.getState().tickTimer();
+
+        if (mode === 'multiplayer' && lobbyRole === 'host') {
+          const state = useTriviaStore.getState();
+          multiplayerBridge?.broadcastGameState({
+            phase: state.phase,
+            timer: state.timer,
+            currentIndex: state.currentIndex,
+            seed: state.seed,
+            category: state.category,
+            difficulty: state.difficulty,
+            questionLimit: state.questionLimit,
+            questionTimer: state.questionTimer,
+            answerTimer: state.answerTimer,
+          });
+        }
+      }, 1000);
+    }
+
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+    };
+  }, [phase, mode, lobbyRole]);
+
+  /**
+   * Host path
+   */
+  useEffect(() => {
+    if(mode !== "multiplayer" || lobbyRole !== 'host' || !multiplayerBridge) return;
+    const handleAnswerSubmission = (payload: { lobbyId: string; playerId: string; questionIndex: number; answer: string }) => {
+      if (payload.questionIndex !== currentIndex) return;
+      receiveRemoteAnswer(payload.playerId, payload.questionIndex, payload.answer);
+    };
+
+    multiplayerBridge.onAnswerSubmission?.(handleAnswerSubmission);
+    return()=>{
+      multiplayerBridge.offAnswerSubmission?.(handleAnswerSubmission);
+    };
+  }, [mode, lobbyRole, multiplayerBridge, currentIndex, receiveRemoteAnswer]);
+
+
+  const hasScoredRef = useRef(false);
+
+  useEffect(() => {
+    if(hasScoredRef.current) return;
+    if(phase === "scoring" && mode === "multiplayer" && lobbyRole === "host"){
+      hasScoredRef.current = true;
+      scoreCurrentQuestion();
+      finalizeRankings();
+      const state = useTriviaStore.getState();
+      multiplayerBridge?.broadcastGameState?.({
+        phase: state.phase,
+        timer: state.timer,
+        currentIndex: state.currentIndex,
+        seed: state.seed,
+        category: state.category,
+        difficulty: state.difficulty,
+        questionLimit: state.questionLimit,
+        questionTimer: state.questionTimer,
+        answerTimer: state.answerTimer,
+        playerScores: state.playerScores,
+        rankings: state.rankings,
+      });
+    }
+  }, [phase, mode, lobbyRole, multiplayerBridge, scoreCurrentQuestion, finalizeRankings]);
+  
+  useEffect(() => {
+    if(phase !== "scoring"){
+      hasScoredRef.current = false;
+    }
   }, [phase]);
+  /**
+   * Client path
+   */
+  useEffect(() => {
+    if(mode !== 'multiplayer' || lobbyRole !== 'client' || !multiplayerBridge) return;
+    const handleGameStateSync = (payload: {
+      phase: Phase;
+      timer: number;
+      currentIndex: number;
+      seed?: number;
+      category?: string;
+      difficulty?: string;
+      questionLimit?: number;
+      questionTimer?: number;
+      answerTimer?: number;
+    }) => {
+      // replace with TriviaState later?
+      const nextState: any = { 
+        phase: payload.phase,
+        timer: payload.timer,
+        currentIndex: payload.currentIndex,
+      };
+
+      if (payload.seed !== undefined) nextState.seed = payload.seed;
+      if (payload.category !== undefined) nextState.category = payload.category;
+      if (payload.difficulty !== undefined) nextState.difficulty = payload.difficulty;
+      if (payload.questionLimit !== undefined) nextState.questionLimit = payload.questionLimit;
+      if (payload.questionTimer !== undefined) nextState.questionTimer = payload.questionTimer;
+      if (payload.answerTimer !== undefined) nextState.answerTimer = payload.answerTimer;
+
+      useTriviaStore.setState(nextState);
+    };
+    multiplayerBridge.onGameStateSync(handleGameStateSync);
+    return () => {
+      multiplayerBridge.offGameStateSync?.(handleGameStateSync);
+    };
+  }, [mode, lobbyRole, multiplayerBridge]);
 
   // Navigate to result when game ends
   useEffect(() => {
@@ -82,6 +204,11 @@ const QuestionPage = () => {
   const currentQuestion = questions[currentIndex];
 
   const renderScoringPhase = () => {
+    const scoreEntries = Object.entries(playerScores).map(([playerId, score]) => {
+      const player = players.find((p) => p.id === playerId);
+      return { playerId, name: player?.name ?? "Unknown", score };
+    });
+
     return (
       <Box
         sx={{
@@ -159,6 +286,26 @@ const QuestionPage = () => {
           >
             Next
           </Button>
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            Scoreboard
+          </Typography>
+
+          {scoreEntries.map((entry) => (
+            <Box key={entry.playerId} sx={{ mb: 1 }}>
+              <Typography>
+                {entry.name}: {entry.score}
+              </Typography>
+            </Box>
+          ))}
+
+          <Button
+            variant="contained"
+            size="large"
+            onClick={() => nextPhase()}
+            sx={{ mt: 3 }}
+          >
+            Continue
+          </Button>
         </Box>
       </Box>
     );
@@ -225,7 +372,7 @@ const QuestionPage = () => {
               {currentQuestion?.text || "Loading..."}
             </Typography>
           </Card>
-
+          {/*Options*/}
           {phase !== 'asking' && (
             <Box sx={{
               gridRow: '3',
@@ -239,8 +386,8 @@ const QuestionPage = () => {
                   fullWidth
                   key={index}
                   variant={selectedAnswer === answer ? "contained" : "outlined"}
-                  onClick={() => selectAnswer(answer)}
-                  sx={{ py: 2, fontSize: '1.1rem' }}
+                  onClick={() => handleAnswerClick(answer)}
+                  sx={{ py: 2 }}
                 >
                   {answer}
                 </Button>
@@ -266,33 +413,24 @@ const QuestionPage = () => {
         ].sort((a, b) => b.score - a.score);
 
         return (
-          <Box sx={{ gridRow: '2 / span 2', textAlign: 'center', p: 4, overflowY: 'auto' }}>
-            <Typography sx={{ mb: 3, fontSize: '1.3rem', fontWeight: 'bold' }}>
-              Final Rankings
-            </Typography>
+          <Box sx={{ gridRow: "2 / span 2", textAlign: "center", p: 4, overflowY: "auto" }}>
+          <Typography sx={{ mb: 3, fontSize: "1.3rem", fontWeight: "bold" }}>
+            Final Rankings
+          </Typography>
 
-            <Box sx={{ mt: 3 }}>
-              {mockRankings.map((player, index) => (
-                <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #ddd' }}>
-                  <Typography>
-                    #{player.rank} - {player.name}
-                  </Typography>
-                  <Typography>
-                    Score: {player.score} ({player.correct}/{questions.length} correct)
-                  </Typography>
-                </Box>
-              ))}
+          {rankings.map((entry) => (
+            <Box key={entry.playerId} sx={{ mb: 2, p: 2, border: "1px solid #ddd" }}>
+              <Typography>
+                #{entry.rank} - {entry.name}
+              </Typography>
+              <Typography>Score: {entry.score}</Typography>
             </Box>
+          ))}
 
-            <Button 
-              variant="contained" 
-              color="primary" 
-              onClick={() => nextPhase()}
-              sx={{ mt: 4 }}
-            >
-              Next
-            </Button>
-          </Box>
+          <Button variant="contained" color="primary" onClick={() => nextPhase()} sx={{ mt: 4 }}>
+            Finish
+          </Button>
+        </Box>
         );
       }
 

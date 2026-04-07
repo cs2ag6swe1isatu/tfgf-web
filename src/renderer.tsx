@@ -5,6 +5,7 @@ import { CssBaseline, styled, keyframes } from "@mui/material";
 import App from "./App";
 import theme from "./ui/theme";
 import "./index.css";
+import { Cursor } from "./components/ui";
 
 // Initialize mock multiplayer bridge for Vite dev mode
 import "./multiplayer-mock";
@@ -31,6 +32,10 @@ const ScreenContainer = styled('div')({
   height: '100%',
   backgroundColor: '#000',
   overflow: 'hidden',
+  'WebkitUserSelect': 'none',
+  'MozUserSelect': 'none',
+  'msUserSelect': 'none',
+  'userSelect': 'none',
 });
 
 const ContentLayer = styled('div')({
@@ -177,6 +182,7 @@ if (rootElement) {
           <App />
       </RetroProcessor>
       </ResolutionFixer>
+      <Cursor />
     </ThemeProvider>
   );
 

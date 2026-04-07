@@ -1,4 +1,5 @@
-import { Rank } from "../constants";
+import { Phase } from "../store";
+import { Category, Difficulty, Rank } from "../constants";
 
 export interface LobbyMember {
   id: string;
@@ -18,10 +19,22 @@ export interface MultiplayerBroadcastPayload {
   hostAddress?: string;
   playerCount?: number;
   maxPlayers?: number;
-  category?: string;
-  difficulty?: string;
+  category?: Category;
+  difficulty?: Difficulty;
   lastActive?: string;
   isPrivate?: boolean;
+}
+
+export interface MultiplayerGameState {
+  phase: Phase;
+  timer: number;
+  currentIndex: number;
+  seed?: number;
+  category?: Category;
+  difficulty?: Difficulty;
+  questionLimit?: number;
+  questionTimer?: number;
+  answerTimer?: number;
 }
 
 export interface MultiplayerDiscoveredPayload extends MultiplayerLobbySnapshot {
@@ -95,6 +108,12 @@ export interface MultiplayerBridge {
   leaveLobby: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;
   sendHeartbeat?: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;
   stopBroadcast: () => void;
+  broadcastGameState: (gameState: MultiplayerGameState) => void;
+  onGameStateSync: (cb: (gameState: MultiplayerGameState) => void) => void;
+  offGameStateSync: (cb: (gameState: MultiplayerGameState) => void) => void;
+  onAnswerSubmission: (cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void) => void;
+  offAnswerSubmission: (cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void) => void;
+  sendAnswerSubmission: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void;
 }
 
 declare global {

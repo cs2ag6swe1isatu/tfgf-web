@@ -45,7 +45,7 @@ const theme = createTheme({
     },
     h1: { fontSize: '5rem', textShadow: `4px 4px 0px ${alpha(NEON_GREEN, 0.2)}`},
     h2: { fontSize: '3.5rem' },
-    button: { fontSize: '1.2rem', fontWeight: 700 },
+    button: { fontSize: '1.25rem', fontWeight: 700 },
   },
   components: {
     MuiCssBaseline: {

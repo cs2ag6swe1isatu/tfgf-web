@@ -10,7 +10,9 @@ import type {
   MultiplayerLeaveRequest,
   MultiplayerLobbySnapshot,
   MultiplayerReadyUpdate,
+  MultiplayerGameState,
 } from "./types/multiplayer";
+import { off } from "cluster";
 
 type MultiplayerPacket =
   | { type: "lobby-broadcast"; snapshot: MultiplayerLobbySnapshot }
@@ -19,7 +21,9 @@ type MultiplayerPacket =
   | { type: "ready-update"; payload: MultiplayerReadyUpdate }
   | { type: "leave-request"; payload: MultiplayerLeaveRequest }
   | { type: "heartbeat"; payload: { lobbyId: string; playerId: string } }
-  | { type: "host-exit"; payload: MultiplayerHostExitPayload };
+  | { type: "host-exit"; payload: MultiplayerHostExitPayload }
+  | { type: "game-state"; payload: MultiplayerGameState }
+  | { type: "answer-submission"; payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string } };
 
 const BROADCAST_PORT = 41234;
 const BROADCAST_ADDR = "255.255.255.255";
@@ -34,6 +38,8 @@ const onPlayerJoinedCbs = new Set<(player: LobbyMember) => void>();
 const onPlayerReadyChangedCbs = new Set<(playerId: string, ready: boolean) => void>();
 const onPlayerLeftCbs = new Set<(playerId: string) => void>();
 const onHostExitCbs = new Set<(payload: MultiplayerHostExitPayload) => void>();
+const onGameStateSyncCbs = new Set<(payload: MultiplayerGameState) => void>();
+const onAnswerSubmissionCbs = new Set<(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void>();
 
 let activeSnapshot: MultiplayerLobbySnapshot | null = null;
 let activeMode: "host" | "client" | null = null;
@@ -66,6 +72,8 @@ function createSocket() {
 
   return socket;
 }
+
+// ------- shared functions -------
 
 function emitHostFound(snapshot: MultiplayerLobbySnapshot, hostAddress: string) {
   const payload: MultiplayerDiscoveredPayload = {
@@ -157,6 +165,25 @@ function updateHostSnapshot(mutator: (current: MultiplayerLobbySnapshot) => Mult
   emitHostFound(activeSnapshot, activeSnapshot.hostAddress ?? BROADCAST_ADDR);
 }
 
+
+function broadcastGameState(gameState: MultiplayerGameState) {
+  const s = createSocket();
+  const packet: MultiplayerPacket = { type: "game-state", payload: gameState };
+  const payload = Buffer.from(JSON.stringify(packet));
+  s.send(payload, 0, payload.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
+    if(err) console.warn('[preload] broadcast game state error', err);
+  });
+}
+
+function sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) {
+  const s = createSocket();
+  const packet: MultiplayerPacket = { type: "answer-submission", payload };
+  const data = Buffer.from(JSON.stringify(packet));
+  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
+    if (err) console.warn('[preload] send answer-submission error', err);
+  });
+}
+
 function handlePacket(raw: string, senderAddress: string) {
   console.log('[preload] handlePacket raw from', senderAddress, '-', raw.slice(0, 300));
   let packet: MultiplayerPacket | null = null;
@@ -198,6 +225,13 @@ function handlePacket(raw: string, senderAddress: string) {
       console.log('[preload] clearing host state for lobby', packet.payload.lobbyId);
       activeSnapshot = null;
       activeMode = null;
+    }
+    return;
+  }
+
+  if (packet.type === "game-state") {
+    if (activeMode === "client") {
+      onGameStateSyncCbs.forEach((cb) => cb(packet.payload));
     }
     return;
   }
@@ -266,6 +300,13 @@ function handlePacket(raw: string, senderAddress: string) {
     };
     broadcastSnapshot(activeSnapshot);
     onPlayerLeftCbs.forEach((cb) => cb(packet.payload.playerId));
+  }
+
+  if (packet.type === "answer-submission") {
+    if (packet.payload.lobbyId !== activeSnapshot.lobbyId) return;
+    console.log('[preload] answer-submission from player', packet.payload.playerId, 'questionIndex', packet.payload.questionIndex, 'answer', packet.payload.answer);
+    onAnswerSubmissionCbs.forEach((cb) => cb(packet.payload));
+    return;
   }
 }
 
@@ -415,10 +456,24 @@ contextBridge.exposeInMainWorld("multiplayer", {
   offHostExit: (cb: (payload: MultiplayerHostExitPayload) => void) => {
     onHostExitCbs.delete(cb);
   },
+  onGameStateSync: (cb : (payload: MultiplayerGameState) => void) => {
+    onGameStateSyncCbs.add(cb);
+  },
+  offGameStateSync: (cb : (payload: MultiplayerGameState) => void) => {
+    onGameStateSyncCbs.delete(cb);
+  },
+  onAnswerSubmission(cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void) {
+    onAnswerSubmissionCbs.add(cb);
+  },
+  offAnswerSubmission(cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void) {
+    onAnswerSubmissionCbs.delete(cb);
+  },
+  sendAnswerSubmission,
   requestJoin,
   setReady,
   discoveryRequest,
   sendHeartbeat,
   leaveLobby,
   updateLobbySnapshot,
+  broadcastGameState,
 });

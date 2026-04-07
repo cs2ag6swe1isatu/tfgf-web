@@ -1,13 +1,12 @@
 import { useMemo, useEffect, useCallback, useRef } from "react";
 import { Typography, Box, Button } from "@mui/material";
-import { useGameStore } from "../store/gameStore";
-import { usePlayerStore } from "../store/playerStore";
+import { Phase, useGameStore, usePlayerStore, useTriviaStore } from "../store";
 import { useMultiplayerStore } from "../store/multiplayerStore";
-import { useTriviaStore } from "../store/triviaStore";
 import { PlayerList } from "../components/multiplayer/PlayerList";
 import { Globe, Lock } from "pixelarticons/react";
 
 import type { MultiplayerBridge, MultiplayerDiscoveredPayload, MultiplayerLobbySnapshot, LobbyMember } from "../types/multiplayer";
+import { Category, Difficulty } from "../constants";
 
 /**
  * Todo: make heartbeats dynamic; lower interval for lower player count; higher for higher player count;
@@ -19,6 +18,7 @@ const MultiplayerLobby = () => {
   const setScreen = useGameStore((s) => s.setScreen);
   const setModalScreen = useGameStore((s) => s.setModalScreen);
   const gameConfig = useGameStore((s) => s.gameConfig);
+  const setGameConfig = useGameStore((s) => s.setGameConfig);
 
   /**
    * --- multiplayer store state ---
@@ -54,9 +54,11 @@ const MultiplayerLobby = () => {
   const hostDisconnectIntervalRef = useRef<number | null>(null);
   const hasHandledHostExitRef = useRef(false);
   const hasConfirmedJoinRef = useRef(false);
+  const isTransitioningToGameRef = useRef(false);
   const HOST_DISCONNECT_TIMEOUT_MS = 6000;
   const HOST_CHECK_INTERVAL_MS = 1000;
 
+  // we can maybe move these handlers to the store later for readability
   const handleHostExit = useCallback(() => {
     console.log('[renderer] handling host exit for lobby', lobbyId);
     if (hasHandledHostExitRef.current) return;
@@ -77,8 +79,62 @@ const MultiplayerLobby = () => {
     setCurrentPlayerId(player.id);
   };
 
+  // sync if Game started / client joined mid-game
+  const handleGameStateSync = useCallback(
+    async (payload: { 
+      phase: Phase; 
+      timer: number;
+      currentIndex: number;
+      seed: number;
+      category?: Category;
+      difficulty?: Difficulty;
+      questionLimit?: number;
+      questionTimer?: number;
+      answerTimer?: number;
+    }) => {
+      if (payload.phase !== 'readying') return;
+      if (lobbyRole !== 'client') return;
+      if (isTransitioningToGameRef.current) return;
+      isTransitioningToGameRef.current = true;
+
+      const category = payload.category ?? gameConfig.category ?? "General Knowledge";
+      const difficulty = payload.difficulty ?? gameConfig.difficulty ?? "easy";
+      const questionLimit = payload.questionLimit ?? gameConfig.questionLimit ?? 15;
+      const questionTimer = payload.questionTimer ?? gameConfig.questionTimer ?? 5;
+      const answerTimer = payload.answerTimer ?? gameConfig.answerTimer ?? 10;
+
+      setGameConfig({
+        category,
+        difficulty,
+        questionLimit,
+        questionTimer,
+        answerTimer,
+        seed: payload.seed,
+      });
+
+      await startGame({
+        category: category,
+        difficulty: difficulty,
+        questionLimit: questionLimit,
+        mode: "multiplayer",
+        questionTimer: questionTimer,
+        answerTimer: answerTimer,
+        seed: payload.seed,
+      });
+
+      // multiplayerBridge?.offGameStateSync?.(handleGameStateSync);
+      multiplayerBridge.stopDiscovery();
+      setScreen("question");
+    },
+    [gameConfig, lobbyRole, setGameConfig, setScreen, startGame]
+  );
+
   const handleStartGame = async () => {
     resetGame();
+
+    const gameSessionSeed = Math.floor(Math.random() * 1000000);
+    useGameStore.getState().setGameConfig({ seed: gameSessionSeed });
+
     await startGame({
       category: gameConfig.category ?? "General Knowledge",
       difficulty: gameConfig.difficulty ?? "easy",
@@ -86,7 +142,22 @@ const MultiplayerLobby = () => {
       mode: "multiplayer",
       questionTimer: gameConfig.questionTimer ?? 5,
       answerTimer: gameConfig.answerTimer ?? 10,
+      seed: gameSessionSeed,
     });
+
+    const state = useTriviaStore.getState();
+    multiplayerBridge?.broadcastGameState({
+      phase: state.phase,
+      timer: state.timer,
+      currentIndex: state.currentIndex,
+      seed: gameSessionSeed,
+      category: gameConfig.category,
+      difficulty: gameConfig.difficulty,
+      questionLimit: gameConfig.questionLimit,
+      questionTimer: gameConfig.questionTimer,
+      answerTimer: gameConfig.answerTimer,
+    });
+
     setScreen("question");
   };
 
@@ -154,21 +225,26 @@ const MultiplayerLobby = () => {
 
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
       if (lobbyId && payload.lobbyId !== lobbyId) return;
+      if (isTransitioningToGameRef.current) return;
+
       lastHostSeenRef.current = Date.now();
       const amIStillInLobby = payload.players.some((p) => p.id === player.id);
+      
       if(amIStillInLobby){
         if(!hasConfirmedJoinRef.current){
           hasConfirmedJoinRef.current = true;
           console.log('[renderer] confirming join for lobby', payload.lobbyId);
         }
         syncLobbySnapshot(payload, payload.hostAddress);
+        setGameConfig({ category: payload.category, difficulty: payload.difficulty });
+        return;
+      }
+      
+      if(hasConfirmedJoinRef.current){
+        console.warn('[renderer] host found but I am not in the player list, treating as host exit for lobby', payload.lobbyId);
+        handleHostExit();
       } else {
-        if(hasConfirmedJoinRef.current){
-          console.warn('[renderer] host found but I am not in the player list, treating as host exit for lobby', payload.lobbyId);
-          handleHostExit();
-        } else {
-          console.log('[renderer] Ignoring host found because I have not confirmed join yet, lobbyId:', payload.lobbyId);
-        }
+        console.log('[renderer] Ignoring host found because I have not confirmed join yet, lobbyId:', payload.lobbyId);
       }
     };
 
@@ -183,6 +259,7 @@ const MultiplayerLobby = () => {
     window.addEventListener('beforeunload', onBeforeUnload);
     multiplayerBridge.onHostFound(onHostFoundCb);
     multiplayerBridge.onHostExit(onHostExitCb);
+    multiplayerBridge.onGameStateSync(handleGameStateSync);
 
     const heartbeatInterval = window.setInterval(() => {
       if (lobbyId && player.id && multiplayerBridge.sendHeartbeat) {
@@ -203,8 +280,9 @@ const MultiplayerLobby = () => {
       multiplayerBridge.offHostFound?.(onHostFoundCb);
       multiplayerBridge.offHostExit?.(onHostExitCb);
       multiplayerBridge.stopDiscovery();
+      multiplayerBridge.offGameStateSync?.(handleGameStateSync);
       window.removeEventListener('beforeunload', onBeforeUnload);
-      sendLeaveOnUnload();
+      // sendLeaveOnUnload(); // dont unload yet
     };
   }, [
     lobbyId,
@@ -212,8 +290,11 @@ const MultiplayerLobby = () => {
     multiplayerBridge,
     syncLobbySnapshot,
     handleHostExit,
+    handleGameStateSync,
     HOST_CHECK_INTERVAL_MS,
     HOST_DISCONNECT_TIMEOUT_MS,
+    player.id,
+    hostAddress
   ]);
 
   /**

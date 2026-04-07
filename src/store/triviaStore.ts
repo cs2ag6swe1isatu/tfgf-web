@@ -3,6 +3,7 @@ import { Question } from '../types/question';
 import { Mode, Difficulty, Category } from '../constants';
 import type { GameConfig } from './gameStore';
 import { loadQuestions } from '../utils/loadQuestions';
+import { usePlayerStore, useMultiplayerStore } from './';
 
 /**
  * Trivia Store - Game Logic and State Management
@@ -32,6 +33,13 @@ import { loadQuestions } from '../utils/loadQuestions';
 
 export type Phase = 'loading' | 'readying' | 'asking' | 'answering' | 'scoring' | 'ranking' | 'end';
 
+export interface PlayerRanking {
+  playerId: string;
+  name: string;
+  score: number;
+  rank: number;
+}
+
 export interface TriviaState {
   questions: Question[];
   currentIndex: number;
@@ -45,6 +53,11 @@ export interface TriviaState {
   category: Category | null;
   difficulty: Difficulty | null;
   userAnswers: string[];
+  questionLimit: number;
+  seed?: number;
+  playerScores: Record<string, number>;
+  playerAnswers: Record<string, string[]>;
+  rankings: PlayerRanking[];
 }
 
 export interface TriviaActions {
@@ -53,6 +66,10 @@ export interface TriviaActions {
   tickTimer: () => void;
   nextPhase: () => void;
   resetGame: () => void;
+  submitAnswer: (answer: string) => void;
+  receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string) => void;
+  scoreCurrentQuestion: () => void;
+  finalizeRankings: () => void;
 }
 
 const readyTimer = 3; // Seconds to show "Get Ready" before asking first question 
@@ -70,6 +87,11 @@ const initialState: TriviaState = {
   category: null,
   difficulty: null,
   userAnswers: [],
+  questionLimit: 15,
+  seed: undefined,
+  playerScores: {},
+  playerAnswers: {},
+  rankings: [],
 };
 
 export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => ({
@@ -78,12 +100,13 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   /* ---------- Game setup ---------- */
   startGame: async (cfg) => {
     // Accept a snapshot config from the caller (separates UI store from session store)
-    const mode = cfg.mode ?? 'solo';
+    const mode = cfg.mode ?? get().mode;
     const questionTimer = cfg.questionTimer ?? get().questionTimer;
     const answerTimer = cfg.answerTimer ?? get().answerTimer;
-    const category = cfg.category;
-    const difficulty = cfg.difficulty;
-    const questionLimit = cfg.questionLimit ?? 10;
+    const category = cfg.category ?? get().category;
+    const difficulty = cfg.difficulty ?? get().difficulty;
+    const questionLimit = cfg.questionLimit ?? get().questionLimit;
+    const seed = cfg.seed ?? get().seed;
 
     // Input validation
     if (!category || !difficulty || !mode) {
@@ -98,7 +121,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     }
 
     try {
-      const questions = await loadQuestions(category, difficulty, questionLimit);
+      const questions = await loadQuestions(category, difficulty, questionLimit, seed);
 
       if (questions.length === 0) {
         console.warn(`No questions found for category: ${category}, difficulty: ${difficulty}`);
@@ -116,6 +139,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         currentIndex: 0,
         selectedAnswer: "",
         score: 0,
+        seed,
       });
 
       console.log(`Successfully loaded ${questions.length} questions for: ${category} (${difficulty})`);
@@ -329,6 +353,82 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         console.warn(`Unknown phase: ${phase}`);
         break;
     }
+  },
+
+  submitAnswer: (answer: string) => {
+    const { currentIndex, userAnswers, questions, mode } = get();
+    const nextAnswers = [...userAnswers];
+    nextAnswers[currentIndex] = answer;
+    set({ selectedAnswer: answer, userAnswers: nextAnswers });
+    
+    if (mode === "multiplayer" && useMultiplayerStore.getState().lobbyRole === "client") {
+      const bridge = (window as any).multiplayer;
+      const lobbyId = useMultiplayerStore.getState().lobbyId;
+      const playerId = usePlayerStore.getState().getPlayer().id;
+      bridge?.sendAnswerSubmission?.({
+        lobbyId,
+        playerId,
+        questionIndex: currentIndex,
+        answer,
+      });
+    }
+  },
+  receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string) => {
+    const answers = { ...get().playerAnswers };
+    const playerAnswerList = [...(answers[playerId] ?? [])];
+    playerAnswerList[questionIndex] = answer;
+    answers[playerId] = playerAnswerList;
+    set({ playerAnswers: answers });
+  },
+  scoreCurrentQuestion: () => {
+    const state = get();
+    const question = state.questions[state.currentIndex];
+    if(!question) return;
+
+    const nextScores = { ...state.playerScores };
+    const hostId = usePlayerStore.getState().getPlayer().id;
+
+    const hostAnswer = state.selectedAnswer;
+    if (hostAnswer === question.correctAnswer) {
+      nextScores[hostId] = (nextScores[hostId] ?? 0) + 10; // toremember: use constants for scoring rules
+    }
+
+    Object.entries(state.playerAnswers).forEach(([playerId, answers]) => {
+      if(answers[state.currentIndex] === question.correctAnswer) {
+        nextScores[playerId] = (nextScores[playerId] ?? 0) + 10;
+      }
+    });
+    set({ playerScores: nextScores });
+  },
+  finalizeRankings: () => {
+    const players = useMultiplayerStore.getState().players;
+    const hostId = usePlayerStore.getState().getPlayer().id;
+    const scors = get().playerScores;
+
+    const rankingList = [
+      ...players,
+      { id: hostId, name: "You"},
+    ].reduce<Record<string, {playerId: string; name:string; score: number }>>(
+      (acc, player) => {
+        if(!acc[player.id]) {
+          acc[player.id] = {
+            playerId: player.id,
+            name: player.id === hostId ? "You" : player.name,
+            score: scors[player.id] ?? 0,
+          };
+        }
+        return acc;
+      },
+      {}
+    );
+    const sorted = Object.values(rankingList)
+      .sort((a,b) => b.score - a.score)
+      .map((entry, index) => ({
+        ...entry,
+        rank: index + 1,
+      }));
+
+    set({ rankings: sorted });
   },
 
   /* ---------- Reset ---------- */

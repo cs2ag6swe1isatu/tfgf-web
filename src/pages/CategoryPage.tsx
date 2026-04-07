@@ -109,7 +109,6 @@ const CategoryPage = () => {
               color="primary"
               onClick={() => handleSelect(cat)}
               sx={{
-                fontSize: "1.5rem",
                 p: 2,
                 textAlign: 'center',
                 lineHeight: 1.2

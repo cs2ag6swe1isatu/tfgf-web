@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { Player } from "../types/player";
-import type { DiscoveredHost, LobbyMember, MultiplayerLobbySnapshot } from "../types/multiplayer";
+import type { DiscoveredHost, LobbyMember, MultiplayerGameState, MultiplayerLobbySnapshot } from "../types/multiplayer";
 import { getRankForLevel } from "../constants";
+
 
 type LobbyRole = "host" | "client";
 type LobbyState = "lobby" | "discovering";
@@ -17,7 +18,6 @@ export interface MultiplayerStateData {
   currentPlayerId: string | null;
   discoveredHosts: DiscoveredHost[];
   joinStatus: 'idle' | 'joining' | 'joined'; // set grace period for joining to prevent multiple join attempts in quick succession / receiving stale snapshots
-  setJoinStatus: (status: 'idle' | 'joining' | 'joined') => void;
 }
 
 export interface MultiplayerSelectors {
@@ -45,6 +45,7 @@ export interface MultiplayerActions {
   removeDiscoveredHost: (lobbyId: string) => void;
   pruneStaleDiscoveredHosts: (ttlMs: number) => void;
   clearDiscoveredHosts: () => void;
+  setJoinStatus: (status: 'idle' | 'joining' | 'joined') => void;
 }
 
 export type MultiplayerState = MultiplayerStateData & MultiplayerSelectors & MultiplayerActions;
@@ -174,7 +175,6 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       lobbyState: state.lobbyState,
       isPrivate: snapshot.isPrivate ?? state.isPrivate,
     })),
-
 
   resetMultiplayer: () => set({ ...initialState }),
 }));

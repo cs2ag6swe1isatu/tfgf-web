@@ -1,3 +1,4 @@
+import { useDeferredValue } from "react";
 import HomePage from "./pages/HomePage";
 import ModeSelectPage from "./pages/ModeSelectPage";
 import CategoryPage from "./pages/CategoryPage";
@@ -35,8 +36,9 @@ const Overlay: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 export default function App() {
   const screen = useGameStore((state) => state.screen);
   const modalScreen = useGameStore((state) => state.modalScreen);
+  const deferredScreen = useDeferredValue(screen); // small optimization, read concurrently in the bg
 
-  switch (screen) {
+  switch (deferredScreen) {
     case "mode-select":
       return <ModeSelectPage />;
     case "category":

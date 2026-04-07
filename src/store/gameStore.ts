@@ -41,6 +41,7 @@ export interface GameConfig {
   questionLimit: number | null;
   questionTimer: number | null;
   answerTimer: number | null;
+  seed?: number;
 }
 
 export interface Settings {
