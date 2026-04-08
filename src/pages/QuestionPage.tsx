@@ -23,6 +23,7 @@ const QuestionPage = () => {
   const {
     applySessionProgress,
   } = usePlayerStore();
+  const localPlayerId = usePlayerStore((state) => state.getPlayer().id);
   const {
     lobbyRole,
     players,
@@ -30,6 +31,25 @@ const QuestionPage = () => {
   const { setScreen } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
   const multiplayerBridge = (window as any).multiplayer;
+
+  const broadcastMultiplayerState = useCallback(() => {
+    if (mode !== 'multiplayer' || lobbyRole !== 'host') return;
+
+    const state = useTriviaStore.getState();
+    multiplayerBridge?.broadcastGameState?.({
+      phase: state.phase,
+      timer: state.timer,
+      currentIndex: state.currentIndex,
+      seed: state.seed,
+      category: state.category,
+      difficulty: state.difficulty,
+      questionLimit: state.questionLimit,
+      questionTimer: state.questionTimer,
+      answerTimer: state.answerTimer,
+      playerScores: state.playerScores,
+      rankings: state.rankings,
+    });
+  }, [mode, lobbyRole, multiplayerBridge]);
 
   const handleAnswerClick = useCallback(
     (answer:string) => {
@@ -49,18 +69,7 @@ const QuestionPage = () => {
         useTriviaStore.getState().tickTimer();
 
         if (mode === 'multiplayer' && lobbyRole === 'host') {
-          const state = useTriviaStore.getState();
-          multiplayerBridge?.broadcastGameState({
-            phase: state.phase,
-            timer: state.timer,
-            currentIndex: state.currentIndex,
-            seed: state.seed,
-            category: state.category,
-            difficulty: state.difficulty,
-            questionLimit: state.questionLimit,
-            questionTimer: state.questionTimer,
-            answerTimer: state.answerTimer,
-          });
+          broadcastMultiplayerState();
         }
       }, 1000);
     }
@@ -68,7 +77,7 @@ const QuestionPage = () => {
     return () => {
       if (timerInterval) clearInterval(timerInterval);
     };
-  }, [phase, mode, lobbyRole]);
+  }, [phase, mode, lobbyRole, broadcastMultiplayerState]);
 
   /**
    * Host path
@@ -95,28 +104,20 @@ const QuestionPage = () => {
       hasScoredRef.current = true;
       scoreCurrentQuestion();
       finalizeRankings();
-      const state = useTriviaStore.getState();
-      multiplayerBridge?.broadcastGameState?.({
-        phase: state.phase,
-        timer: state.timer,
-        currentIndex: state.currentIndex,
-        seed: state.seed,
-        category: state.category,
-        difficulty: state.difficulty,
-        questionLimit: state.questionLimit,
-        questionTimer: state.questionTimer,
-        answerTimer: state.answerTimer,
-        playerScores: state.playerScores,
-        rankings: state.rankings,
-      });
+      broadcastMultiplayerState();
     }
-  }, [phase, mode, lobbyRole, multiplayerBridge, scoreCurrentQuestion, finalizeRankings]);
+  }, [phase, mode, lobbyRole, multiplayerBridge, scoreCurrentQuestion, finalizeRankings, broadcastMultiplayerState]);
   
   useEffect(() => {
     if(phase !== "scoring"){
       hasScoredRef.current = false;
     }
   }, [phase]);
+
+  useEffect(() => {
+    if (mode !== 'multiplayer' || lobbyRole !== 'host') return;
+    broadcastMultiplayerState();
+  }, [mode, lobbyRole, phase, timer, currentIndex, playerScores, rankings, broadcastMultiplayerState]);
   /**
    * Client path
    */
@@ -132,7 +133,12 @@ const QuestionPage = () => {
       questionLimit?: number;
       questionTimer?: number;
       answerTimer?: number;
+      playerScores?: Record<string, number>;
+      rankings?: { playerId: string; name: string; score: number; rank: number }[];
     }) => {
+      const currentState = useTriviaStore.getState();
+      const shouldResetSelectedAnswer = payload.currentIndex !== currentState.currentIndex;
+
       // replace with TriviaState later?
       const nextState: any = { 
         phase: payload.phase,
@@ -140,12 +146,16 @@ const QuestionPage = () => {
         currentIndex: payload.currentIndex,
       };
 
+      if (shouldResetSelectedAnswer) nextState.selectedAnswer = '';
+
       if (payload.seed !== undefined) nextState.seed = payload.seed;
       if (payload.category !== undefined) nextState.category = payload.category;
       if (payload.difficulty !== undefined) nextState.difficulty = payload.difficulty;
       if (payload.questionLimit !== undefined) nextState.questionLimit = payload.questionLimit;
       if (payload.questionTimer !== undefined) nextState.questionTimer = payload.questionTimer;
       if (payload.answerTimer !== undefined) nextState.answerTimer = payload.answerTimer;
+      if (payload.playerScores !== undefined) nextState.playerScores = payload.playerScores;
+      if (payload.rankings !== undefined) nextState.rankings = payload.rankings;
 
       useTriviaStore.setState(nextState);
     };
@@ -400,18 +410,6 @@ const QuestionPage = () => {
 
       case 'ranking': {
         // Mock player rankings for multiplayer mode
-        const userAnswers = useTriviaStore.getState().userAnswers;
-        const currentPlayerScore = questions.filter(
-          (q, index) => q.correctAnswer === userAnswers[index]
-        ).length * 10;
-
-        const mockRankings = [
-          { rank: 2, name: 'Player Alpha', score: 130, correct: 13 },
-          { rank: 1, name: 'You', score: currentPlayerScore, correct: Math.round(currentPlayerScore / 10) },
-          { rank: 3, name: 'Player Beta', score: 90, correct: 9 },
-          { rank: 4, name: 'Player Gamma', score: 50, correct: 5 },
-        ].sort((a, b) => b.score - a.score);
-
         return (
           <Box sx={{ gridRow: "2 / span 2", textAlign: "center", p: 4, overflowY: "auto" }}>
           <Typography sx={{ mb: 3, fontSize: "1.3rem", fontWeight: "bold" }}>
@@ -421,7 +419,7 @@ const QuestionPage = () => {
           {rankings.map((entry) => (
             <Box key={entry.playerId} sx={{ mb: 2, p: 2, border: "1px solid #ddd" }}>
               <Typography>
-                #{entry.rank} - {entry.name}
+                #{entry.rank} - {entry.playerId === localPlayerId ? 'You' : entry.name}
               </Typography>
               <Typography>Score: {entry.score}</Typography>
             </Box>

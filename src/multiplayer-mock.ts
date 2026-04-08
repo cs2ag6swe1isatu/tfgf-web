@@ -20,6 +20,7 @@ import type {
   MultiplayerLeaveRequest,
   MultiplayerLobbySnapshot,
   MultiplayerReadyUpdate,
+  MultiplayerGameState,
   MultiplayerBridge,
 } from "./types/multiplayer";
 
@@ -30,8 +31,9 @@ type MultiplayerPacket =
   | { type: "ready-update"; payload: MultiplayerReadyUpdate }
   | { type: "leave-request"; payload: MultiplayerLeaveRequest }
   | { type: "heartbeat"; payload: { lobbyId: string; playerId: string } }
-  | { type: "host-exit"; payload: MultiplayerHostExitPayload };
-  // | { type: "game-start"; payload: };
+  | { type: "host-exit"; payload: MultiplayerHostExitPayload }
+  | { type: "game-state"; payload: MultiplayerGameState }
+  | { type: "answer-submission"; payload: {lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }};
 
 class MockMultiplayerBridge implements MultiplayerBridge {
   private channel: BroadcastChannel;
@@ -41,7 +43,9 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   private onPlayerLeftCbs = new Set<(playerId: string) => void>();
   private onDiscoveryResponseCbs = new Set<(payload: MultiplayerDiscoveredPayload) => void>();
   private onHostExitCbs = new Set<(payload: MultiplayerHostExitPayload) => void>();
-  
+  private onGameStateSyncCbs = new Set<(payload: MultiplayerGameState) => void>();
+  private onAnswerSubmissionCbs = new Set<(payload: { lobbyId: string; hostAddress:  string; playerId: string; questionIndex: number; answer: string }) => void>();
+
   private activeSnapshot: MultiplayerLobbySnapshot | null = null;
   private activeMode: "host" | "client" | null = null;
   private broadcastInterval: number | null = null;
@@ -100,6 +104,19 @@ class MockMultiplayerBridge implements MultiplayerBridge {
         this.activeMode = null;
       }
       
+      return;
+    }
+
+    if (packet.type === "game-state") {
+      if(this.activeMode === "client") {
+        this.onGameStateSyncCbs.forEach((cb) => cb(packet.payload));
+      }
+      return;
+    }
+
+    if(packet.type === "answer-submission"){
+      if(packet.payload.lobbyId !== this.activeSnapshot?.lobbyId) return;
+      this.onAnswerSubmissionCbs.forEach((cb) => cb(packet.payload));
       return;
     }
 
@@ -236,6 +253,15 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     this.channel.postMessage(packet);
   }
 
+  
+  broadcastGameState (gameState: MultiplayerGameState) : void {
+    this.channel.postMessage({ type: "game-state", payload: gameState });
+  }
+
+  sendAnswerSubmission (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; }) : void{
+    this.channel.postMessage({ type: "answer-submission", payload });
+  }
+
   startDiscovery(): void {
     console.log('[mock] startDiscovery');
     this.activeMode = "client";
@@ -301,6 +327,20 @@ class MockMultiplayerBridge implements MultiplayerBridge {
 
   offHostExit(cb: (payload: MultiplayerHostExitPayload) => void): void {
     this.onHostExitCbs.delete(cb);
+  }
+
+  onGameStateSync (cb: (gameState: MultiplayerGameState) => void) : void{
+    this.onGameStateSyncCbs.add(cb);
+  }
+  offGameStateSync (cb: (gameState: MultiplayerGameState) => void) : void{
+    this.onGameStateSyncCbs.delete(cb);
+  }
+
+  onAnswerSubmission (cb: (payload: { lobbyId: string; hostAddress:  string; playerId: string; questionIndex: number; answer: string }) => void) : void{
+    this.onAnswerSubmissionCbs.add(cb);
+  }
+  offAnswerSubmission (cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; }) => void) : void{
+    this.onAnswerSubmissionCbs.delete(cb);
   }
 
   startBroadcast(payload: MultiplayerLobbySnapshot): void {

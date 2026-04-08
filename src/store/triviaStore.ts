@@ -402,18 +402,18 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   },
   finalizeRankings: () => {
     const players = useMultiplayerStore.getState().players;
-    const hostId = usePlayerStore.getState().getPlayer().id;
+    const hostPlayer = usePlayerStore.getState().getPlayer();
     const scors = get().playerScores;
 
     const rankingList = [
       ...players,
-      { id: hostId, name: "You"},
+      { id: hostPlayer.id, name: hostPlayer.name },
     ].reduce<Record<string, {playerId: string; name:string; score: number }>>(
       (acc, player) => {
         if(!acc[player.id]) {
           acc[player.id] = {
             playerId: player.id,
-            name: player.id === hostId ? "You" : player.name,
+            name: player.name,
             score: scors[player.id] ?? 0,
           };
         }
