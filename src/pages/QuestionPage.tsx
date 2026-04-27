@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { Box, Typography, Button, Card } from "@mui/material";
 import { useTriviaStore, useMultiplayerStore, useGameStore, usePlayerStore } from "../store";
 import { Clock } from 'pixelarticons/react';
@@ -26,8 +26,10 @@ const QuestionPage = () => {
     applySessionProgress,
   } = usePlayerStore();
   const localPlayerId = usePlayerStore((state) => state.getPlayer().id);
+  const localPlayer = usePlayerStore((state) => state.getPlayer());
   const {
     lobbyRole,
+    players,
   } = useMultiplayerStore();
   const { setScreen } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
@@ -212,6 +214,40 @@ const QuestionPage = () => {
   }, [phase, applySessionProgress]);
 
   const currentQuestion = questions[currentIndex];
+
+  const displayedRankings = useMemo(() => {
+    const byPlayerId = new Map<string, { playerId: string; name: string; score: number }>();
+
+    rankings.forEach((entry) => {
+      byPlayerId.set(entry.playerId, {
+        playerId: entry.playerId,
+        name: entry.name,
+        score: entry.score,
+      });
+    });
+
+    players.forEach((player) => {
+      if (!byPlayerId.has(player.id)) {
+        byPlayerId.set(player.id, {
+          playerId: player.id,
+          name: player.name,
+          score: playerScores[player.id] ?? 0,
+        });
+      }
+    });
+
+    if (!byPlayerId.has(localPlayer.id)) {
+      byPlayerId.set(localPlayer.id, {
+        playerId: localPlayer.id,
+        name: localPlayer.name,
+        score: playerScores[localPlayer.id] ?? 0,
+      });
+    }
+
+    return Array.from(byPlayerId.values())
+      .sort((a, b) => b.score - a.score)
+      .map((entry, index) => ({ ...entry, rank: index + 1 }));
+  }, [rankings, players, playerScores, localPlayer.id, localPlayer.name]);
 
   const renderScoringPhase = () => {
     return (
@@ -412,7 +448,7 @@ const QuestionPage = () => {
             Final Rankings
           </Typography>
 
-          {rankings.map((entry) => (
+          {displayedRankings.map((entry) => (
             <Box key={entry.playerId} sx={{ mb: 2, p: 2, border: "1px solid #ddd" }}>
               <Typography>
                 #{entry.rank} - {entry.playerId === localPlayerId ? 'You' : entry.name}
