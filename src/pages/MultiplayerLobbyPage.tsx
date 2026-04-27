@@ -213,7 +213,7 @@ const MultiplayerLobby = () => {
       if (isTransitioningToGameRef.current) return;
 
       // --- Out of Order Packet Protection ---
-      const packetTime = payload.lastActive ? new Date(payload.lastActive).getTime() : Date.now();
+      const packetTime = payload.lastSeen;
       if (packetTime < newestTimestampRef.current) {
         console.log('[renderer] Dropped delayed out-of-order packet.');
         return;
