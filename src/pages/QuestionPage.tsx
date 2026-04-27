@@ -440,28 +440,10 @@ const QuestionPage = () => {
           </>
         );
 
-
+      // in case we need to show rankings overlay / hud later or something
       case 'ranking': {
-        return (
-          <Box sx={{ gridRow: "2 / span 2", textAlign: "center", p: 4, overflowY: "auto" }}>
-          <Typography sx={{ mb: 3, fontSize: "1.3rem", fontWeight: "bold" }}>
-            Final Rankings
-          </Typography>
-
-          {displayedRankings.map((entry) => (
-            <Box key={entry.playerId} sx={{ mb: 2, p: 2, border: "1px solid #ddd" }}>
-              <Typography>
-                #{entry.rank} - {entry.playerId === localPlayerId ? 'You' : entry.name}
-              </Typography>
-              <Typography>Score: {entry.score}</Typography>
-            </Box>
-          ))}
-
-          <Button variant="contained" color="primary" onClick={() => nextPhase()} sx={{ mt: 4 }}>
-            Finish
-          </Button>
-        </Box>
-        );
+        nextPhase();
+        return null;
       }
 
       case 'end': {

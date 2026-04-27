@@ -123,7 +123,6 @@ const MultiplayerLobby = () => {
       useTriviaStore.setState(nextState);
 
       // multiplayerBridge?.offGameStateSync?.(handleGameStateSync);
-      multiplayerBridge?.stopDiscovery();
       setScreen("question");
     },
     [lobbyRole, setGameConfig, setScreen, startGame, multiplayerBridge]
@@ -140,8 +139,8 @@ const MultiplayerLobby = () => {
       difficulty: gameConfig.difficulty ?? "easy",
       questionLimit: 15,
       mode: "multiplayer",
-      questionTimer: gameConfig.questionTimer ?? 5,
-      answerTimer: gameConfig.answerTimer ?? 10,
+      questionTimer: gameConfig.questionTimer ?? 3, // test values, change later add to rules or something
+      answerTimer: gameConfig.answerTimer ?? 5, // test values
       seed: gameSessionSeed,
     });
 

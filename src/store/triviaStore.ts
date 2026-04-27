@@ -234,10 +234,10 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       }
 
       const scoringDelay = mode === 'solo' ? soloScoringDelay : get().answerTimer;
-      const isLastQuestion = currentIndex + 1 >= questions.length;
       set({
-        phase: isLastQuestion ? get().mode === 'multiplayer' ? 'ranking' : 'scoring' : 'scoring',
-        timer: isLastQuestion ? 0 : scoringDelay,
+        // Always enter scoring first so host can compute and broadcast final multiplayer rankings.
+        phase: 'scoring',
+        timer: scoringDelay,
       });
       return;
     }

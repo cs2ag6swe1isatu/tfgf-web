@@ -21,8 +21,6 @@ const SessionSummaryPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
   const gameConfig = useGameStore((state) => state.gameConfig);
   const score = useTriviaStore((state) => state.score);
-  const questions = useTriviaStore((state) => state.questions);
-  const userAnswers = useTriviaStore((state) => state.userAnswers);
   const rankings = useTriviaStore((state) => state.rankings);
   const playerScores = useTriviaStore((state) => state.playerScores);
   const lobbyPlayers = useMultiplayerStore((state) => state.players);
@@ -33,11 +31,6 @@ const SessionSummaryPage = () => {
   const isSolo = gameConfig.mode === "solo";
   const isMultiplayer = gameConfig.mode === "multiplayer";
 
-  const totalQuestions = questions.length;
-  const correctAnswers = useMemo(
-    () => questions.filter((q, index) => userAnswers[index] === q.correctAnswer).length,
-    [questions, userAnswers]
-  );
   const displayedScore = useMemo(() => {
     if (isSolo) return score;
     const rankingScore = rankings.find((entry) => entry.playerId === localPlayer.id)?.score;
@@ -79,39 +72,40 @@ const SessionSummaryPage = () => {
   const placementRows = useMemo(() => {
     if (!isMultiplayer) return [];
 
-    const joinedRankings = rankings
-      .map((entry) => ({
+    const byPlayerId = new Map<string, { playerId: string; name: string; score: number }>();
+
+    rankings.forEach((entry) => {
+      byPlayerId.set(entry.playerId, {
         playerId: entry.playerId,
         name: entry.name,
         score: entry.score,
-      }))
-      .sort((a, b) => b.score - a.score);
+      });
+    });
 
-    if (joinedRankings.length === 0) {
-      const allPlayers = [
-        ...lobbyPlayers.map((p) => ({ playerId: p.id, name: p.name, score: playerScores[p.id] ?? 0 })),
-        { playerId: localPlayer.id, name: localPlayer.name, score: playerScores[localPlayer.id] ?? 0 },
-      ];
+    lobbyPlayers.forEach((player) => {
+      const existing = byPlayerId.get(player.id);
+      byPlayerId.set(player.id, {
+        playerId: player.id,
+        name: existing?.name ?? player.name,
+        score: playerScores[player.id] ?? existing?.score ?? 0,
+      });
+    });
 
-      const uniqueById = allPlayers.reduce<Record<string, { playerId: string; name: string; score: number }>>((acc, p) => {
-        if (!acc[p.playerId]) acc[p.playerId] = p;
-        return acc;
-      }, {});
+    const existingLocal = byPlayerId.get(localPlayer.id);
+    byPlayerId.set(localPlayer.id, {
+      playerId: localPlayer.id,
+      name: existingLocal?.name ?? localPlayer.name,
+      score: playerScores[localPlayer.id] ?? existingLocal?.score ?? 0,
+    });
 
-      joinedRankings.push(...Object.values(uniqueById).sort((a, b) => b.score - a.score));
-    }
-
-    const topFive = joinedRankings.slice(0, 5).map((entry, index) => ({
+    return Array.from(byPlayerId.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map((entry, index) => ({
       rank: index + 1,
       name: entry.playerId === localPlayer.id ? "YOU" : entry.name.toUpperCase(),
       score: entry.score,
     }));
-
-    while (topFive.length < 5) {
-      topFive.push({ rank: topFive.length + 1, name: "NAME", score: 100 });
-    }
-
-    return topFive;
   }, [isMultiplayer, rankings, lobbyPlayers, localPlayer.id, localPlayer.name, playerScores]);
 
   const renderRankIndicator = (rank: number) => {
