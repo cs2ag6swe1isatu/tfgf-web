@@ -74,6 +74,7 @@ export interface TriviaActions {
 }
 
 const readyTimer = 3; // Seconds to show "Get Ready" before asking first question 
+const soloScoringDelay = 1;
 
 const initialState: TriviaState = {
   questions: [],
@@ -158,7 +159,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
   /* ---------- Answer handling ---------- */
   selectAnswer: (answer) => {
-    const { questions, currentIndex, mode, phase, score, userAnswers } = get();
+    const { questions, currentIndex, mode, phase, score, userAnswers, answerTimer } = get();
     
     // Validate phase and game state
     if (phase !== 'answering') return;
@@ -179,24 +180,19 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     const newUserAnswers = [...userAnswers];
     newUserAnswers[currentIndex] = answer;
     
-    const answerTimer = get().answerTimer;
-
     if (mode === 'solo') {
-      // Update score immediately
       const newScore = isCorrect ? score + 1 : score;
       
-      // Determine next phase
       const isLastQuestion = currentIndex + 1 >= questions.length;
       
       set({
         selectedAnswer: answer,
         score: newScore,
         phase: isLastQuestion ? 'end' : 'scoring',
-        timer: isLastQuestion ? 0 : answerTimer,
+        timer: isLastQuestion ? 0 : soloScoringDelay,
         userAnswers: newUserAnswers,
       });
     } else if (mode === 'multiplayer') {
-      // Multiplayer logic to be implemented
       set({
         selectedAnswer: answer,
         phase: 'scoring',
@@ -237,11 +233,11 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         return;
       }
 
-      const answerTimer = get().answerTimer;
+      const scoringDelay = mode === 'solo' ? soloScoringDelay : get().answerTimer;
       const isLastQuestion = currentIndex + 1 >= questions.length;
       set({
         phase: isLastQuestion ? get().mode === 'multiplayer' ? 'ranking' : 'scoring' : 'scoring',
-        timer: isLastQuestion ? 0 : answerTimer,
+        timer: isLastQuestion ? 0 : scoringDelay,
       });
       return;
     }
@@ -306,10 +302,10 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         
         // Timer expired, advance to scoring
         if (currentIndex + 1 < questions.length) {
-          const answerTimer = get().answerTimer;
+          const scoringDelay = get().mode === 'solo' ? soloScoringDelay : get().answerTimer;
           set({
             phase: 'scoring',
-            timer: answerTimer,
+            timer: scoringDelay,
           });
         } else {
           set({ phase: 'ranking' });
@@ -356,8 +352,15 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     }
   },
 
+  // Solo, prioritize responsive play; Multiplayer, send answer to host immediately but wait for host to trigger scoring phase
   submitAnswer: (answer: string) => {
     const { currentIndex, userAnswers, mode } = get();
+
+    if (mode === 'solo') {
+      get().selectAnswer(answer);
+      return;
+    }
+
     const nextAnswers = [...userAnswers];
     nextAnswers[currentIndex] = answer;
     set({ selectedAnswer: answer, userAnswers: nextAnswers });

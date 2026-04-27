@@ -16,6 +16,7 @@ declare module '@mui/material/Button' {
 
 const NEON_GREEN = '#34D216';
 const PRIMARY_BLUE = '#00fefc';
+const NEON_RED = '#FF073A';
 
 const theme = createTheme({
   palette: {
@@ -26,13 +27,16 @@ const theme = createTheme({
     secondary: {
       main: PRIMARY_BLUE,
     },
+    error: {
+      main: NEON_RED,
+    },
     background: {
       default: '#050505',
       paper: '#0a0a0a',
     },
     text: {
       primary: NEON_GREEN,
-      secondary: alpha(NEON_GREEN, 0.7),
+      secondary: alpha(NEON_GREEN, 0.7)
     },
   },
   typography: {

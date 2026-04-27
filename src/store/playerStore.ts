@@ -29,6 +29,18 @@ interface PlayerState {
 // Storage key for player data
 const PLAYER_STORAGE_KEY = "tfgf-player";
 
+const createEmptyPlayData = (): PlayData => ({
+  xpGained: 0,
+  scoreGained: 0,
+  gamesPlayed: 0,
+  gamesMastered: 0,
+  topThreeFinishes: 0,
+  gamesWon: 0,
+  totalQuestionsAnswered: 0,
+  correctAnswers: 0,
+  incorrectAnswers: 0,
+});
+
 const getPlayerStorage = (): Storage | null => {
   if (typeof window === "undefined") return null;
   const isElectron =
@@ -182,7 +194,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const nextLevel = levelFromXp(nextTotalXp);
     const nextRank = rankFromLevel(nextLevel);
 
-    const currentIndividualStats = player.individualStats[sessionInput.category][sessionInput.mode][sessionInput.difficulty];
+    const categoryStats = player.individualStats?.[sessionInput.category];
+    const modeStats = categoryStats?.[sessionInput.mode];
+    const currentIndividualStats = modeStats?.[sessionInput.difficulty] ?? createEmptyPlayData();
     const nextIndividualStats: PlayData = {
       ...currentIndividualStats,
       xpGained: currentIndividualStats.xpGained + delta.xpGained,
@@ -247,9 +261,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       individualStats: {
         ...player.individualStats,
         [sessionInput.category]: {
-          ...player.individualStats[sessionInput.category],
+          ...categoryStats,
           [sessionInput.mode]: {
-            ...player.individualStats[sessionInput.category][sessionInput.mode],
+            ...modeStats,
             [sessionInput.difficulty]: nextIndividualStats,
           },
         },
