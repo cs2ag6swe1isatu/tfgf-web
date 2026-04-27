@@ -6,6 +6,7 @@ import { PlayerList } from "../components/multiplayer/PlayerList";
 import { Globe, Lock } from "pixelarticons/react";
 
 import type { MultiplayerBridge, MultiplayerDiscoveredPayload, MultiplayerLobbySnapshot, LobbyMember, MultiplayerGameState } from "../types/multiplayer";
+import { defaultGameConfig } from "../config/gameConfig";
 
 /**
  * Todo: make heartbeats dynamic; lower interval for lower player count; higher for higher player count;
@@ -46,7 +47,7 @@ const MultiplayerLobby = () => {
   const resetGame = useTriviaStore((s) => s.resetGame);
 
   const currentLobbyId = useMemo(() => {
-    return lobbyId ?? `LOBBY-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    return lobbyId ?? `${defaultGameConfig.lobbyIdPrefix}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   }, [lobbyId]);
 
   const hasHandledHostExitRef = useRef(false);
@@ -83,9 +84,9 @@ const MultiplayerLobby = () => {
 
       const category = payload.category ?? currentConfig.category ?? "General Knowledge";
       const difficulty = payload.difficulty ?? currentConfig.difficulty ?? "easy";
-      const questionLimit = payload.questionLimit ?? currentConfig.questionLimit ?? 15;
-      const questionTimer = payload.questionTimer ?? currentConfig.questionTimer ?? 5;
-      const answerTimer = payload.answerTimer ?? currentConfig.answerTimer ?? 10;
+      const questionLimit = payload.questionLimit ?? currentConfig.questionLimit ?? defaultGameConfig.questionLimit;
+      const questionTimer = payload.questionTimer ?? currentConfig.questionTimer ?? defaultGameConfig.questionTimer;
+      const answerTimer = payload.answerTimer ?? currentConfig.answerTimer ?? defaultGameConfig.answerTimer;
 
       setGameConfig({
         category,
@@ -131,16 +132,19 @@ const MultiplayerLobby = () => {
   const handleStartGame = async () => {
     resetGame();
 
-    const gameSessionSeed = Math.floor(Math.random() * 1000000);
+    const gameSessionSeed = Math.floor(Math.random() * defaultGameConfig.seedRange);
     useGameStore.getState().setGameConfig({ seed: gameSessionSeed });
+    const sessionQuestionLimit = gameConfig.questionLimit ?? defaultGameConfig.questionLimit;
+    const sessionQuestionTimer = gameConfig.questionTimer ?? defaultGameConfig.questionTimer;
+    const sessionAnswerTimer = gameConfig.answerTimer ?? defaultGameConfig.answerTimer;
 
     await startGame({
       category: gameConfig.category ?? "General Knowledge",
       difficulty: gameConfig.difficulty ?? "easy",
-      questionLimit: 15,
+      questionLimit: sessionQuestionLimit,
       mode: "multiplayer",
-      questionTimer: gameConfig.questionTimer ?? 3, // test values, change later add to rules or something
-      answerTimer: gameConfig.answerTimer ?? 5, // test values
+      questionTimer: sessionQuestionTimer,
+      answerTimer: sessionAnswerTimer,
       seed: gameSessionSeed,
     });
 
@@ -152,9 +156,11 @@ const MultiplayerLobby = () => {
       seed: gameSessionSeed,
       category: gameConfig.category ?? undefined,
       difficulty: gameConfig.difficulty ?? undefined,
-      questionLimit: gameConfig.questionLimit ?? undefined,
-      questionTimer: gameConfig.questionTimer ?? undefined,
-      answerTimer: gameConfig.answerTimer ?? undefined,
+      questionLimit: state.questionLimit,
+      questionTimer: state.questionTimer,
+      answerTimer: state.answerTimer,
+      playerScores: state.playerScores,
+      rankings: state.rankings,
     });
 
     setScreen("question");
@@ -171,7 +177,7 @@ const MultiplayerLobby = () => {
       hostName: player.name,
       hostLevel: player.level,
       playerCount: updatedPlayers.length || 1,
-      maxPlayers: 4,
+      maxPlayers: defaultGameConfig.maxPlayers,
       category: gameConfig.category ?? undefined,
       difficulty: gameConfig.difficulty ?? undefined,
       isPrivate,
@@ -327,7 +333,7 @@ const MultiplayerLobby = () => {
       hostName: player.name,
       hostLevel: player.level,
       playerCount: players.length || 1,
-      maxPlayers: 4,
+      maxPlayers: defaultGameConfig.maxPlayers,
       category: gameConfig.category ?? undefined,
       difficulty: gameConfig.difficulty ?? undefined,
       isPrivate,
@@ -355,7 +361,7 @@ const MultiplayerLobby = () => {
       hostName: player.name,
       hostLevel: player.level,
       playerCount: players.length || 1,
-      maxPlayers: 4,
+      maxPlayers: defaultGameConfig.maxPlayers,
       category: gameConfig.category ?? undefined,
       difficulty: gameConfig.difficulty ?? undefined,
       isPrivate,

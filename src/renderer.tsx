@@ -6,6 +6,7 @@ import App from "./App";
 import theme from "./ui/theme";
 import "./index.css";
 import { Cursor } from "./components/ui";
+import { runSessionSummaryPageTester } from "./tests/pageTesters/sessionSummaryPageTester";
 
 // Initialize mock multiplayer bridge for Vite dev mode
 import "./multiplayer-mock";
@@ -169,6 +170,8 @@ export const ResolutionFixer: React.FC<{ children: React.ReactNode }> = ({ child
 const rootElement = document.getElementById("root");
 
 if (rootElement) {
+  runSessionSummaryPageTester();
+
   const anyWindow = window as Window & { __react_root?: ReturnType<typeof createRoot> };
   if (!anyWindow.__react_root) {
     anyWindow.__react_root = createRoot(rootElement);

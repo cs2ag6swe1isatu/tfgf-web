@@ -238,7 +238,7 @@ function sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; p
 }
 
 function handlePacket(raw: string, senderAddress: string) {
-  console.log('[preload] handlePacket raw from', senderAddress, '-', raw.slice(0, 300));
+  // console.log('[preload] handlePacket raw from', senderAddress, '-', raw.slice(0, 300));
   let packet: MultiplayerPacket | null = null;
   try {
     packet = JSON.parse(raw) as MultiplayerPacket;
@@ -248,7 +248,7 @@ function handlePacket(raw: string, senderAddress: string) {
   }
 
   if (!packet) return;
-  console.log('[preload] handlePacket parsed', packet.type, 'activeMode=', activeMode, 'activeSnapshot=', activeSnapshot?.lobbyId);
+  // console.log('[preload] handlePacket parsed', packet.type, 'activeMode=', activeMode, 'activeSnapshot=', activeSnapshot?.lobbyId);
 
   // ------- shared discovery behavior (client+host) -------
   if (packet.type === "lobby-broadcast") {
@@ -453,7 +453,7 @@ function setReady(payload: MultiplayerReadyUpdate) {
 }
 
 function sendHeartbeat(payload: { lobbyId: string; hostAddress: string; playerId: string }) {
-  console.log('[preload] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
+  // console.log('[preload] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
   const s = createSocket();
   const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, hostAddress: payload.hostAddress, playerId: payload.playerId } };
   const data = Buffer.from(JSON.stringify(packet));

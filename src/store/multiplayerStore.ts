@@ -18,6 +18,7 @@ export interface MultiplayerStateData {
   currentPlayerId: string | null;
   discoveredHosts: DiscoveredHost[];
   joinStatus: 'idle' | 'joining' | 'joined'; // set grace period for joining to prevent multiple join attempts in quick succession / receiving stale snapshots
+  knownPlayers: Record<string, LobbyMember>;
 }
 
 export interface MultiplayerSelectors {
@@ -61,6 +62,7 @@ const initialState: MultiplayerStateData = {
   currentPlayerId: null,
   discoveredHosts: [],
   joinStatus: 'idle',
+  knownPlayers: {},
 };
 
 export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
@@ -130,7 +132,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   clearDiscoveredHosts: () => set({ discoveredHosts: [] }),
 
   addOrUpdatePlayer: (player, opts) => {
-
+    // console.log('[multiplayer] Adding/updating player:', player.id, player.name);
     set((state) => {
       const existingIndex = state.players.findIndex((p) => p.id === player.id);
       const member: LobbyMember = {
@@ -166,8 +168,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     set((state) => ({
       lobbyRole: state.lobbyRole,
       lobbyId: snapshot.lobbyId,
-      hostId: snapshot.hostId,
-      hostAddress: hostAddress ?? state.hostAddress,
+      hostId: snapshot.hostId ?? null,
+      hostAddress: hostAddress ?? state.hostAddress ?? null,
       players: snapshot.players.map((p) => ({
         ...p,
         rank: getRankForLevel(p.level),

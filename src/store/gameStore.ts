@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { Category, Difficulty, Mode } from "../constants";
 import { usePlayerStore } from "./playerStore";
 import { Player } from "../types/player";
+import { defaultGameConfig } from "../config/gameConfig";
 /**
  * Game Store - Navigation and Session Setup
  * 
@@ -91,12 +92,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Game configuration state
   gameConfig: {
-    mode: null,
-    category: null,
-    difficulty: null,
-    questionLimit: null,
-    questionTimer: null,
-    answerTimer: null,
+    ...defaultGameConfig,
   },
 
   // Actions

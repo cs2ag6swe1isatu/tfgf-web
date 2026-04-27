@@ -35,15 +35,17 @@ const SessionSummaryPage = () => {
     if (isSolo) return score;
     const rankingScore = rankings.find((entry) => entry.playerId === localPlayer.id)?.score;
     if (typeof rankingScore === "number") return rankingScore;
-    return playerScores[localPlayer.id] ?? score;
-  }, [isSolo, score, rankings, playerScores, localPlayer.id]);
+    // For multiplayer clients, playerScores[id] is the most reliable fallback
+    if (isMultiplayer && typeof playerScores[localPlayer.id] === "number") return playerScores[localPlayer.id];
+    return score;
+  }, [isSolo, isMultiplayer, score, rankings, playerScores, localPlayer.id]);
 
   const latestSession = useMemo(
     () =>
       [...(player?.gameHistory ?? [])]
         .reverse()
         .find((session) => session.mode === (isMultiplayer ? "multiplayer" : "solo")) ?? null,
-    [player, isMultiplayer]
+    [player?.gameHistory, isMultiplayer]
   );
 
   const xpGained = useMemo(() => {
@@ -70,38 +72,64 @@ const SessionSummaryPage = () => {
   const clampedRankProgress = Math.max(0, Math.min(100, rankProgress));
 
   const placementRows = useMemo(() => {
+    // trying to log here to debug why rankings 
+    console.log("[Summary] Computing placements", {
+      isMultiplayer,
+      rankingsCount: rankings.length,
+      lobbyPlayersCount: lobbyPlayers.length,
+      playerScoresKeys: Object.keys(playerScores),
+    });
+
     if (!isMultiplayer) return [];
 
-    const byPlayerId = new Map<string, { playerId: string; name: string; score: number }>();
+    if (rankings.length > 0) {
+      const results = [...rankings]
+        .sort((a, b) => a.rank - b.rank)
+        .slice(0, 5)
+        .map((entry) => ({
+          rank: entry.rank,
+          name: entry.playerId === localPlayer.id ? "YOU" : entry.name.toUpperCase(),
+          score: entry.score,
+        }));
+    // console.log("[Summary] Using rankings from store", results);
+      return results;
+    }
 
-    rankings.forEach((entry) => {
-      byPlayerId.set(entry.playerId, {
+    const orderedRankings = [...rankings]
+      .sort((a, b) => a.rank - b.rank)
+      .map((entry) => ({
         playerId: entry.playerId,
         name: entry.name,
         score: entry.score,
+      }));
+
+    const included = new Set(orderedRankings.map((entry) => entry.playerId));
+
+    const fallbackEntries: Array<{ playerId: string; name: string; score: number }> = [];
+
+    lobbyPlayers.forEach((member) => {
+      if (included.has(member.id)) return;
+      fallbackEntries.push({
+        playerId: member.id,
+        name: member.name,
+        score: playerScores[member.id] ?? 0,
       });
     });
 
-    lobbyPlayers.forEach((player) => {
-      const existing = byPlayerId.get(player.id);
-      byPlayerId.set(player.id, {
-        playerId: player.id,
-        name: existing?.name ?? player.name,
-        score: playerScores[player.id] ?? existing?.score ?? 0,
+    if (!included.has(localPlayer.id)) {
+      fallbackEntries.push({
+        playerId: localPlayer.id,
+        name: localPlayer.name,
+        score: playerScores[localPlayer.id] ?? score,
       });
-    });
+    }
 
-    const existingLocal = byPlayerId.get(localPlayer.id);
-    byPlayerId.set(localPlayer.id, {
-      playerId: localPlayer.id,
-      name: existingLocal?.name ?? localPlayer.name,
-      score: playerScores[localPlayer.id] ?? existingLocal?.score ?? 0,
-    });
+    const merged = [
+      ...orderedRankings,
+      ...fallbackEntries.sort((a, b) => b.score - a.score),
+    ];
 
-    return Array.from(byPlayerId.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
-      .map((entry, index) => ({
+    return merged.slice(0, 5).map((entry, index) => ({
       rank: index + 1,
       name: entry.playerId === localPlayer.id ? "YOU" : entry.name.toUpperCase(),
       score: entry.score,

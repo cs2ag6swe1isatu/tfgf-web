@@ -358,7 +358,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   }
 
   sendHeartbeat(payload: { lobbyId: string; hostAddress: string; playerId: string }): void {
-    console.log('[mock] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
+    // console.log('[mock] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
     const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, hostAddress: payload.hostAddress, playerId: payload.playerId } };
     this.channel.postMessage(packet);
   }

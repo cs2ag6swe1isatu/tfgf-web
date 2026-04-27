@@ -34,7 +34,12 @@ const createWindow = () => {
 
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    const pageTester = process.env.PAGE_TESTER;
+    const queryPrefix = MAIN_WINDOW_VITE_DEV_SERVER_URL.includes('?') ? '&' : '?';
+    const targetUrl = pageTester
+      ? `${MAIN_WINDOW_VITE_DEV_SERVER_URL}${queryPrefix}tester=${encodeURIComponent(pageTester)}`
+      : MAIN_WINDOW_VITE_DEV_SERVER_URL;
+    mainWindow.loadURL(targetUrl);
   } else {
     mainWindow.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),

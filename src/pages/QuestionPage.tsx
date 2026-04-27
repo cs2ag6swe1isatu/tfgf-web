@@ -171,8 +171,10 @@ const QuestionPage = () => {
   useEffect(() => {
     if (phase === 'end') {
       setScreen('result');
+    } else if (phase === 'ranking') {
+      nextPhase();
     }
-  }, [phase, setScreen]);
+  }, [phase, setScreen, nextPhase]);
 
   // Apply session progression as a side-effect when the game ends
   const endProgressAppliedRef = useRef(false);
@@ -184,16 +186,28 @@ const QuestionPage = () => {
     const { mode, category, difficulty } = gameConfig || {};
     if (!mode || !category || !difficulty) return;
 
-    const userAnswers = useTriviaStore.getState().userAnswers;
-    const questionsState = useTriviaStore.getState().questions;
+    const triviaState = useTriviaStore.getState();
+    const userAnswers = triviaState.userAnswers;
+    const questionsState = triviaState.questions;
 
     const correctAnswersCount = questionsState.filter(
       (q, index) => q.correctAnswer === userAnswers[index]
     ).length;
 
-    const currentPlayerScore = correctAnswersCount * 10;
-    const simulatedOpponentScores = [130, 90, 50];
-    const playerRank = 1 + simulatedOpponentScores.filter((score) => score > currentPlayerScore).length;
+    const fallbackScore = correctAnswersCount * 10;
+    const rankingEntry = triviaState.rankings.find((entry) => entry.playerId === localPlayerId);
+    
+    // Use playerScores directly if rankings aren't ready yet
+    const triviaPlayerScores = triviaState.playerScores;
+    const currentPlayerScore =
+      mode === 'multiplayer'
+        ? (rankingEntry?.score ?? triviaPlayerScores[localPlayerId] ?? fallbackScore)
+        : fallbackScore;
+        
+    const playerRank =
+      mode === 'multiplayer'
+        ? (rankingEntry?.rank ?? (1 + Object.values(triviaPlayerScores).filter((s) => s > currentPlayerScore).length))
+        : 0;
 
     const progressionInput: SessionProgressInput = {
       mode,
@@ -206,12 +220,12 @@ const QuestionPage = () => {
       userAnswers,
       timeTaken: 0,
       mastered: correctAnswersCount === questionsState.length,
-      won: mode === 'solo' ? false : playerRank === 1,
-      topThreeFinish: mode === 'solo' ? false : playerRank <= 3,
+      won: mode === 'multiplayer' ? playerRank === 1 : false,
+      topThreeFinish: mode === 'multiplayer' ? playerRank <= 3 : false,
     };
 
     applySessionProgress(progressionInput);
-  }, [phase, applySessionProgress]);
+  }, [phase, applySessionProgress, localPlayerId]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -442,7 +456,6 @@ const QuestionPage = () => {
 
       // in case we need to show rankings overlay / hud later or something
       case 'ranking': {
-        nextPhase();
         return null;
       }
 

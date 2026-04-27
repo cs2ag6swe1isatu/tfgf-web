@@ -5,6 +5,7 @@ import type { GameConfig } from './gameStore';
 import { loadQuestions } from '../utils/loadQuestions';
 import { usePlayerStore, useMultiplayerStore } from './';
 import type { MultiplayerBridge } from '../types/multiplayer';
+import { defaultGameConfig } from '../config/gameConfig';
 
 /**
  * Trivia Store - Game Logic and State Management
@@ -73,23 +74,24 @@ export interface TriviaActions {
   finalizeRankings: () => void;
 }
 
-const readyTimer = 3; // Seconds to show "Get Ready" before asking first question 
-const soloScoringDelay = 1;
+const readyTimer = defaultGameConfig.readyTimer; // Seconds to show "Get Ready" before asking first question 
+const soloScoringDelay = defaultGameConfig.scoringDelay;
 
+// test values change later
 const initialState: TriviaState = {
   questions: [],
   currentIndex: 0,
   selectedAnswer: "",
   timer: 0,
-  questionTimer: 10,
-  answerTimer: 10,
+  questionTimer: defaultGameConfig.questionTimer,
+  answerTimer: defaultGameConfig.answerTimer,
   score: 0,
   phase: 'loading',
   mode: 'solo',
   category: null,
   difficulty: null,
   userAnswers: [],
-  questionLimit: 15,
+  questionLimit: defaultGameConfig.questionLimit,
   seed: undefined,
   playerScores: {},
   playerAnswers: {},
@@ -141,10 +143,14 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         currentIndex: 0,
         selectedAnswer: "",
         score: 0,
+        userAnswers: [],
+        playerScores: {},
+        playerAnswers: {},
+        rankings: [],
         seed,
       });
 
-      console.log(`Successfully loaded ${questions.length} questions for: ${category} (${difficulty})`);
+      // console.log(`Successfully loaded ${questions.length} questions for: ${category} (${difficulty})`);
     } catch (error) {
       console.error("Failed to load questions:", error);
       set({ 
@@ -208,7 +214,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
     if (phase !== 'readying' && phase !== 'answering' && phase !== 'asking' && phase !== 'scoring') return;
 
-    if (timer > 1) {
+    if (timer > 0) {
       set({ timer: timer - 1 });
       return;
     }
@@ -297,7 +303,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
       case 'answering':
         if (timer > 0) {
-          return;
+          set({ timer: 0 });
         }
         
         // Timer expired, advance to scoring
@@ -415,22 +421,37 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     const hostPlayer = usePlayerStore.getState().getPlayer();
     const scors = get().playerScores;
 
-    const rankingList = [
-      ...players,
-      { id: hostPlayer.id, name: hostPlayer.name },
-    ].reduce<Record<string, {playerId: string; name:string; score: number }>>(
-      (acc, player) => {
-        if(!acc[player.id]) {
-          acc[player.id] = {
-            playerId: player.id,
-            name: player.name,
-            score: scors[player.id] ?? 0,
-          };
-        }
-        return acc;
-      },
-      {}
-    );
+    // Use a Map for better unique player management by ID
+    const rankingMap = new Map<string, { playerId: string; name: string; score: number }>();
+
+    // Add host
+    rankingMap.set(hostPlayer.id, {
+      playerId: hostPlayer.id,
+      name: hostPlayer.name,
+      score: scors[hostPlayer.id] ?? 0,
+    });
+
+    // Add other players from the lobby
+    players.forEach((p) => {
+      rankingMap.set(p.id, {
+        playerId: p.id,
+        name: p.name,
+        score: scors[p.id] ?? 0,
+      });
+    });
+
+    // Add any players who have scores but might not be in the players list for some reason
+    Object.keys(scors).forEach((playerId) => {
+      if (!rankingMap.has(playerId)) {
+        rankingMap.set(playerId, {
+          playerId: playerId,
+          name: "Unknown Player",
+          score: scors[playerId] ?? 0,
+        });
+      }
+    });
+
+    const rankingList = Array.from(rankingMap.values());
     const sorted = Object.values(rankingList)
       .sort((a,b) => b.score - a.score)
       .map((entry, index) => ({
