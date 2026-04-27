@@ -89,11 +89,13 @@ const MultiplayerLobby = () => {
       if (isTransitioningToGameRef.current) return;
       isTransitioningToGameRef.current = true;
 
-      const category = payload.category ?? gameConfig.category ?? "General Knowledge";
-      const difficulty = payload.difficulty ?? gameConfig.difficulty ?? "easy";
-      const questionLimit = payload.questionLimit ?? gameConfig.questionLimit ?? 15;
-      const questionTimer = payload.questionTimer ?? gameConfig.questionTimer ?? 5;
-      const answerTimer = payload.answerTimer ?? gameConfig.answerTimer ?? 10;
+      const currentConfig = useGameStore.getState().gameConfig;
+
+      const category = payload.category ?? currentConfig.category ?? "General Knowledge";
+      const difficulty = payload.difficulty ?? currentConfig.difficulty ?? "easy";
+      const questionLimit = payload.questionLimit ?? currentConfig.questionLimit ?? 15;
+      const questionTimer = payload.questionTimer ?? currentConfig.questionTimer ?? 5;
+      const answerTimer = payload.answerTimer ?? currentConfig.answerTimer ?? 10;
 
       setGameConfig({
         category,
@@ -118,7 +120,7 @@ const MultiplayerLobby = () => {
       multiplayerBridge?.stopDiscovery();
       setScreen("question");
     },
-    [gameConfig, lobbyRole, setGameConfig, setScreen, startGame]
+    [lobbyRole, setGameConfig, setScreen, startGame, multiplayerBridge]
   );
 
   const handleStartGame = async () => {
@@ -228,7 +230,13 @@ const MultiplayerLobby = () => {
           console.log('[renderer] confirming join for lobby', payload.lobbyId);
         }
         syncLobbySnapshot(payload, payload.hostAddress);
-        setGameConfig({ category: payload.category, difficulty: payload.difficulty });
+
+        const currentConfig = useGameStore.getState().gameConfig;
+        const nextCategory = payload.category ?? undefined;
+        const nextDifficulty = payload.difficulty ?? undefined;
+        if (currentConfig.category !== nextCategory || currentConfig.difficulty !== nextDifficulty) {
+          setGameConfig({ category: nextCategory, difficulty: nextDifficulty });
+        }
         return;
       }
       
