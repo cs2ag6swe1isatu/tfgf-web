@@ -30,27 +30,39 @@ type MultiplayerPacket =
   | { type: "join-request"; payload: MultiplayerJoinRequest }
   | { type: "ready-update"; payload: MultiplayerReadyUpdate }
   | { type: "leave-request"; payload: MultiplayerLeaveRequest }
-  | { type: "heartbeat"; payload: { lobbyId: string; playerId: string } }
+  | { type: "heartbeat"; payload: { lobbyId: string; hostAddress: string; playerId: string } }
   | { type: "host-exit"; payload: MultiplayerHostExitPayload }
   | { type: "game-state"; payload: MultiplayerGameState }
-  | { type: "answer-submission"; payload: {lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }};
+  | { type: "answer-submission"; payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string } };
 
 class MockMultiplayerBridge implements MultiplayerBridge {
   private channel: BroadcastChannel;
+
   private onHostFoundCbs = new Set<(payload: MultiplayerDiscoveredPayload) => void>();
+  private onDiscoveryResponseCbs = new Set<(payload: MultiplayerDiscoveredPayload) => void>();
   private onPlayerJoinedCbs = new Set<(player: LobbyMember) => void>();
   private onPlayerReadyChangedCbs = new Set<(playerId: string, ready: boolean) => void>();
   private onPlayerLeftCbs = new Set<(playerId: string) => void>();
-  private onDiscoveryResponseCbs = new Set<(payload: MultiplayerDiscoveredPayload) => void>();
   private onHostExitCbs = new Set<(payload: MultiplayerHostExitPayload) => void>();
   private onGameStateSyncCbs = new Set<(payload: MultiplayerGameState) => void>();
-  private onAnswerSubmissionCbs = new Set<(payload: { lobbyId: string; hostAddress:  string; playerId: string; questionIndex: number; answer: string }) => void>();
+  private onAnswerSubmissionCbs = new Set<(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void>();
 
   private activeSnapshot: MultiplayerLobbySnapshot | null = null;
   private activeMode: "host" | "client" | null = null;
   private broadcastInterval: number | null = null;
   private pendingHostExitTimeout: number | null = null;
   private playerHeartbeats = new Map<string, number>();
+
+  private getActiveHostAddress() {
+    if (!this.activeSnapshot) return null;
+    return this.activeSnapshot.hostAddress ?? `mock:${this.activeSnapshot.lobbyId}`;
+  }
+
+  private isTargetingActiveHost(hostAddress?: string) {
+    const activeHostAddress = this.getActiveHostAddress();
+    if (!hostAddress || !activeHostAddress) return true;
+    return hostAddress === activeHostAddress;
+  }
 
   constructor() {
     this.channel = new BroadcastChannel("tfgf-multiplayer");
@@ -60,166 +72,21 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     console.log('[mock] MultiplayerBridge initialized with BroadcastChannel');
   }
 
-  private handlePacket(packet: MultiplayerPacket) {
-    console.log('[mock] received packet', packet.type, 'activeMode=', this.activeMode);
-
-    // ------- shared discovery behavior (client+host) -------
-    if (packet.type === "lobby-broadcast") {
-      this.activeMode = this.activeMode ?? "client";
-      const payload = {
-        ...packet.snapshot,
-        hostAddress: "localhost",
-        lastSeen: Date.now(),
-      } as MultiplayerDiscoveredPayload;
-
-      this.onHostFoundCbs.forEach((cb) => cb(payload));
-      this.onDiscoveryResponseCbs.forEach((cb) => cb(payload));
-      return;
-    }
-
-    // If a client asks for discovery, respond immediately when we're a host.
-    if (packet.type === "discovery-request") {
-      if (this.activeMode === "host" && this.activeSnapshot) {
-        // Private lobbies do not answer discovery requests.
-        if (this.activeSnapshot.isPrivate) {
-          console.log('[mock] ignoring discovery request for private lobby', this.activeSnapshot.lobbyId);
-          return;
-        }
-
-        // Respond with current snapshot so the requester learns about us.
-        console.log('[mock] responding to discovery request with lobby', this.activeSnapshot.lobbyId);
-        this.broadcastSnapshot(this.activeSnapshot);
-      }
-      return;
-    }
-
-    if (packet.type === "host-exit") {
-      console.log('[mock] host-exit detected for lobby', packet.payload.lobbyId);
-      this.onHostExitCbs.forEach((cb) => cb(packet.payload));
-
-      // Only clear local host state if it is the same lobby that just exited.
-      if (this.activeMode === "host" && this.activeSnapshot?.lobbyId === packet.payload.lobbyId) {
-        console.log('[mock] clearing host state for lobby', packet.payload.lobbyId);
-        this.activeSnapshot = null;
-        this.activeMode = null;
-      }
-      
-      return;
-    }
-
-    if (packet.type === "game-state") {
-      if(this.activeMode === "client") {
-        this.onGameStateSyncCbs.forEach((cb) => cb(packet.payload));
-      }
-      return;
-    }
-
-    if(packet.type === "answer-submission"){
-      if(packet.payload.lobbyId !== this.activeSnapshot?.lobbyId) return;
-      this.onAnswerSubmissionCbs.forEach((cb) => cb(packet.payload));
-      return;
-    }
-
-    // ------- host-only handler block -------
-    if (this.activeMode !== "host" || !this.activeSnapshot) return;
-
-    if (packet.type === "join-request") {
-      if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
-      console.log('[mock] join-request for lobby', packet.payload.lobbyId, 'player', packet.payload.player.id);
-      
-      // Update heartbeat as soon as player joins
-      this.playerHeartbeats.set(packet.payload.player.id, Date.now());
-
-      // Update snapshot
-      this.activeSnapshot = this.upsertLobbyMember(this.activeSnapshot, {
-        ...packet.payload.player,
-        isHost: false,
-        isReady: false,
-      });
-      
-      // Broadcast updated snapshot
-      this.broadcastSnapshot(this.activeSnapshot);
-      
-      // Notify renderer
-      this.onPlayerJoinedCbs.forEach((cb) =>
-        cb({
-          ...packet.payload.player,
-          isHost: false,
-          isReady: false,
-        }),
-      );
-      return;
-    }
-
-    if (packet.type === "ready-update") {
-      if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
-      console.log('[mock] ready-update for', packet.payload.playerId, 'ready=', packet.payload.ready);
-      
-      // Update heartbeat (client is active)
-      this.playerHeartbeats.set(packet.payload.playerId, Date.now());
-
-      // Update snapshot
-      this.activeSnapshot = {
-        ...this.activeSnapshot,
-        players: this.activeSnapshot.players.map((p) =>
-          p.id === packet.payload.playerId ? { ...p, isReady: packet.payload.ready } : p
-        ),
-      };
-      
-      // Broadcast updated snapshot
-      this.broadcastSnapshot(this.activeSnapshot);
-      
-      // Notify renderer
-      this.onPlayerReadyChangedCbs.forEach((cb) => cb(packet.payload.playerId, packet.payload.ready));
-      return;
-    }
-
-    if (packet.type === "heartbeat") {
-      if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
-      this.playerHeartbeats.set(packet.payload.playerId, Date.now());
-      return;
-    }
-
-    if (packet.type === "leave-request") {
-      if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
-      console.log('[mock] leave-request for player', packet.payload.playerId);
-      
-      // Update snapshot
-      this.activeSnapshot = {
-        ...this.activeSnapshot,
-        players: this.activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId),
-        playerCount: this.activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId).length,
-      };
-
-      this.playerHeartbeats.delete(packet.payload.playerId);
-      
-      // Broadcast updated snapshot
-      this.broadcastSnapshot(this.activeSnapshot);
-      
-      // Notify renderer
-      this.onPlayerLeftCbs.forEach((cb) => cb(packet.payload.playerId));
-      return;
-    }
+  private emitHostFound(snapshot: MultiplayerLobbySnapshot, hostAddress: string) {
+    const payload: MultiplayerDiscoveredPayload = {
+      ...snapshot,
+      hostAddress,
+      lastSeen: Date.now(),
+    };
+    this.onHostFoundCbs.forEach((cb) => cb(payload));
+    this.onDiscoveryResponseCbs.forEach((cb) => cb(payload));
   }
 
-  private upsertLobbyMember(snapshot: MultiplayerLobbySnapshot, member: LobbyMember): MultiplayerLobbySnapshot {
-    const existingIndex = snapshot.players.findIndex((p) => p.id === member.id);
-    if (existingIndex >= 0) {
-      const players = [...snapshot.players];
-      players[existingIndex] = { ...players[existingIndex], ...member };
-      return { ...snapshot, players, playerCount: players.length };
-    }
-
-    return {
-      ...snapshot,
-      players: [...snapshot.players, member],
-      playerCount: snapshot.players.length + 1,
-    };
+  private emitHostExit(payload: MultiplayerHostExitPayload) {
+    this.onHostExitCbs.forEach((cb) => cb(payload));
   }
 
   private broadcastSnapshot(snapshot: MultiplayerLobbySnapshot) {
-    // Do not broadcast snapshots for private lobbies — private lobbies
-    // should not be discoverable via BroadcastChannel.
     const packet: MultiplayerPacket = { type: "lobby-broadcast", snapshot };
     this.channel.postMessage(packet);
   }
@@ -245,33 +112,167 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     };
 
     stalePlayerIds.forEach((playerId) => this.onPlayerLeftCbs.forEach((cb) => cb(playerId)));
+    this.broadcastSnapshot(this.activeSnapshot);
   }
 
-  private sendHostExit(lobbyId: string) {
+  private sendHostExitMessage(lobbyId: string) {
     console.log('[mock] sending host-exit for lobby', lobbyId);
     const packet: MultiplayerPacket = { type: "host-exit", payload: { lobbyId } };
     this.channel.postMessage(packet);
   }
 
-  
-  broadcastGameState (gameState: MultiplayerGameState) : void {
-    this.channel.postMessage({ type: "game-state", payload: gameState });
+  private upsertLobbyMember(snapshot: MultiplayerLobbySnapshot, member: LobbyMember) {
+    const existingIndex = snapshot.players.findIndex((p) => p.id === member.id);
+    if (existingIndex >= 0) {
+      const players = [...snapshot.players];
+      players[existingIndex] = { ...players[existingIndex], ...member };
+      return { ...snapshot, players, playerCount: players.length };
+    }
+
+    return {
+      ...snapshot,
+      players: [...snapshot.players, member],
+      playerCount: snapshot.players.length + 1,
+    };
   }
 
-  sendAnswerSubmission (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; }) : void{
-    this.channel.postMessage({ type: "answer-submission", payload });
+  private updateHostSnapshot(mutator: (current: MultiplayerLobbySnapshot) => MultiplayerLobbySnapshot) {
+    if (!this.activeSnapshot) return;
+    this.activeSnapshot = {
+      ...mutator(this.activeSnapshot),
+      hostAddress: this.getActiveHostAddress() ?? "localhost",
+    };
+    console.log('[mock] updated activeSnapshot, players=', this.activeSnapshot.players.map(p => p.id).join(','));
+    this.broadcastSnapshot(this.activeSnapshot);
+    this.emitHostFound(this.activeSnapshot, this.activeSnapshot.hostAddress ?? "localhost");
   }
 
+  private handlePacket(packet: MultiplayerPacket) {
+    console.log('[mock] received packet', packet.type, 'activeMode=', this.activeMode);
+
+    // ------- shared discovery behavior (client+host) -------
+    if (packet.type === "lobby-broadcast") {
+      this.activeMode = this.activeMode ?? "client";
+      this.emitHostFound(packet.snapshot, "localhost");
+      return;
+    }
+
+    // If a client asks for discovery, respond immediately when we're a host.
+    if (packet.type === "discovery-request") {
+      if (this.activeMode === "host" && this.activeSnapshot) {
+        if (this.activeSnapshot.isPrivate) {
+          console.log('[mock] ignoring discovery request for private lobby', this.activeSnapshot.lobbyId);
+          return;
+        }
+        console.log('[mock] responding to discovery request with lobby', this.activeSnapshot.lobbyId);
+        this.broadcastSnapshot(this.activeSnapshot);
+      }
+      return;
+    }
+
+    if (packet.type === "host-exit") {
+      console.log('[mock] host-exit received for lobby', packet.payload.lobbyId);
+      this.emitHostExit(packet.payload);
+
+      // Only clear local host state if it is the same lobby that just exited.
+      if (this.activeMode === "host" && this.activeSnapshot?.lobbyId === packet.payload.lobbyId) {
+        console.log('[mock] clearing host state for lobby', packet.payload.lobbyId);
+        this.activeSnapshot = null;
+        this.activeMode = null;
+      }
+      return;
+    }
+
+    if (packet.type === "game-state") {
+      if (this.activeMode === "client") {
+        this.onGameStateSyncCbs.forEach((cb) => cb(packet.payload));
+      }
+      return;
+    }
+
+    // ------- host-only handler block -------
+    if (this.activeMode !== "host" || !this.activeSnapshot) return;
+
+    if (packet.type === "heartbeat") {
+      if (!this.activeSnapshot || packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
+      if (!this.isTargetingActiveHost(packet.payload.hostAddress)) return;
+      this.playerHeartbeats.set(packet.payload.playerId, Date.now());
+      return;
+    }
+
+    if (packet.type === "join-request") {
+      if (!this.activeSnapshot || packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
+      if (!this.isTargetingActiveHost(packet.payload.hostAddress)) return;
+      console.log('[mock] join-request for lobby', packet.payload.lobbyId, 'player', packet.payload.player.id);
+
+      this.playerHeartbeats.set(packet.payload.player.id, Date.now());
+
+      this.updateHostSnapshot((current) =>
+        this.upsertLobbyMember(current, {
+          ...packet.payload.player,
+          isHost: false,
+          isReady: false,
+        }),
+      );
+
+      this.onPlayerJoinedCbs.forEach((cb) =>
+        cb({
+          ...packet.payload.player,
+          isHost: false,
+          isReady: false,
+        }),
+      );
+      return;
+    }
+
+    if (packet.type === "ready-update") {
+      if (!this.activeSnapshot || packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
+      if (!this.isTargetingActiveHost(packet.payload.hostAddress)) return;
+      console.log('[mock] ready-update for', packet.payload.playerId, 'ready=', packet.payload.ready);
+
+      this.playerHeartbeats.set(packet.payload.playerId, Date.now());
+
+      this.updateHostSnapshot((current) => ({
+        ...current,
+        players: current.players.map((player) =>
+          player.id === packet.payload.playerId ? { ...player, isReady: packet.payload.ready } : player,
+        ),
+        playerCount: current.players.length,
+      }));
+
+      this.onPlayerReadyChangedCbs.forEach((cb) => cb(packet.payload.playerId, packet.payload.ready));
+      return;
+    }
+
+    if (packet.type === "leave-request") {
+      if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
+      if (!this.isTargetingActiveHost(packet.payload.hostAddress)) return;
+      console.log('[mock] leave-request for player', packet.payload.playerId);
+
+      this.playerHeartbeats.delete(packet.payload.playerId);
+
+      this.activeSnapshot = {
+        ...this.activeSnapshot,
+        players: this.activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId),
+        playerCount: this.activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId).length,
+      };
+      this.broadcastSnapshot(this.activeSnapshot);
+      this.onPlayerLeftCbs.forEach((cb) => cb(packet.payload.playerId));
+    }
+
+    if (packet.type === "answer-submission") {
+      if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
+      if (!this.isTargetingActiveHost(packet.payload.hostAddress)) return;
+      console.log('[mock] answer-submission from player', packet.payload.playerId, 'questionIndex', packet.payload.questionIndex, 'answer', packet.payload.answer);
+      this.onAnswerSubmissionCbs.forEach((cb) => cb(packet.payload));
+      return;
+    }
+  }
+
+  // -------- Public Bridge -----------
   startDiscovery(): void {
     console.log('[mock] startDiscovery');
     this.activeMode = "client";
-    this.discoveryRequest();
-  }
-
-  discoveryRequest(): void {
-    console.log('[mock] sending discovery-request');
-    const packet: MultiplayerPacket = { type: "discovery-request" };
-    this.channel.postMessage(packet);
   }
 
   stopDiscovery(): void {
@@ -281,106 +282,38 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     }
   }
 
-  onHostFound(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
-    this.onHostFoundCbs.add(cb);
-  }
-
-  onDiscoveryResponse(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
-    this.onDiscoveryResponseCbs.add(cb);
-  }
-
-  offDiscoveryResponse(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
-    this.onDiscoveryResponseCbs.delete(cb);
-  }
-
-  offHostFound(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
-    this.onHostFoundCbs.delete(cb);
-  }
-
-  onPlayerJoined(cb: (player: LobbyMember) => void): void {
-    this.onPlayerJoinedCbs.add(cb);
-  }
-
-  offPlayerJoined(cb: (player: LobbyMember) => void): void {
-    this.onPlayerJoinedCbs.delete(cb);
-  }
-
-  onPlayerReadyChanged(cb: (playerId: string, ready: boolean) => void): void {
-    this.onPlayerReadyChangedCbs.add(cb);
-  }
-
-  offPlayerReadyChanged(cb: (playerId: string, ready: boolean) => void): void {
-    this.onPlayerReadyChangedCbs.delete(cb);
-  }
-
-  onPlayerLeft(cb: (playerId: string) => void): void {
-    this.onPlayerLeftCbs.add(cb);
-  }
-
-  offPlayerLeft(cb: (playerId: string) => void): void {
-    this.onPlayerLeftCbs.delete(cb);
-  }
-
-  onHostExit(cb: (payload: MultiplayerHostExitPayload) => void): void {
-    this.onHostExitCbs.add(cb);
-  }
-
-  offHostExit(cb: (payload: MultiplayerHostExitPayload) => void): void {
-    this.onHostExitCbs.delete(cb);
-  }
-
-  onGameStateSync (cb: (gameState: MultiplayerGameState) => void) : void{
-    this.onGameStateSyncCbs.add(cb);
-  }
-  offGameStateSync (cb: (gameState: MultiplayerGameState) => void) : void{
-    this.onGameStateSyncCbs.delete(cb);
-  }
-
-  onAnswerSubmission (cb: (payload: { lobbyId: string; hostAddress:  string; playerId: string; questionIndex: number; answer: string }) => void) : void{
-    this.onAnswerSubmissionCbs.add(cb);
-  }
-  offAnswerSubmission (cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; }) => void) : void{
-    this.onAnswerSubmissionCbs.delete(cb);
-  }
-
-  startBroadcast(payload: MultiplayerLobbySnapshot): void {
-    console.log('[mock] startBroadcast lobby', payload.lobbyId);
+  startBroadcast(snapshot: MultiplayerLobbySnapshot): void {
+    console.log('[mock] startBroadcast lobby', snapshot.lobbyId);
     if (this.pendingHostExitTimeout) {
       clearTimeout(this.pendingHostExitTimeout);
       this.pendingHostExitTimeout = null;
     }
 
     this.activeMode = "host";
-    this.activeSnapshot = payload;
-    this.broadcastSnapshot(payload);
+    this.activeSnapshot = {
+      ...snapshot,
+      hostAddress: snapshot.hostAddress ?? `mock:${snapshot.lobbyId}`,
+    };
+    this.broadcastSnapshot(this.activeSnapshot);
 
-    if (this.broadcastInterval) {
-      clearInterval(this.broadcastInterval);
-    }
+    if (this.broadcastInterval) clearInterval(this.broadcastInterval);
     this.broadcastInterval = window.setInterval(() => {
       if (!this.activeSnapshot) return;
-
       this.pruneStalePlayers(9000);
-
       this.broadcastSnapshot(this.activeSnapshot);
     }, 2000);
   }
 
-  updateLobbySnapshot(payload: MultiplayerLobbySnapshot): void {
-    console.log('[mock] updateLobbySnapshot lobby', payload.lobbyId);
-    this.activeSnapshot = payload;
-    this.broadcastSnapshot(payload);
-  }
-
   stopBroadcast(): void {
     console.log('[mock] stopBroadcast');
+
     if (this.activeMode === 'host' && this.activeSnapshot) {
       const lobbyId = this.activeSnapshot.lobbyId;
       if (this.pendingHostExitTimeout) {
         clearTimeout(this.pendingHostExitTimeout);
       }
       this.pendingHostExitTimeout = window.setTimeout(() => {
-        this.sendHostExit(lobbyId);
+        this.sendHostExitMessage(lobbyId);
         this.pendingHostExitTimeout = null;
       }, 250);
     }
@@ -391,34 +324,110 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     }
 
     this.playerHeartbeats.clear();
-    this.activeMode = null;
+    if (this.activeMode === "host") {
+      this.activeMode = null;
+    }
     this.activeSnapshot = null;
   }
 
+  updateLobbySnapshot(snapshot: MultiplayerLobbySnapshot): void {
+    console.log('[mock] updateLobbySnapshot lobby', snapshot.lobbyId);
+    this.activeSnapshot = {
+      ...snapshot,
+      hostAddress: snapshot.hostAddress ?? this.getActiveHostAddress() ?? `mock:${snapshot.lobbyId}`,
+    };
+    this.broadcastSnapshot(this.activeSnapshot);
+  }
+
+  discoveryRequest(): void {
+    console.log('[mock] sending discovery-request');
+    const packet: MultiplayerPacket = { type: "discovery-request" };
+    this.channel.postMessage(packet);
+  }
+
   requestJoin(payload: MultiplayerJoinRequest): void {
-    console.log('[mock] sending join-request lobby', payload.lobbyId, 'player', payload.player?.id);
+    console.log('[mock] sending join-request to localhost lobby', payload.lobbyId, 'player', payload.player?.id, 'via broadcast');
     const packet: MultiplayerPacket = { type: "join-request", payload };
     this.channel.postMessage(packet);
   }
 
   setReady(payload: MultiplayerReadyUpdate): void {
-    console.log('[mock] sending ready-update player', payload.playerId, 'ready', payload.ready);
+    console.log('[mock] sending ready-update to localhost player', payload.playerId, 'ready', payload.ready, 'via broadcast');
     const packet: MultiplayerPacket = { type: "ready-update", payload };
     this.channel.postMessage(packet);
   }
 
   sendHeartbeat(payload: { lobbyId: string; hostAddress: string; playerId: string }): void {
-    // For mock we don't actually need hostAddress, but keep prototype compatible.
     console.log('[mock] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
-    const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, playerId: payload.playerId } };
+    const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, hostAddress: payload.hostAddress, playerId: payload.playerId } };
     this.channel.postMessage(packet);
   }
 
-
-  leaveLobby(payload: { lobbyId: string; hostAddress: string; playerId: string }): void {
-    console.log('[mock] sending leave-request player', payload.playerId);
+  leaveLobby(payload: MultiplayerLeaveRequest): void {
+    console.log('[mock] sending leave-request to localhost player', payload.playerId);
     const packet: MultiplayerPacket = { type: "leave-request", payload };
     this.channel.postMessage(packet);
+  }
+
+  broadcastGameState(gameState: MultiplayerGameState): void {
+    const packet: MultiplayerPacket = { type: "game-state", payload: gameState };
+    this.channel.postMessage(packet);
+  }
+
+  sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }): void {
+    const packet: MultiplayerPacket = { type: "answer-submission", payload };
+    this.channel.postMessage(packet);
+  }
+
+  // ------- Callbacks --------
+
+  onDiscoveryResponse(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
+    this.onDiscoveryResponseCbs.add(cb);
+  }
+  offDiscoveryResponse(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
+    this.onDiscoveryResponseCbs.delete(cb);
+  }
+  onHostFound(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
+    this.onHostFoundCbs.add(cb);
+  }
+  offHostFound(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
+    this.onHostFoundCbs.delete(cb);
+  }
+  onPlayerJoined(cb: (player: LobbyMember) => void): void {
+    this.onPlayerJoinedCbs.add(cb);
+  }
+  offPlayerJoined(cb: (player: LobbyMember) => void): void {
+    this.onPlayerJoinedCbs.delete(cb);
+  }
+  onPlayerReadyChanged(cb: (playerId: string, ready: boolean) => void): void {
+    this.onPlayerReadyChangedCbs.add(cb);
+  }
+  offPlayerReadyChanged(cb: (playerId: string, ready: boolean) => void): void {
+    this.onPlayerReadyChangedCbs.delete(cb);
+  }
+  onPlayerLeft(cb: (playerId: string) => void): void {
+    this.onPlayerLeftCbs.add(cb);
+  }
+  offPlayerLeft(cb: (playerId: string) => void): void {
+    this.onPlayerLeftCbs.delete(cb);
+  }
+  onHostExit(cb: (payload: MultiplayerHostExitPayload) => void): void {
+    this.onHostExitCbs.add(cb);
+  }
+  offHostExit(cb: (payload: MultiplayerHostExitPayload) => void): void {
+    this.onHostExitCbs.delete(cb);
+  }
+  onGameStateSync(cb: (payload: MultiplayerGameState) => void): void {
+    this.onGameStateSyncCbs.add(cb);
+  }
+  offGameStateSync(cb: (payload: MultiplayerGameState) => void): void {
+    this.onGameStateSyncCbs.delete(cb);
+  }
+  onAnswerSubmission(cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void): void {
+    this.onAnswerSubmissionCbs.add(cb);
+  }
+  offAnswerSubmission(cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void): void {
+    this.onAnswerSubmissionCbs.delete(cb);
   }
 }
 

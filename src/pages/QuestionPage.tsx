@@ -1,8 +1,10 @@
 import { useEffect, useRef, useCallback } from "react";
 import { Box, Typography, Button, Card } from "@mui/material";
-import { Phase, useTriviaStore, useMultiplayerStore, useGameStore, usePlayerStore  } from "../store";
+import { useTriviaStore, useMultiplayerStore, useGameStore, usePlayerStore } from "../store";
 import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
+import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
+import type { TriviaState } from "../store";
 
 const QuestionPage = () => {
   const {
@@ -26,11 +28,10 @@ const QuestionPage = () => {
   const localPlayerId = usePlayerStore((state) => state.getPlayer().id);
   const {
     lobbyRole,
-    players,
   } = useMultiplayerStore();
   const { setScreen } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
-  const multiplayerBridge = (window as any).multiplayer;
+  const multiplayerBridge: MultiplayerBridge | undefined = window.multiplayer;
 
   const broadcastMultiplayerState = useCallback(() => {
     if (mode !== 'multiplayer' || lobbyRole !== 'host') return;
@@ -41,8 +42,8 @@ const QuestionPage = () => {
       timer: state.timer,
       currentIndex: state.currentIndex,
       seed: state.seed,
-      category: state.category,
-      difficulty: state.difficulty,
+      category: state.category ?? undefined,
+      difficulty: state.difficulty ?? undefined,
       questionLimit: state.questionLimit,
       questionTimer: state.questionTimer,
       answerTimer: state.answerTimer,
@@ -123,39 +124,38 @@ const QuestionPage = () => {
    */
   useEffect(() => {
     if(mode !== 'multiplayer' || lobbyRole !== 'client' || !multiplayerBridge) return;
-    const handleGameStateSync = (payload: {
-      phase: Phase;
-      timer: number;
-      currentIndex: number;
-      seed?: number;
-      category?: string;
-      difficulty?: string;
-      questionLimit?: number;
-      questionTimer?: number;
-      answerTimer?: number;
-      playerScores?: Record<string, number>;
-      rankings?: { playerId: string; name: string; score: number; rank: number }[];
-    }) => {
+    const handleGameStateSync = (payload: MultiplayerGameState) => {
       const currentState = useTriviaStore.getState();
       const shouldResetSelectedAnswer = payload.currentIndex !== currentState.currentIndex;
 
-      // replace with TriviaState later?
-      const nextState: any = { 
+      const nextState: Partial<Pick<TriviaState,
+        | 'phase'
+        | 'timer'
+        | 'currentIndex'
+        | 'seed'
+        | 'category'
+        | 'difficulty'
+        | 'questionLimit'
+        | 'questionTimer'
+        | 'answerTimer'
+        | 'playerScores'
+        | 'rankings'
+        | 'selectedAnswer'
+      >> = {
         phase: payload.phase,
         timer: payload.timer,
         currentIndex: payload.currentIndex,
+        ...(payload.seed !== undefined ? { seed: payload.seed } : {}),
+        ...(payload.category !== undefined ? { category: payload.category ?? undefined } : {}),
+        ...(payload.difficulty !== undefined ? { difficulty: payload.difficulty ?? undefined } : {}),
+        ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
+        ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
+        ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
+        ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
+        ...(payload.rankings !== undefined ? { rankings: payload.rankings } : {}),
       };
 
       if (shouldResetSelectedAnswer) nextState.selectedAnswer = '';
-
-      if (payload.seed !== undefined) nextState.seed = payload.seed;
-      if (payload.category !== undefined) nextState.category = payload.category;
-      if (payload.difficulty !== undefined) nextState.difficulty = payload.difficulty;
-      if (payload.questionLimit !== undefined) nextState.questionLimit = payload.questionLimit;
-      if (payload.questionTimer !== undefined) nextState.questionTimer = payload.questionTimer;
-      if (payload.answerTimer !== undefined) nextState.answerTimer = payload.answerTimer;
-      if (payload.playerScores !== undefined) nextState.playerScores = payload.playerScores;
-      if (payload.rankings !== undefined) nextState.rankings = payload.rankings;
 
       useTriviaStore.setState(nextState);
     };
@@ -214,11 +214,6 @@ const QuestionPage = () => {
   const currentQuestion = questions[currentIndex];
 
   const renderScoringPhase = () => {
-    const scoreEntries = Object.entries(playerScores).map(([playerId, score]) => {
-      const player = players.find((p) => p.id === playerId);
-      return { playerId, name: player?.name ?? "Unknown", score };
-    });
-
     return (
       <Box
         sx={{
@@ -296,6 +291,7 @@ const QuestionPage = () => {
           >
             Next
           </Button>
+          {/*
           <Typography variant="h5" sx={{ mb: 2 }}>
             Scoreboard
           </Typography>
@@ -307,6 +303,7 @@ const QuestionPage = () => {
               </Typography>
             </Box>
           ))}
+          */}
 
           <Button
             variant="contained"
@@ -409,7 +406,6 @@ const QuestionPage = () => {
 
 
       case 'ranking': {
-        // Mock player rankings for multiplayer mode
         return (
           <Box sx={{ gridRow: "2 / span 2", textAlign: "center", p: 4, overflowY: "auto" }}>
           <Typography sx={{ mb: 3, fontSize: "1.3rem", fontWeight: "bold" }}>

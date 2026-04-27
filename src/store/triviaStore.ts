@@ -4,6 +4,7 @@ import { Mode, Difficulty, Category } from '../constants';
 import type { GameConfig } from './gameStore';
 import { loadQuestions } from '../utils/loadQuestions';
 import { usePlayerStore, useMultiplayerStore } from './';
+import type { MultiplayerBridge } from '../types/multiplayer';
 
 /**
  * Trivia Store - Game Logic and State Management
@@ -356,17 +357,23 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   },
 
   submitAnswer: (answer: string) => {
-    const { currentIndex, userAnswers, questions, mode } = get();
+    const { currentIndex, userAnswers, mode } = get();
     const nextAnswers = [...userAnswers];
     nextAnswers[currentIndex] = answer;
     set({ selectedAnswer: answer, userAnswers: nextAnswers });
     
     if (mode === "multiplayer" && useMultiplayerStore.getState().lobbyRole === "client") {
-      const bridge = (window as any).multiplayer;
+      const bridge: MultiplayerBridge | undefined = window.multiplayer;
       const lobbyId = useMultiplayerStore.getState().lobbyId;
+      const hostAddress = useMultiplayerStore.getState().hostAddress;
       const playerId = usePlayerStore.getState().getPlayer().id;
-      bridge?.sendAnswerSubmission?.({
+      if (!bridge || !lobbyId || !hostAddress) {
+        console.warn("Missing multiplayer routing data for answer submission", { lobbyId, hostAddress });
+        return;
+      }
+      bridge.sendAnswerSubmission({
         lobbyId,
+        hostAddress,
         playerId,
         questionIndex: currentIndex,
         answer,

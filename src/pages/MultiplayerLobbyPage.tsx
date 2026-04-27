@@ -50,23 +50,15 @@ const MultiplayerLobby = () => {
     return lobbyId ?? `LOBBY-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   }, [lobbyId]);
 
-  const lastHostSeenRef = useRef(Date.now());
-  const hostDisconnectIntervalRef = useRef<number | null>(null);
   const hasHandledHostExitRef = useRef(false);
   const hasConfirmedJoinRef = useRef(false);
   const isTransitioningToGameRef = useRef(false);
-  const HOST_DISCONNECT_TIMEOUT_MS = 6000;
-  const HOST_CHECK_INTERVAL_MS = 1000;
 
   // we can maybe move these handlers to the store later for readability
   const handleHostExit = useCallback(() => {
     console.log('[renderer] handling host exit for lobby', lobbyId);
     if (hasHandledHostExitRef.current) return;
     hasHandledHostExitRef.current = true;
-    if (hostDisconnectIntervalRef.current) {
-      window.clearInterval(hostDisconnectIntervalRef.current);
-      hostDisconnectIntervalRef.current = null;
-    }
     multiplayerBridge?.stopDiscovery();
     resetMultiplayer();
     setScreen("multiplayer-menu");
@@ -85,7 +77,7 @@ const MultiplayerLobby = () => {
       phase: Phase; 
       timer: number;
       currentIndex: number;
-      seed: number;
+      seed?: number;
       category?: Category;
       difficulty?: Difficulty;
       questionLimit?: number;
@@ -123,7 +115,7 @@ const MultiplayerLobby = () => {
       });
 
       // multiplayerBridge?.offGameStateSync?.(handleGameStateSync);
-      multiplayerBridge.stopDiscovery();
+      multiplayerBridge?.stopDiscovery();
       setScreen("question");
     },
     [gameConfig, lobbyRole, setGameConfig, setScreen, startGame]
@@ -151,11 +143,11 @@ const MultiplayerLobby = () => {
       timer: state.timer,
       currentIndex: state.currentIndex,
       seed: gameSessionSeed,
-      category: gameConfig.category,
-      difficulty: gameConfig.difficulty,
-      questionLimit: gameConfig.questionLimit,
-      questionTimer: gameConfig.questionTimer,
-      answerTimer: gameConfig.answerTimer,
+      category: gameConfig.category ?? undefined,
+      difficulty: gameConfig.difficulty ?? undefined,
+      questionLimit: gameConfig.questionLimit ?? undefined,
+      questionTimer: gameConfig.questionTimer ?? undefined,
+      answerTimer: gameConfig.answerTimer ?? undefined,
     });
 
     setScreen("question");
@@ -166,15 +158,15 @@ const MultiplayerLobby = () => {
     console.log('[renderer] kicking player', playerId);
     removePlayer(playerId);
     const updatedPlayers = players.filter((p) => p.id !== playerId);
-    window.multiplayer?.updateLobbySnapshot({
+    window.multiplayer?.updateLobbySnapshot?.({
       lobbyId: lobbyId,
       hostId: player.id,
       hostName: player.name,
       hostLevel: player.level,
       playerCount: updatedPlayers.length || 1,
       maxPlayers: 4,
-      category: gameConfig.category,
-      difficulty: gameConfig.difficulty,
+      category: gameConfig.category ?? undefined,
+      difficulty: gameConfig.difficulty ?? undefined,
       isPrivate,
       lastActive: new Date().toISOString(),
       players: updatedPlayers,
@@ -187,7 +179,7 @@ const MultiplayerLobby = () => {
       multiplayerBridge?.leaveLobby({ lobbyId, hostAddress, playerId: player.id});
     }
     else if(lobbyRole === "host") {
-      multiplayerBridge.stopBroadcast();  
+      multiplayerBridge?.stopBroadcast();  
     }
     resetMultiplayer();
     setScreen("multiplayer-menu");
@@ -200,18 +192,12 @@ const MultiplayerLobby = () => {
     if (!multiplayerBridge || lobbyRole !== "client") return;
 
     hasHandledHostExitRef.current = false;
-    lastHostSeenRef.current = Date.now();
-
-    const checkHostHeartbeat = () => {
-      if (!lobbyId) return;
-      if (Date.now() - lastHostSeenRef.current > HOST_DISCONNECT_TIMEOUT_MS) {
-        handleHostExit();
-      }
-    };
+    const newestTimestampRef = { current: 0 };
 
     const sendLeaveOnUnload = () => {
-      if (lobbyId && hostAddress && player.id) {
-        multiplayerBridge.leaveLobby({ lobbyId, hostAddress, playerId: player.id });
+      const state = useMultiplayerStore.getState();
+      if (state.lobbyId && state.hostAddress && player.id) {
+        multiplayerBridge?.leaveLobby({ lobbyId: state.lobbyId, hostAddress: state.hostAddress, playerId: player.id });
       }
     };
 
@@ -219,15 +205,21 @@ const MultiplayerLobby = () => {
       sendLeaveOnUnload();
     };
 
-    hostDisconnectIntervalRef.current = window.setInterval(checkHostHeartbeat, HOST_CHECK_INTERVAL_MS);
-
     multiplayerBridge.startDiscovery();
 
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
-      if (lobbyId && payload.lobbyId !== lobbyId) return;
+      const currentLobbyId = useMultiplayerStore.getState().lobbyId;
+      if (currentLobbyId && payload.lobbyId !== currentLobbyId) return;
       if (isTransitioningToGameRef.current) return;
 
-      lastHostSeenRef.current = Date.now();
+      // --- Out of Order Packet Protection ---
+      const packetTime = payload.lastActive ? new Date(payload.lastActive).getTime() : Date.now();
+      if (packetTime < newestTimestampRef.current) {
+        console.log('[renderer] Dropped delayed out-of-order packet.');
+        return;
+      }
+      newestTimestampRef.current = packetTime;
+      // --------------------------------------
       const amIStillInLobby = payload.players.some((p) => p.id === player.id);
       
       if(amIStillInLobby){
@@ -249,9 +241,10 @@ const MultiplayerLobby = () => {
     };
 
     const onHostExitCb = (payload : { lobbyId: string }) => {
+      const currentLobbyId = useMultiplayerStore.getState().lobbyId;
       console.log('[renderer] onHostExitCb', payload, { lobbyId });
       // Only handle host-exit for the lobby we're currently in.
-      if (lobbyId && payload.lobbyId === lobbyId) {
+      if (currentLobbyId && payload.lobbyId === currentLobbyId) {
         handleHostExit();
       }
     };
@@ -262,20 +255,17 @@ const MultiplayerLobby = () => {
     multiplayerBridge.onGameStateSync(handleGameStateSync);
 
     const heartbeatInterval = window.setInterval(() => {
-      if (lobbyId && player.id && multiplayerBridge.sendHeartbeat) {
+      const state = useMultiplayerStore.getState();
+      if (state.lobbyId && player.id && multiplayerBridge.sendHeartbeat && state.hostAddress) {
         multiplayerBridge.sendHeartbeat({
-          lobbyId,
-          hostAddress: hostAddress || "",
+          lobbyId: state.lobbyId,
+          hostAddress: state.hostAddress,
           playerId: player.id,
         });
       }
     }, 3000);
 
     return () => {
-      if (hostDisconnectIntervalRef.current) {
-        window.clearInterval(hostDisconnectIntervalRef.current);
-        hostDisconnectIntervalRef.current = null;
-      }
       window.clearInterval(heartbeatInterval);
       multiplayerBridge.offHostFound?.(onHostFoundCb);
       multiplayerBridge.offHostExit?.(onHostExitCb);
@@ -285,16 +275,12 @@ const MultiplayerLobby = () => {
       // sendLeaveOnUnload(); // dont unload yet
     };
   }, [
-    lobbyId,
     lobbyRole,
     multiplayerBridge,
     syncLobbySnapshot,
     handleHostExit,
     handleGameStateSync,
-    HOST_CHECK_INTERVAL_MS,
-    HOST_DISCONNECT_TIMEOUT_MS,
     player.id,
-    hostAddress
   ]);
 
   /**
@@ -329,8 +315,8 @@ const MultiplayerLobby = () => {
       hostLevel: player.level,
       playerCount: players.length || 1,
       maxPlayers: 4,
-      category: gameConfig.category,
-      difficulty: gameConfig.difficulty,
+      category: gameConfig.category ?? undefined,
+      difficulty: gameConfig.difficulty ?? undefined,
       isPrivate,
       lastActive: new Date().toISOString(),
       players,
@@ -357,8 +343,8 @@ const MultiplayerLobby = () => {
       hostLevel: player.level,
       playerCount: players.length || 1,
       maxPlayers: 4,
-      category: gameConfig.category,
-      difficulty: gameConfig.difficulty,
+      category: gameConfig.category ?? undefined,
+      difficulty: gameConfig.difficulty ?? undefined,
       isPrivate,
       lastActive: new Date().toISOString(),
       players,

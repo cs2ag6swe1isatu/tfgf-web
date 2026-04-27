@@ -12,7 +12,6 @@ import type {
   MultiplayerReadyUpdate,
   MultiplayerGameState,
 } from "./types/multiplayer";
-import { off } from "cluster";
 
 type MultiplayerPacket =
   | { type: "lobby-broadcast"; snapshot: MultiplayerLobbySnapshot }
@@ -20,13 +19,15 @@ type MultiplayerPacket =
   | { type: "join-request"; payload: MultiplayerJoinRequest }
   | { type: "ready-update"; payload: MultiplayerReadyUpdate }
   | { type: "leave-request"; payload: MultiplayerLeaveRequest }
-  | { type: "heartbeat"; payload: { lobbyId: string; playerId: string } }
+  | { type: "heartbeat"; payload: { lobbyId: string; hostAddress: string; playerId: string } }
   | { type: "host-exit"; payload: MultiplayerHostExitPayload }
   | { type: "game-state"; payload: MultiplayerGameState }
   | { type: "answer-submission"; payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string } };
 
 const BROADCAST_PORT = 41234;
 const BROADCAST_ADDR = "255.255.255.255";
+const HOST_SILENCE_TIMEOUT_MS = 6000;
+const HOST_WATCHDOG_INTERVAL_MS = 1000;
 
 let socket: dgram.Socket | null = null;
 let broadcastInterval: NodeJS.Timeout | null = null;
@@ -44,13 +45,64 @@ const onAnswerSubmissionCbs = new Set<(payload: { lobbyId: string; hostAddress: 
 let activeSnapshot: MultiplayerLobbySnapshot | null = null;
 let activeMode: "host" | "client" | null = null;
 const playerHeartbeats = new Map<string, number>();
+let activeClientLobbyId: string | null = null;
+let lastHostSignalAt = 0;
+let hasEmittedHostTimeout = false;
+let hostWatchdogInterval: NodeJS.Timeout | null = null;
+
+function startClientHostWatchdog() {
+  if (hostWatchdogInterval) return;
+
+  hostWatchdogInterval = setInterval(() => {
+    if (activeMode !== "client") return;
+    if (!activeClientLobbyId) return;
+    if (!lastHostSignalAt) return;
+
+    if (Date.now() - lastHostSignalAt <= HOST_SILENCE_TIMEOUT_MS) return;
+    if (hasEmittedHostTimeout) return;
+
+    hasEmittedHostTimeout = true;
+    console.warn('[preload] host silence timeout for lobby', activeClientLobbyId);
+    emitHostExit({ lobbyId: activeClientLobbyId });
+  }, HOST_WATCHDOG_INTERVAL_MS);
+}
+
+function stopClientHostWatchdog(options?: { resetLobby?: boolean }) {
+  if (hostWatchdogInterval) {
+    clearInterval(hostWatchdogInterval);
+    hostWatchdogInterval = null;
+  }
+
+  hasEmittedHostTimeout = false;
+  lastHostSignalAt = 0;
+
+  if (options?.resetLobby) {
+    activeClientLobbyId = null;
+  }
+}
+
+function markHostSignal(lobbyId?: string) {
+  if (!activeClientLobbyId) return;
+  if (lobbyId && lobbyId !== activeClientLobbyId) return;
+
+  lastHostSignalAt = Date.now();
+  hasEmittedHostTimeout = false;
+}
+
+function trackClientLobby(lobbyId: string) {
+  activeClientLobbyId = lobbyId;
+  lastHostSignalAt = Date.now();
+  hasEmittedHostTimeout = false;
+  startClientHostWatchdog();
+}
 
 function createSocket() {
   if (socket) return socket;
 
   socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
-  socket.on("error", () => {
+  socket.on("error", (err) => {
     // ignore socket errors to keep the app usable in environments that block UDP
+    console.error('[preload] SOCKET ERROR:', err);
   });
   socket.on("message", (msg, rinfo) => {
     try {
@@ -65,8 +117,9 @@ function createSocket() {
   socket.bind(BROADCAST_PORT, () => {
     try {
       socket?.setBroadcast(true);
-    } catch {
+    } catch (err) {
       // ignore broadcast capability errors
+      console.error('[preload] setBroadcast failed:', err);
     }
   });
 
@@ -201,6 +254,7 @@ function handlePacket(raw: string, senderAddress: string) {
   if (packet.type === "lobby-broadcast") {
     activeMode = activeMode ?? "client";
     emitHostFound(packet.snapshot, senderAddress);
+    markHostSignal(packet.snapshot.lobbyId);
     return;
   }
 
@@ -231,6 +285,7 @@ function handlePacket(raw: string, senderAddress: string) {
 
   if (packet.type === "game-state") {
     if (activeMode === "client") {
+      markHostSignal();
       onGameStateSyncCbs.forEach((cb) => cb(packet.payload));
     }
     return;
@@ -320,6 +375,7 @@ function stopDiscovery() {
   console.log('[preload] stopDiscovery');
   if (activeMode === "client") {
     activeMode = null;
+    stopClientHostWatchdog();
   }
 }
 
@@ -377,6 +433,7 @@ function updateLobbySnapshot(snapshot: MultiplayerLobbySnapshot) {
 
 function requestJoin(payload: MultiplayerJoinRequest) {
   console.log('[preload] sending join-request to', payload.hostAddress, 'lobby', payload.lobbyId, 'player', payload.player?.id, 'via broadcast');
+  trackClientLobby(payload.lobbyId);
   const s = createSocket();
   const packet: MultiplayerPacket = { type: "join-request", payload };
   const data = Buffer.from(JSON.stringify(packet));
@@ -398,7 +455,7 @@ function setReady(payload: MultiplayerReadyUpdate) {
 function sendHeartbeat(payload: { lobbyId: string; hostAddress: string; playerId: string }) {
   console.log('[preload] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
   const s = createSocket();
-  const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, playerId: payload.playerId } };
+  const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, hostAddress: payload.hostAddress, playerId: payload.playerId } };
   const data = Buffer.from(JSON.stringify(packet));
   s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
     if (err) console.warn('[preload] send heartbeat error', err);
@@ -407,6 +464,9 @@ function sendHeartbeat(payload: { lobbyId: string; hostAddress: string; playerId
 
 function leaveLobby(payload: MultiplayerLeaveRequest) {
   console.log('[preload] sending leave-request to', payload.hostAddress, 'player', payload.playerId);
+  if (activeClientLobbyId && payload.lobbyId === activeClientLobbyId) {
+    stopClientHostWatchdog({ resetLobby: true });
+  }
   const s = createSocket();
   const packet: MultiplayerPacket = { type: "leave-request", payload };
   const data = Buffer.from(JSON.stringify(packet));

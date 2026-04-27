@@ -36,7 +36,12 @@ export interface MultiplayerGameState {
   questionTimer?: number;
   answerTimer?: number;
   playerScores?: Record<string, number>;
-  rankings?: { playerId: string; name: string; score: number; rank: number }[];
+  rankings?: Array<{
+    playerId: string;
+    name: string;
+    score: number;
+    rank: number;
+  }>;
 }
 
 export interface MultiplayerDiscoveredPayload extends MultiplayerLobbySnapshot {
