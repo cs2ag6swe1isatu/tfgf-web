@@ -5,8 +5,7 @@ import { useMultiplayerStore } from "../store/multiplayerStore";
 import { PlayerList } from "../components/multiplayer/PlayerList";
 import { Globe, Lock } from "pixelarticons/react";
 
-import type { MultiplayerBridge, MultiplayerDiscoveredPayload, MultiplayerLobbySnapshot, LobbyMember } from "../types/multiplayer";
-import { Category, Difficulty } from "../constants";
+import type { MultiplayerBridge, MultiplayerDiscoveredPayload, MultiplayerLobbySnapshot, LobbyMember, MultiplayerGameState } from "../types/multiplayer";
 
 /**
  * Todo: make heartbeats dynamic; lower interval for lower player count; higher for higher player count;
@@ -73,18 +72,9 @@ const MultiplayerLobby = () => {
 
   // sync if Game started / client joined mid-game
   const handleGameStateSync = useCallback(
-    async (payload: { 
-      phase: Phase; 
-      timer: number;
-      currentIndex: number;
-      seed?: number;
-      category?: Category;
-      difficulty?: Difficulty;
-      questionLimit?: number;
-      questionTimer?: number;
-      answerTimer?: number;
-    }) => {
-      if (payload.phase !== 'readying') return;
+    async (payload: MultiplayerGameState) => {
+      const syncablePhases: Phase[] = ['readying', 'asking', 'answering', 'scoring', 'ranking'];
+      if (!syncablePhases.includes(payload.phase)) return;
       if (lobbyRole !== 'client') return;
       if (isTransitioningToGameRef.current) return;
       isTransitioningToGameRef.current = true;
@@ -115,6 +105,22 @@ const MultiplayerLobby = () => {
         answerTimer: answerTimer,
         seed: payload.seed,
       });
+
+      const nextState = {
+        phase: payload.phase,
+        timer: payload.timer,
+        currentIndex: payload.currentIndex,
+        ...(payload.seed !== undefined ? { seed: payload.seed } : {}),
+        ...(payload.category !== undefined ? { category: payload.category } : {}),
+        ...(payload.difficulty !== undefined ? { difficulty: payload.difficulty } : {}),
+        ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
+        ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
+        ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
+        ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
+        ...(payload.rankings !== undefined ? { rankings: payload.rankings } : {}),
+      };
+
+      useTriviaStore.setState(nextState);
 
       // multiplayerBridge?.offGameStateSync?.(handleGameStateSync);
       multiplayerBridge?.stopDiscovery();

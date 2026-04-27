@@ -123,9 +123,9 @@ Main multiplayer mutators:
 
 ## 4) Client Game Start Path
 
-1. Host sends `game-state` with phase `readying` (+ config/seed).
+1. Host sends authoritative `game-state` packets (phase can be `readying`, `asking`, `answering`, `scoring`, or `ranking`) with config/seed.
 2. Client lobby handler sets game config from payload.
-3. Client starts trivia session with received seed/config.
+3. Client starts trivia session with received seed/config and immediately hydrates trivia phase/timer/index from first sync packet.
 4. Client stops discovery.
 5. Client routes to question screen.
 
@@ -314,14 +314,13 @@ These are issues to re-check whenever multiplayer changes. Some are confirmed co
 	- Fixed by moving host-silence timeout emission into preload bridge and removing lobby-page timeout watchdog.
 	- Renderer now consumes one disconnect signal path (`onHostExit`) instead of mixed transport + UI timers.
 
+7. Mid-game join sync path was narrow.
+	- Fixed by widening lobby-side `handleGameStateSync` in [src/pages/MultiplayerLobbyPage.tsx](src/pages/MultiplayerLobbyPage.tsx#L75-L133) to accept in-progress phases (`readying`, `asking`, `answering`, `scoring`, `ranking`).
+	- Late joiners now bootstrap trivia state from the first host game-state packet before routing to the question screen.
+
 ### Remaining issues / behavior gaps
 
-7. Mid-game join sync path is narrow.
-	- Lobby-side `handleGameStateSync` only accepts `readying` in [src/pages/MultiplayerLobbyPage.tsx](src/pages/MultiplayerLobbyPage.tsx#L102-L131).
-	- Comment says this also covers mid-game join, but current guard rejects later phases.
-	- Result: late join behavior can miss actual in-progress game state transition.
-
-8. Direct addressing still not active in Electron preload send path.
+7. Direct addressing still not active in Electron preload send path.
 	- `hostAddress` exists in payloads but connected-phase packets still send to broadcast address in preload.
 	- Result: extra LAN noise + weaker host-target guarantees.
 
