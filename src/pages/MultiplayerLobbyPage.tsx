@@ -269,9 +269,9 @@ const MultiplayerLobby = () => {
     };
 
     window.addEventListener('beforeunload', onBeforeUnload);
-    multiplayerBridge.onHostFound(onHostFoundCb);
-    multiplayerBridge.onHostExit(onHostExitCb);
-    multiplayerBridge.onGameStateSync(handleGameStateSync);
+    multiplayerBridge.onHostFound("Lobby", onHostFoundCb);
+    multiplayerBridge.onHostExit("Lobby", onHostExitCb);
+    multiplayerBridge.onGameStateSync("Lobby", handleGameStateSync);
 
     const heartbeatInterval = window.setInterval(() => {
       const state = useMultiplayerStore.getState();
@@ -286,10 +286,10 @@ const MultiplayerLobby = () => {
 
     return () => {
       window.clearInterval(heartbeatInterval);
-      multiplayerBridge.offHostFound?.(onHostFoundCb);
-      multiplayerBridge.offHostExit?.(onHostExitCb);
+      multiplayerBridge.offHostFound?.("Lobby");
+      multiplayerBridge.offHostExit?.("Lobby");
       multiplayerBridge.stopDiscovery();
-      multiplayerBridge.offGameStateSync?.(handleGameStateSync);
+      multiplayerBridge.offGameStateSync?.("Lobby");
       window.removeEventListener('beforeunload', onBeforeUnload);
       // sendLeaveOnUnload(); // dont unload yet
     };
@@ -312,19 +312,19 @@ const MultiplayerLobby = () => {
       console.log('[renderer] onPlayerJoined', p?.id);
       addOrUpdatePlayer(p, { isHost: false, isReady: false });
     };
-    multiplayerBridge.onPlayerJoined(handlePlayerJoined);
+    multiplayerBridge.onPlayerJoined("Lobby", handlePlayerJoined);
 
     const handlePlayerReadyChanged = (playerId: string, ready: boolean) => {
       console.log('[renderer] onPlayerReadyChanged', playerId, ready);
       setPlayerReady(playerId, ready);
     };
-    multiplayerBridge.onPlayerReadyChanged(handlePlayerReadyChanged);
+    multiplayerBridge.onPlayerReadyChanged("Lobby", handlePlayerReadyChanged);
 
     const handlePlayerLeft = (playerId: string) => {
       console.log('[renderer] onPlayerLeft', playerId);
       removePlayer(playerId);
     };
-    multiplayerBridge.onPlayerLeft(handlePlayerLeft);
+    multiplayerBridge.onPlayerLeft("Lobby", handlePlayerLeft);
 
 
     const payload: MultiplayerLobbySnapshot = {
@@ -345,9 +345,9 @@ const MultiplayerLobby = () => {
 
     // clean up listeners on unmount
     return () => {
-      multiplayerBridge.offPlayerJoined?.(handlePlayerJoined);
-      multiplayerBridge.offPlayerReadyChanged?.(handlePlayerReadyChanged);
-      multiplayerBridge.offPlayerLeft?.(handlePlayerLeft);
+      multiplayerBridge.offPlayerJoined?.("Lobby");
+      multiplayerBridge.offPlayerReadyChanged?.("Lobby");
+      multiplayerBridge.offPlayerLeft?.("Lobby");
     };
   }, [lobbyRole, lobbyId, multiplayerBridge, player.id, player.name, player.level, addOrUpdatePlayer, setPlayerReady, removePlayer]);
 

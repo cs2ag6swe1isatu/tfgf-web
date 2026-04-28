@@ -38,14 +38,14 @@ type MultiplayerPacket =
 class MockMultiplayerBridge implements MultiplayerBridge {
   private channel: BroadcastChannel;
 
-  private onHostFoundCbs = new Set<(payload: MultiplayerDiscoveredPayload) => void>();
+  private onHostFoundCbs = new Map<string, (payload: MultiplayerDiscoveredPayload) => void>();
   private onDiscoveryResponseCbs = new Set<(payload: MultiplayerDiscoveredPayload) => void>();
-  private onPlayerJoinedCbs = new Set<(player: LobbyMember) => void>();
-  private onPlayerReadyChangedCbs = new Set<(playerId: string, ready: boolean) => void>();
-  private onPlayerLeftCbs = new Set<(playerId: string) => void>();
-  private onHostExitCbs = new Set<(payload: MultiplayerHostExitPayload) => void>();
-  private onGameStateSyncCbs = new Set<(payload: MultiplayerGameState) => void>();
-  private onAnswerSubmissionCbs = new Set<(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void>();
+  private onPlayerJoinedCbs = new Map<string, (player: LobbyMember) => void>();
+  private onPlayerReadyChangedCbs = new Map<string, (playerId: string, ready: boolean) => void>();
+  private onPlayerLeftCbs = new Map<string, (playerId: string) => void>();
+  private onHostExitCbs = new Map<string, (payload: MultiplayerHostExitPayload) => void>();
+  private onGameStateSyncCbs = new Map<string, (payload: MultiplayerGameState) => void>();
+  private onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void>();
 
   private activeSnapshot: MultiplayerLobbySnapshot | null = null;
   private activeMode: "host" | "client" | null = null;
@@ -387,47 +387,47 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   offDiscoveryResponse(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
     this.onDiscoveryResponseCbs.delete(cb);
   }
-  onHostFound(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
-    this.onHostFoundCbs.add(cb);
+  onHostFound(id: string, cb: (payload: MultiplayerDiscoveredPayload) => void): void {
+    this.onHostFoundCbs.set(id, cb);
   }
-  offHostFound(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
-    this.onHostFoundCbs.delete(cb);
+  offHostFound(id: string): void {
+    this.onHostFoundCbs.delete(id);
   }
-  onPlayerJoined(cb: (player: LobbyMember) => void): void {
-    this.onPlayerJoinedCbs.add(cb);
+  onPlayerJoined(id: string, cb: (player: LobbyMember) => void): void {
+    this.onPlayerJoinedCbs.set(id, cb);
   }
-  offPlayerJoined(cb: (player: LobbyMember) => void): void {
-    this.onPlayerJoinedCbs.delete(cb);
+  offPlayerJoined(id: string): void {
+    this.onPlayerJoinedCbs.delete(id);
   }
-  onPlayerReadyChanged(cb: (playerId: string, ready: boolean) => void): void {
-    this.onPlayerReadyChangedCbs.add(cb);
+  onPlayerReadyChanged(id: string, cb: (playerId: string, ready: boolean) => void): void {
+    this.onPlayerReadyChangedCbs.set(id, cb);
   }
-  offPlayerReadyChanged(cb: (playerId: string, ready: boolean) => void): void {
-    this.onPlayerReadyChangedCbs.delete(cb);
+  offPlayerReadyChanged(id: string): void {
+    this.onPlayerReadyChangedCbs.delete(id);
   }
-  onPlayerLeft(cb: (playerId: string) => void): void {
-    this.onPlayerLeftCbs.add(cb);
+  onPlayerLeft(id: string, cb: (playerId: string) => void): void {
+    this.onPlayerLeftCbs.set(id, cb);
   }
-  offPlayerLeft(cb: (playerId: string) => void): void {
-    this.onPlayerLeftCbs.delete(cb);
+  offPlayerLeft(id: string): void {
+    this.onPlayerLeftCbs.delete(id);
   }
-  onHostExit(cb: (payload: MultiplayerHostExitPayload) => void): void {
-    this.onHostExitCbs.add(cb);
+  onHostExit(id: string, cb: (payload: MultiplayerHostExitPayload) => void): void {
+    this.onHostExitCbs.set(id, cb);
   }
-  offHostExit(cb: (payload: MultiplayerHostExitPayload) => void): void {
-    this.onHostExitCbs.delete(cb);
+  offHostExit(id: string): void {
+    this.onHostExitCbs.delete(id);
   }
-  onGameStateSync(cb: (payload: MultiplayerGameState) => void): void {
-    this.onGameStateSyncCbs.add(cb);
+  onGameStateSync(id: string, cb: (payload: MultiplayerGameState) => void): void {
+    this.onGameStateSyncCbs.set(id, cb);
   }
-  offGameStateSync(cb: (payload: MultiplayerGameState) => void): void {
-    this.onGameStateSyncCbs.delete(cb);
+  offGameStateSync(id: string): void {
+    this.onGameStateSyncCbs.delete(id);
   }
-  onAnswerSubmission(cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void): void {
-    this.onAnswerSubmissionCbs.add(cb);
+  onAnswerSubmission(id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void): void {
+    this.onAnswerSubmissionCbs.set(id, cb);
   }
-  offAnswerSubmission(cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void): void {
-    this.onAnswerSubmissionCbs.delete(cb);
+  offAnswerSubmission(id: string): void {
+    this.onAnswerSubmissionCbs.delete(id);
   }
 }
 

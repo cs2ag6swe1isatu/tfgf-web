@@ -46,6 +46,7 @@ export interface MultiplayerGameState {
 
 export interface MultiplayerDiscoveredPayload extends MultiplayerLobbySnapshot {
   lastSeen: number;
+  isGameActive?: boolean;
 }
 
 export interface MultiplayerLobbySnapshot extends MultiplayerBroadcastPayload {
@@ -95,18 +96,18 @@ export interface MultiplayerBridge {
   discoveryRequest: () => void;
   onDiscoveryResponse: (cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   offDiscoveryResponse: (cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
-  onHostFound: (cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
-  offHostFound: (cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
-  onPlayerJoined: (cb: (player: LobbyMember) => void) => void;
-  offPlayerJoined: (cb: (player: LobbyMember) => void) => void;
-  onPlayerReadyChanged: (cb: (playerId: string, ready: boolean) => void) => void;
-  offPlayerReadyChanged: (cb: (playerId: string, ready: boolean) => void) => void;
-  onPlayerLeft: (cb: (playerId: string) => void) => void;
-  offPlayerLeft: (cb: (playerId: string) => void) => void;
-  onPlayerKicked?: (cb: (lobbyId: string, playerId: string) => void) => void;
-  offPlayerKicked?: (cb: (lobbyId: string, playerId: string) => void) => void;
-  onHostExit: (cb: (payload: MultiplayerHostExitPayload) => void) => void;
-  offHostExit: (cb: (payload: MultiplayerHostExitPayload) => void) => void;
+  onHostFound: (id: string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
+  offHostFound: (id: string) => void;
+  onPlayerJoined: (id: string, cb: (player: LobbyMember) => void) => void;
+  offPlayerJoined: (id: string) => void;
+  onPlayerReadyChanged: (id: string, cb: (playerId: string, ready: boolean) => void) => void;
+  offPlayerReadyChanged: (id: string) => void;
+  onPlayerLeft: (id: string, cb: (playerId: string) => void) => void;
+  offPlayerLeft: (id: string) => void;
+  onPlayerKicked?: (id: string, cb: (lobbyId: string, playerId: string) => void) => void;
+  offPlayerKicked?: (id: string) => void;
+  onHostExit: (id: string, cb: (payload: MultiplayerHostExitPayload) => void) => void;
+  offHostExit: (id: string) => void;
   startBroadcast: (payload: MultiplayerLobbySnapshot) => void;
   updateLobbySnapshot?: (payload: MultiplayerLobbySnapshot) => void;
   requestJoin: (payload: MultiplayerJoinRequest) => void;
@@ -116,10 +117,10 @@ export interface MultiplayerBridge {
   sendHeartbeat?: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;
   stopBroadcast: () => void;
   broadcastGameState: (gameState: MultiplayerGameState) => void;
-  onGameStateSync: (cb: (gameState: MultiplayerGameState) => void) => void;
-  offGameStateSync: (cb: (gameState: MultiplayerGameState) => void) => void;
-  onAnswerSubmission: (cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void) => void;
-  offAnswerSubmission: (cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void) => void;
+  onGameStateSync: (id: string, cb: (gameState: MultiplayerGameState) => void) => void;
+  offGameStateSync: (id: string) => void;
+  onAnswerSubmission: (id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void) => void;
+  offAnswerSubmission: (id: string) => void;
   sendAnswerSubmission: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void;
 }
 

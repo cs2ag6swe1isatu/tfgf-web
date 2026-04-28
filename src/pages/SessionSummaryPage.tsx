@@ -23,7 +23,12 @@ const SessionSummaryPage = () => {
   const score = useTriviaStore((state) => state.score);
   const rankings = useTriviaStore((state) => state.rankings);
   const playerScores = useTriviaStore((state) => state.playerScores);
+  const resetGame = useTriviaStore((state) => state.resetGame);
   const lobbyPlayers = useMultiplayerStore((state) => state.players);
+  const lobbyRole = useMultiplayerStore((state) => state.lobbyRole);
+  const lobbyId = useMultiplayerStore((state) => state.lobbyId);
+  const hostAddress = useMultiplayerStore((state) => state.hostAddress);
+  const resetMultiplayer = useMultiplayerStore((state) => state.resetMultiplayer);
 
   const player = usePlayerStore((state) => state.player ?? state.getPlayer());
   const localPlayer = usePlayerStore((state) => state.getPlayer());
@@ -31,11 +36,29 @@ const SessionSummaryPage = () => {
   const isSolo = gameConfig.mode === "solo";
   const isMultiplayer = gameConfig.mode === "multiplayer";
 
+  const handleNavigation = (targetScreen: "home" | "profile") => {
+    if (isMultiplayer) {
+      const bridge = window.multiplayer;
+      if (lobbyRole === "host") {
+        bridge?.stopBroadcast(); 
+      } else if (lobbyRole === "client" && lobbyId && hostAddress) {
+        bridge?.leaveLobby({
+          lobbyId,
+          hostAddress,
+          playerId: localPlayer.id,
+        });
+        bridge?.stopDiscovery(); 
+      }
+      resetMultiplayer();
+    }
+    resetGame();
+    setScreen(targetScreen);
+  };
+
   const displayedScore = useMemo(() => {
     if (isSolo) return score;
     const rankingScore = rankings.find((entry) => entry.playerId === localPlayer.id)?.score;
     if (typeof rankingScore === "number") return rankingScore;
-    // For multiplayer clients, playerScores[id] is the most reliable fallback
     if (isMultiplayer && typeof playerScores[localPlayer.id] === "number") return playerScores[localPlayer.id];
     return score;
   }, [isSolo, isMultiplayer, score, rankings, playerScores, localPlayer.id]);
@@ -72,14 +95,6 @@ const SessionSummaryPage = () => {
   const clampedRankProgress = Math.max(0, Math.min(100, rankProgress));
 
   const placementRows = useMemo(() => {
-    // trying to log here to debug why rankings 
-    console.log("[Summary] Computing placements", {
-      isMultiplayer,
-      rankingsCount: rankings.length,
-      lobbyPlayersCount: lobbyPlayers.length,
-      playerScoresKeys: Object.keys(playerScores),
-    });
-
     if (!isMultiplayer) return [];
 
     if (rankings.length > 0) {
@@ -91,7 +106,6 @@ const SessionSummaryPage = () => {
           name: entry.playerId === localPlayer.id ? "YOU" : entry.name.toUpperCase(),
           score: entry.score,
         }));
-    // console.log("[Summary] Using rankings from store", results);
       return results;
     }
 
@@ -253,12 +267,7 @@ const SessionSummaryPage = () => {
                   }}
                 >
                   {renderRankIndicator(row.rank)}
-                  <Box
-                    sx={{
-                      width: 20,
-                      height: 20,
-                    }}
-                  />
+                  <Box sx={{ width: 20, height: 20 }} />
                   <Typography sx={{ color: "text.primary", fontSize: { xs: "0.72rem", md: "0.8rem" }, letterSpacing: "0.03em" }}>
                     {row.name}
                   </Typography>
@@ -408,7 +417,7 @@ const SessionSummaryPage = () => {
         <Button
           variant="outlined"
           color="secondary"
-          onClick={() => setScreen("home")}
+          onClick={() => handleNavigation("home")}
           sx={{
             py: 1,
             fontSize: { xs: "0.72rem", md: "0.82rem" },
@@ -423,7 +432,7 @@ const SessionSummaryPage = () => {
         <Button
           variant="outlined"
           color="primary"
-          onClick={() => setScreen("profile")}
+          onClick={() => handleNavigation("profile")}
           sx={{
             py: 1,
             fontSize: { xs: "0.72rem", md: "0.82rem" },

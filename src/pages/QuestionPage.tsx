@@ -92,9 +92,10 @@ const QuestionPage = () => {
       receiveRemoteAnswer(payload.playerId, payload.questionIndex, payload.answer);
     };
 
-    multiplayerBridge.onAnswerSubmission?.(handleAnswerSubmission);
+        multiplayerBridge.onAnswerSubmission?.('QuestionPage', handleAnswerSubmission);
     return()=>{
-      multiplayerBridge.offAnswerSubmission?.(handleAnswerSubmission);
+        multiplayerBridge.offAnswerSubmission?.('QuestionPage');
+
     };
   }, [mode, lobbyRole, multiplayerBridge, currentIndex, receiveRemoteAnswer]);
 
@@ -161,11 +162,22 @@ const QuestionPage = () => {
 
       useTriviaStore.setState(nextState);
     };
-    multiplayerBridge.onGameStateSync(handleGameStateSync);
-    return () => {
-      multiplayerBridge.offGameStateSync?.(handleGameStateSync);
+    const handleHostExit = () => {
+       const state = useTriviaStore.getState();
+       if (state.phase === 'end' || state.phase === 'ranking' || state.phase === 'scoring') return;
+       console.warn('[renderer] Host exit detected mid-game');
+       useMultiplayerStore.getState().resetMultiplayer();
+       useTriviaStore.getState().resetGame();
+       setScreen('multiplayer-menu');
     };
-  }, [mode, lobbyRole, multiplayerBridge]);
+    multiplayerBridge.onGameStateSync('QuestionPage', handleGameStateSync);
+    multiplayerBridge.onHostExit?.('QuestionPage', handleHostExit);
+    
+    return () => {
+      multiplayerBridge.offGameStateSync?.('QuestionPage');
+      multiplayerBridge.offHostExit?.('QuestionPage');
+    };
+  }, [mode, lobbyRole, multiplayerBridge, setScreen]);
 
   // Navigate to result when game ends
   useEffect(() => {
@@ -332,14 +344,13 @@ const QuestionPage = () => {
             size="large"
             onClick={() => nextPhase()}
             sx={{
-              display: 'flex',
+              display: 'none',
               justifyContent: 'center',
               alignItems: 'center',
               width: '100%',
               height: '100%',
             }}
           >
-            Next
           </Button>
           {/*
           <Typography variant="h5" sx={{ mb: 2 }}>
@@ -354,15 +365,6 @@ const QuestionPage = () => {
             </Box>
           ))}
           */}
-
-          <Button
-            variant="contained"
-            size="large"
-            onClick={() => nextPhase()}
-            sx={{ mt: 3 }}
-          >
-            Continue
-          </Button>
         </Box>
       </Box>
     );
@@ -459,26 +461,26 @@ const QuestionPage = () => {
         return null;
       }
 
-      case 'end': {
-        const gameConfig = useGameStore.getState().gameConfig;
-        const { mode, category, difficulty } = gameConfig;
+      // case 'end': {
+      //   const gameConfig = useGameStore.getState().gameConfig;
+      //   const { mode, category, difficulty } = gameConfig;
 
-        if (!mode || !category || !difficulty) {
-          return (
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography variant="h6" sx={{ mb: 3 }}>
-                Missing game configuration.
-              </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => setScreen('home')}
-              >
-                Back to Menu
-              </Button>
-            </Box>
-          );
-        }
+      //   if (!mode || !category || !difficulty) {
+      //     return (
+      //       <Box sx={{ textAlign: 'center', py: 8 }}>
+      //         <Typography variant="h6" sx={{ mb: 3 }}>
+      //           Missing game configuration.
+      //         </Typography>
+      //         <Button
+      //           variant="contained"
+      //           color="primary"
+      //           onClick={() => setScreen('home')}
+      //         >
+      //           Back to Menu
+      //         </Button>
+      //       </Box>
+      //     );
+      //   }
 
         
         return (
@@ -497,9 +499,9 @@ const QuestionPage = () => {
         );
       }
 
-      default:
-        return null;
-    }
+    //   default:
+    //     return null;
+    // }
   };
 
   return (

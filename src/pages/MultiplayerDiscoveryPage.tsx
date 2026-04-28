@@ -68,21 +68,30 @@ const MultiplayerDiscovery = () => {
     if (!multiplayerBridge) return;
 
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
-      if(payload.isPrivate){
+      if (payload.isPrivate) {
         removeDiscoveredHost(payload.lobbyId);
-      } else {
-        addOrUpdateDiscoveredHost(payload);
+        return;
       }
+
+      if (payload.isGameActive) {
+        const amIInThisLobby = payload.players?.some((member) => member.id === player.id);
+        if (!amIInThisLobby) {
+          removeDiscoveredHost(payload.lobbyId);
+          return;
+        }
+      }
+
+      addOrUpdateDiscoveredHost(payload);
     };
 
     const onHostExitCb = (payload: MultiplayerHostExitPayload) => {
       console.log(`[discovery] host left, lobbyId=${payload.lobbyId}`);
       removeDiscoveredHost(payload.lobbyId);
-    }
+    };
 
     multiplayerBridge.startDiscovery();
-    multiplayerBridge.onHostFound(onHostFoundCb);
-    multiplayerBridge.onHostExit?.(onHostExitCb);
+    multiplayerBridge.onHostFound("Discovery", onHostFoundCb);
+    multiplayerBridge.onHostExit?.("Discovery", onHostExitCb);
 
     const discoveryTick = () => {
       multiplayerBridge.discoveryRequest?.();
@@ -93,15 +102,15 @@ const MultiplayerDiscovery = () => {
 
     return () => {
       try {
-        multiplayerBridge.offHostFound?.(onHostFoundCb);
-        multiplayerBridge.offHostExit?.(onHostExitCb);
+        multiplayerBridge.offHostFound?.("Discovery");
+        multiplayerBridge.offHostExit?.("Discovery");
         multiplayerBridge.stopDiscovery();
       } catch {
         void 0;
       }
       window.clearInterval(intervalId);
     };
-  }, [addOrUpdateDiscoveredHost, removeDiscoveredHost, multiplayerBridge]);
+  }, [addOrUpdateDiscoveredHost, removeDiscoveredHost, multiplayerBridge, player.id]);
 
   // Periodically prune stale hosts
   useEffect(() => {
