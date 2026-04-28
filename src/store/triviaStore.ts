@@ -3,6 +3,9 @@ import { Question } from '../types/question';
 import { Mode, Difficulty, Category } from '../constants';
 import type { GameConfig } from './gameStore';
 import { loadQuestions } from '../utils/loadQuestions';
+import { usePlayerStore, useMultiplayerStore } from './';
+import type { MultiplayerBridge } from '../types/multiplayer';
+import { defaultGameConfig } from '../config/gameConfig';
 
 /**
  * Trivia Store - Game Logic and State Management
@@ -22,6 +25,7 @@ import { loadQuestions } from '../utils/loadQuestions';
  * 
  * PHASE RULES:
  * - loading: Fetching questions, show animations or placeholders
+ * - readying: Show "Get Ready" screen, short countdown before first question
  * - asking: Showing question and starting question timer
  * - answering: User is selecting answer, answer timer is running
  * - scoring: Show correct answer and update score, short delay before next question
@@ -29,7 +33,14 @@ import { loadQuestions } from '../utils/loadQuestions';
  * - end: Game over, show summary and options to view profile or return to menu
  */
 
-export type Phase = 'loading' | 'asking' | 'answering' | 'scoring' | 'ranking' | 'end';
+export type Phase = 'loading' | 'readying' | 'asking' | 'answering' | 'scoring' | 'ranking' | 'end';
+
+export interface PlayerRanking {
+  playerId: string;
+  name: string;
+  score: number;
+  rank: number;
+}
 
 export interface TriviaState {
   questions: Question[];
@@ -44,6 +55,11 @@ export interface TriviaState {
   category: Category | null;
   difficulty: Difficulty | null;
   userAnswers: string[];
+  questionLimit: number;
+  seed?: number;
+  playerScores: Record<string, number>;
+  playerAnswers: Record<string, string[]>;
+  rankings: PlayerRanking[];
 }
 
 export interface TriviaActions {
@@ -52,21 +68,34 @@ export interface TriviaActions {
   tickTimer: () => void;
   nextPhase: () => void;
   resetGame: () => void;
+  submitAnswer: (answer: string) => void;
+  receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string) => void;
+  scoreCurrentQuestion: () => void;
+  finalizeRankings: () => void;
 }
 
+const readyTimer = defaultGameConfig.readyTimer; // Seconds to show "Get Ready" before asking first question 
+const soloScoringDelay = defaultGameConfig.scoringDelay;
+
+// test values change later
 const initialState: TriviaState = {
   questions: [],
   currentIndex: 0,
   selectedAnswer: "",
   timer: 0,
-  questionTimer: 10,
-  answerTimer: 10,
+  questionTimer: defaultGameConfig.questionTimer,
+  answerTimer: defaultGameConfig.answerTimer,
   score: 0,
   phase: 'loading',
   mode: 'solo',
   category: null,
   difficulty: null,
   userAnswers: [],
+  questionLimit: defaultGameConfig.questionLimit,
+  seed: undefined,
+  playerScores: {},
+  playerAnswers: {},
+  rankings: [],
 };
 
 export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => ({
@@ -75,12 +104,13 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   /* ---------- Game setup ---------- */
   startGame: async (cfg) => {
     // Accept a snapshot config from the caller (separates UI store from session store)
-    const mode = cfg.mode ?? 'solo';
-    const questionTimer = cfg.questionTimer ?? 15;
-    const answerTimer = cfg.answerTimer ?? 5;
-    const category = cfg.category;
-    const difficulty = cfg.difficulty;
-    const questionLimit = cfg.questionLimit;
+    const mode = cfg.mode ?? get().mode;
+    const questionTimer = cfg.questionTimer ?? get().questionTimer;
+    const answerTimer = cfg.answerTimer ?? get().answerTimer;
+    const category = cfg.category ?? get().category;
+    const difficulty = cfg.difficulty ?? get().difficulty;
+    const questionLimit = cfg.questionLimit ?? get().questionLimit;
+    const seed = cfg.seed ?? get().seed;
 
     // Input validation
     if (!category || !difficulty || !mode) {
@@ -94,10 +124,8 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       return;
     }
 
-    set({ phase: 'loading', category, difficulty });
-
     try {
-      const questions = await loadQuestions(category, difficulty, questionLimit);
+      const questions = await loadQuestions(category, difficulty, questionLimit, seed);
 
       if (questions.length === 0) {
         console.warn(`No questions found for category: ${category}, difficulty: ${difficulty}`);
@@ -107,17 +135,22 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
       set({ 
         questions,
-        timer: questionTimer,
+        timer: mode === 'multiplayer' ? readyTimer : answerTimer,
         questionTimer,
         answerTimer,
         mode,
-        phase: mode === 'multiplayer' ? 'asking' : 'answering',
+        phase: mode === 'multiplayer' ? 'readying' : 'answering',
         currentIndex: 0,
         selectedAnswer: "",
         score: 0,
+        userAnswers: [],
+        playerScores: {},
+        playerAnswers: {},
+        rankings: [],
+        seed,
       });
 
-      console.log(`Successfully loaded ${questions.length} questions for: ${category} (${difficulty})`);
+      // console.log(`Successfully loaded ${questions.length} questions for: ${category} (${difficulty})`);
     } catch (error) {
       console.error("Failed to load questions:", error);
       set({ 
@@ -132,7 +165,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
   /* ---------- Answer handling ---------- */
   selectAnswer: (answer) => {
-    const { questions, currentIndex, mode, phase, score, userAnswers } = get();
+    const { questions, currentIndex, mode, phase, score, userAnswers, answerTimer } = get();
     
     // Validate phase and game state
     if (phase !== 'answering') return;
@@ -153,24 +186,19 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     const newUserAnswers = [...userAnswers];
     newUserAnswers[currentIndex] = answer;
     
-    const answerTimer = get().answerTimer;
-
     if (mode === 'solo') {
-      // Update score immediately
       const newScore = isCorrect ? score + 1 : score;
       
-      // Determine next phase
       const isLastQuestion = currentIndex + 1 >= questions.length;
       
       set({
         selectedAnswer: answer,
         score: newScore,
-        phase: isLastQuestion ? 'ranking' : 'scoring',
-        timer: isLastQuestion ? 0 : answerTimer,
+        phase: isLastQuestion ? 'end' : 'scoring',
+        timer: isLastQuestion ? 0 : soloScoringDelay,
         userAnswers: newUserAnswers,
       });
     } else if (mode === 'multiplayer') {
-      // Multiplayer logic to be implemented
       set({
         selectedAnswer: answer,
         phase: 'scoring',
@@ -182,34 +210,66 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
   /* ---------- Timer ---------- */
   tickTimer: () => {
-    const { timer, phase, selectedAnswer, questions, currentIndex } = get();
-    const answerTimer = get().answerTimer;
-    
-    if (phase === 'answering' || phase === 'asking') {
-      if (timer > 0) {
-        set({ timer: timer - 1 });
-      } else {
-        // Timer expired - handle timeout explicitly
-        if (phase === 'answering') {
-          // If no answer was selected when timer runs out, treat as timeout (no points)
-          if (!selectedAnswer) {
-            // Set timer to 0 to prevent multiple submissions
-            set({ timer: 0 });
+    const { timer, phase, selectedAnswer, questions, currentIndex, mode } = get();
 
-            // Move to scoring phase with no answer selected (will show as wrong)
-            const isLastQuestion = currentIndex + 1 >= questions.length;
-            set({
-              phase: isLastQuestion ? 'ranking' : 'scoring',
-              timer: isLastQuestion ? 0 : answerTimer,
-            });
-          } else {
-            // Answer was selected, submit it normally
-            set({ timer: 0 });
-            get().selectAnswer(selectedAnswer);
-          }
-        }
-      }
+    if (phase !== 'readying' && phase !== 'answering' && phase !== 'asking' && phase !== 'scoring') return;
+
+    if (timer > 0) {
+      set({ timer: timer - 1 });
+      return;
     }
+
+    // Timer expired, advance phase
+    if (phase === 'readying') {
+      const questionTimer = get().questionTimer;
+      set({ phase: 'asking', timer: questionTimer });
+      return;
+    }
+
+    if (phase === 'asking') {
+      const answerTimer = get().answerTimer;
+      set({ phase: 'answering', timer: answerTimer });
+      return;
+    }
+
+    if (phase === 'answering') {
+      if (selectedAnswer) {
+        set({ timer: 0 });
+        get().selectAnswer(selectedAnswer);
+        return;
+      }
+
+      const scoringDelay = mode === 'solo' ? soloScoringDelay : get().answerTimer;
+      set({
+        // Always enter scoring first so host can compute and broadcast final multiplayer rankings.
+        phase: 'scoring',
+        timer: scoringDelay,
+      });
+      return;
+    }
+
+    if (currentIndex + 1 < questions.length) {
+      if (mode === 'multiplayer') {
+        const questionTimer = get().questionTimer;
+        set({
+          phase: 'asking',
+          currentIndex: currentIndex + 1,
+          selectedAnswer: '',
+          timer: questionTimer,
+        });
+      } else {
+        const answerTimer = get().answerTimer;
+        set({
+          phase: 'answering',
+          currentIndex: currentIndex + 1,
+          selectedAnswer: '',
+          timer: answerTimer,
+        });
+      }
+      return;
+    }
+
+    set({ phase: 'ranking', timer: 0 });
   },
 
   /* ---------- Phase machine ---------- */
@@ -221,33 +281,37 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         // Only transition to asking if we have questions or mode is multiplayer
         if (questions.length > 0) {
           if(get().mode === "multiplayer"){
-            set({ phase: 'asking' });
+            set({ phase: 'readying' });
           } else if(get().mode === "solo"){
-            set({ phase: 'answering' });
+            set({ phase: 'loading' });
           }
         } else {
           set({ phase: 'end' });
         }
         break;
 
+      case 'readying':
+        set({ phase: 'asking', timer: get().questionTimer });
+        break;
+
       case 'asking':
         {
-          const questionTimer = get().questionTimer;
-          set({ phase: 'answering', timer: questionTimer });
+          const answerTimer = get().answerTimer;
+          set({ phase: 'answering', timer: answerTimer });
         }
         break;
 
       case 'answering':
         if (timer > 0) {
-          return;
+          set({ timer: 0 });
         }
         
         // Timer expired, advance to scoring
         if (currentIndex + 1 < questions.length) {
-          const answerTimer = get().answerTimer;
+          const scoringDelay = get().mode === 'solo' ? soloScoringDelay : get().answerTimer;
           set({
             phase: 'scoring',
-            timer: answerTimer,
+            timer: scoringDelay,
           });
         } else {
           set({ phase: 'ranking' });
@@ -292,6 +356,110 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         console.warn(`Unknown phase: ${phase}`);
         break;
     }
+  },
+
+  // Solo, prioritize responsive play; Multiplayer, send answer to host immediately but wait for host to trigger scoring phase
+  submitAnswer: (answer: string) => {
+    const { currentIndex, userAnswers, mode } = get();
+
+    if (mode === 'solo') {
+      get().selectAnswer(answer);
+      return;
+    }
+
+    const nextAnswers = [...userAnswers];
+    nextAnswers[currentIndex] = answer;
+    set({ selectedAnswer: answer, userAnswers: nextAnswers });
+    
+    if (mode === "multiplayer" && useMultiplayerStore.getState().lobbyRole === "client") {
+      const bridge: MultiplayerBridge | undefined = window.multiplayer;
+      const lobbyId = useMultiplayerStore.getState().lobbyId;
+      const hostAddress = useMultiplayerStore.getState().hostAddress;
+      const playerId = usePlayerStore.getState().getPlayer().id;
+      if (!bridge || !lobbyId || !hostAddress) {
+        console.warn("Missing multiplayer routing data for answer submission", { lobbyId, hostAddress });
+        return;
+      }
+      bridge.sendAnswerSubmission({
+        lobbyId,
+        hostAddress,
+        playerId,
+        questionIndex: currentIndex,
+        answer,
+      });
+    }
+  },
+  receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string) => {
+    const answers = { ...get().playerAnswers };
+    const playerAnswerList = [...(answers[playerId] ?? [])];
+    playerAnswerList[questionIndex] = answer;
+    answers[playerId] = playerAnswerList;
+    set({ playerAnswers: answers });
+  },
+  scoreCurrentQuestion: () => {
+    const state = get();
+    const question = state.questions[state.currentIndex];
+    if(!question) return;
+
+    const nextScores = { ...state.playerScores };
+    const hostId = usePlayerStore.getState().getPlayer().id;
+
+    const hostAnswer = state.selectedAnswer;
+    if (hostAnswer === question.correctAnswer) {
+      nextScores[hostId] = (nextScores[hostId] ?? 0) + 10; // toremember: use constants for scoring rules
+    }
+
+    Object.entries(state.playerAnswers).forEach(([playerId, answers]) => {
+      if(answers[state.currentIndex] === question.correctAnswer) {
+        nextScores[playerId] = (nextScores[playerId] ?? 0) + 10;
+      }
+    });
+    set({ playerScores: nextScores });
+  },
+  finalizeRankings: () => {
+    const players = useMultiplayerStore.getState().players;
+    const hostPlayer = usePlayerStore.getState().getPlayer();
+    const scors = get().playerScores;
+
+    // Use a Map for better unique player management by ID
+    const rankingMap = new Map<string, { playerId: string; name: string; score: number }>();
+
+    // Add host
+    rankingMap.set(hostPlayer.id, {
+      playerId: hostPlayer.id,
+      name: hostPlayer.name,
+      score: scors[hostPlayer.id] ?? 0,
+    });
+
+    // Add other players from the lobby
+    players.forEach((p) => {
+      rankingMap.set(p.id, {
+        playerId: p.id,
+        name: p.name,
+        score: scors[p.id] ?? 0,
+      });
+    });
+
+    // Add any players who have scores but might not be in the players list for some reason
+    Object.keys(scors).forEach((playerId) => {
+      if (!rankingMap.has(playerId)) {
+        rankingMap.set(playerId, {
+          playerId: playerId,
+          name: "Unknown Player",
+          score: scors[playerId] ?? 0,
+        });
+      }
+    });
+
+    const rankingList = Array.from(rankingMap.values());
+    const sorted = Object.values(rankingList)
+      .sort((a,b) => b.score - a.score)
+      .map((entry, index) => ({
+        ...entry,
+        rank: index + 1,
+      }));
+
+    set({ rankings: sorted });
   },
 
   /* ---------- Reset ---------- */

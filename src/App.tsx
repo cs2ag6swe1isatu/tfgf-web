@@ -1,3 +1,4 @@
+import { useDeferredValue } from "react";
 import HomePage from "./pages/HomePage";
 import ModeSelectPage from "./pages/ModeSelectPage";
 import CategoryPage from "./pages/CategoryPage";
@@ -11,12 +12,33 @@ import MultiplayerMenuPage from "./pages/MultiplayerMenuPage";
 import MultiplayerLobbyPage from "./pages/MultiplayerLobbyPage";
 import MultiplayerDiscoveryPage from "./pages/MultiplayerDiscoveryPage";
 import { useGameStore } from "./store/gameStore";
+import theme from "./ui/theme";
 import './ui/fonts.css';
+
+const Overlay: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: theme.palette.background.default,
+        zIndex: 99,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
 
 export default function App() {
   const screen = useGameStore((state) => state.screen);
+  const modalScreen = useGameStore((state) => state.modalScreen);
+  const deferredScreen = useDeferredValue(screen); // small optimization, read concurrently in the bg
 
-  switch (screen) {
+  switch (deferredScreen) {
     case "mode-select":
       return <ModeSelectPage />;
     case "category":
@@ -36,7 +58,21 @@ export default function App() {
     case "multiplayer-menu":
       return <MultiplayerMenuPage />;
     case "multiplayer-lobby":
-      return <MultiplayerLobbyPage />;
+      return (
+      <>
+        <MultiplayerLobbyPage />
+        {modalScreen === "category" && (
+          <Overlay>
+            <CategoryPage />
+          </Overlay>
+        )}
+        {modalScreen === "difficulty" && (
+          <Overlay>
+            <DifficultyPage />
+          </Overlay>
+        )}
+      </>
+      );
     case "multiplayer-discovery":
       return <MultiplayerDiscoveryPage />;
     case "home":

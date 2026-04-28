@@ -5,3 +5,8 @@ canvas, img, div {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+
+/* Using custom cursor */
+* {
+  cursor: none !important;
+}

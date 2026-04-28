@@ -1,0 +1,17 @@
+annoying bugs on tests
+ browser-based multiplayer testing: Background Tab Throttling.
+
+1. Why the Client Got Silently Dropped
+When you switch to a different tab, modern browsers (Chrome, Firefox, Safari) heavily throttle or completely pause JavaScript execution in the background tab to save memory and battery.
+
+Here is the exact chain of events that occurred:
+
+You opened the Client tab, joined the lobby, and then switched away from it (making it a background tab).
+
+The browser throttled the Client's setInterval, preventing it from sending the 3-second heartbeat packets.
+
+The Host, sitting in the active tab, waited the 9000ms limit. Since no heartbeats arrived, the Host ran pruneStalePlayers() and removed the Client from the lobby.
+
+When you brought the Client tab back to the foreground, it woke up and resumed sending heartbeats. But the Host had already removed them from the activeSnapshot.players array.
+
+The Host broadcasts the new snapshot (which only contains the Host). The Client receives it, updates its local store to match the host, and boom—the Client's UI updates to show only the Host, even though the Client still thinks it's connected.

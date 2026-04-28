@@ -87,6 +87,8 @@ typings/
 
 # Vite
 .vite/
+renderer/
+renderer/main_window/
 
 # Electron-Forge
 out/
@@ -98,3 +100,4 @@ out/
 
 # React Component Preview
 previewConfig.json
+.github/copilot-instructions.md

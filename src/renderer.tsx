@@ -5,6 +5,11 @@ import { CssBaseline, styled, keyframes } from "@mui/material";
 import App from "./App";
 import theme from "./ui/theme";
 import "./index.css";
+import { Cursor } from "./components/ui";
+import { runSessionSummaryPageTester } from "./tests/pageTesters/sessionSummaryPageTester";
+
+// Initialize mock multiplayer bridge for Vite dev mode
+import "./multiplayer-mock";
 
 import { useGameStore } from "./store/gameStore";
 
@@ -28,6 +33,10 @@ const ScreenContainer = styled('div')({
   height: '100%',
   backgroundColor: '#000',
   overflow: 'hidden',
+  'WebkitUserSelect': 'none',
+  'MozUserSelect': 'none',
+  'msUserSelect': 'none',
+  'userSelect': 'none',
 });
 
 const ContentLayer = styled('div')({
@@ -161,7 +170,9 @@ export const ResolutionFixer: React.FC<{ children: React.ReactNode }> = ({ child
 const rootElement = document.getElementById("root");
 
 if (rootElement) {
-  const anyWindow = window as any;
+  runSessionSummaryPageTester();
+
+  const anyWindow = window as Window & { __react_root?: ReturnType<typeof createRoot> };
   if (!anyWindow.__react_root) {
     anyWindow.__react_root = createRoot(rootElement);
   }
@@ -174,13 +185,19 @@ if (rootElement) {
           <App />
       </RetroProcessor>
       </ResolutionFixer>
+      <Cursor />
     </ThemeProvider>
   );
 
-  if ((import.meta as any).hot) {
-    (import.meta as any).hot.dispose(() => {
+  const importMeta = import.meta as ImportMeta & { hot?: { dispose: (cb: () => void) => void } };
+  if (importMeta.hot) {
+    importMeta.hot.dispose(() => {
       if (anyWindow.__react_root) {
-        try { anyWindow.__react_root.unmount(); } catch (e) {}
+        try {
+          anyWindow.__react_root.unmount();
+        } catch (e) {
+          console.warn("Hot reload unmount failed", e);
+        }
         anyWindow.__react_root = null;
       }
     });

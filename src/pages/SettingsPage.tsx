@@ -1,4 +1,4 @@
-import { Typography, Box, Button, Grid, Paper, useTheme } from "@mui/material";
+import { Typography, Box, Button, Grid, Paper } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { Settings2, ChevronLeft2 } from "pixelarticons/react";
 
@@ -18,17 +18,18 @@ const SettingsPage = () => {
   const toggleSetting = useGameStore((state) => state.toggleSetting);
 
   const EffectToggles = () => {
-    return Object.entries(settings).map(([key, value]) => {
-      const label = key
+    return (Object.keys(settings) as Array<keyof typeof settings>).map((key) => {
+      const value = settings[key];
+      const label = String(key)
         .replace(/([A-Z])/g, " $1")
         .trim()
         .replace(/^Use\s/i, "");
       const p = 4; // Pixel size for 3D effect
 
       return (
-        <Grid item xs={6} key={key}>
+        <Grid size={{ xs: 6 }} key={String(key)}>
           <Box
-            onClick={() => toggleSetting(key as keyof settings)}
+            onClick={() => toggleSetting(key)}
             sx={{
               cursor: "pointer",
               width: "100%",
@@ -108,7 +109,7 @@ const SettingsPage = () => {
         </Typography>
       </Box>
 
-      <Paper variant="outlined" sx={{
+      <Paper variant="outlined" sx={(theme) => ({
         flex: 1,
         p: 3,
         backgroundColor: 'rgba(0,0,0,0.8)',
@@ -116,15 +117,31 @@ const SettingsPage = () => {
         borderWidth: '4px',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden'
-      }}>
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        '&::-webkit-scrollbar': { width: '18px' },
+        '&::-webkit-scrollbar-track': {
+          backgroundColor: theme.palette.background.paper,
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: theme.palette.primary.main,
+          borderRadius: 0,
+          minHeight: '8px',
+        },
+        '&::-webkit-scrollbar-thumb:hover': {
+          backgroundColor: theme.palette.primary.light,
+        },
+        '&::-webkit-scrollbar-thumb:active': {
+          backgroundColor: theme.palette.primary.dark,
+        },
+      })}>
         <Typography variant="h5" sx={{ mb: 3 }}>Display Resolution</Typography>
 
         <Grid container spacing={2} sx={{ flex: 1 }}>
           {resolutions.map((res) => {
             const isSelected = currentRes.label === res.label;
             return (
-              <Grid item xs={6} key={res.label} sx={{ flex: 1, height: '100%', pb: '20px' }}>
+              <Grid size={{ xs: 6 }} key={res.label} sx={{ flex: 1, height: '100%', pb: '20px' }}>
                 <Button
                   fullWidth
                   variant={isSelected ? "contained" : "outlined"}

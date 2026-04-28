@@ -1,0 +1,39 @@
+{
+  "profile": {
+    "username": "QuizMaster99",
+    "level": 5,
+    "current_xp": 450,
+    "total_xp": 2450,
+    "stats": {
+      "games_played": 12,
+      "correct_answers": 144,
+      "total_points": 12500
+    }
+  },
+  "history": [
+    {
+      "match_id": "8cbe-1212",
+      "timestamp": "2026-03-22T14:30:00Z",
+      "score": 1200,
+      "accuracy": 0.85,
+      "category": "Software Engineering"
+    },
+    {
+      "match_id": "9aff-4432",
+      "timestamp": "2026-03-21T09:15:00Z",
+      "score": 850,
+      "accuracy": 0.60,
+      "category": "Data Structures"
+    }
+  ],
+  "settings": {
+    "volume_sfx": 0.8,
+    "volume_music": 0.5,
+    "vfx_enabled": true
+  },
+  "local_leaderboard": [
+    { "name": "need pa ni? separate sa rankings display sa end of game session", "score": 12500 },
+    { "name": "Player2", "score": 11000 },
+    { "name": "Guest", "score": 5000 }
+  ]
+}

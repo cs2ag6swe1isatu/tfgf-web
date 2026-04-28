@@ -1,0 +1,30 @@
+{
+  "profile": {
+    "username": "string",
+    "level": "integer",
+    "current_xp": "integer",
+    "total_xp": "integer",
+    "stats": {
+      "games_played": "integer",
+      "correct_answers": "integer",
+      "total_points": "integer"
+    }
+  },
+  "history": [
+    {
+      "match_id": "uuid/string",
+      "timestamp": "iso-date",
+      "score": "integer",
+      "accuracy": "float",
+      "category": "string"
+    }
+  ],
+  "settings": {
+    "volume_sfx": "float (0.0 - 1.0)",
+    "volume_music": "float (0.0 - 1.0)",
+    "vfx_enabled": "boolean"
+  },
+  "local_leaderboard": [
+    { "name": "string", "score": "integer" }
+  ]
+}

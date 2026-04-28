@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { Category, Difficulty, Mode } from "../constants";
-import { usePlayerStore, Player } from "./playerStore";
+import { usePlayerStore } from "./playerStore";
+import { Player } from "../types/player";
+import { defaultGameConfig } from "../config/gameConfig";
 /**
  * Game Store - Navigation and Session Setup
  * 
@@ -11,9 +13,10 @@ import { usePlayerStore, Player } from "./playerStore";
  * - Category and difficulty selection for game configuration
  * - Multiplayer lobby state management
  * - Basic session setup state management
+ * - Player data access
  * 
  * SEPARATION OF CONCERNS:
- * This store handles ONLY navigation and game configuration.
+ * This store handles ONLY navigation, game configuration, and player data.
  * All game-specific logic (questions, scoring, timers, phases) 
  * is managed by triviaStore.ts.
  */
@@ -33,12 +36,13 @@ type Screen =
   | "multiplayer-discovery";
 
 export interface GameConfig {
-  mode?: Mode;
-  category?: Category;
-  difficulty?: Difficulty;
-  questionLimit?: number;
-  questionTimer?: number;
-  answerTimer?: number;
+  mode: Mode | null;
+  category: Category | null;
+  difficulty: Difficulty | null;
+  questionLimit: number | null;
+  questionTimer: number | null;
+  answerTimer: number | null;
+  seed?: number;
 }
 
 export interface Settings {
@@ -49,6 +53,7 @@ export interface Settings {
 
 interface GameState {
   screen: Screen;
+  modalScreen: Screen | null;
   resolution: { width: number, height: number, label: string };
   settings: Settings;
   gameConfig: GameConfig;
@@ -58,6 +63,7 @@ interface GameState {
 
   // Game Actions
   setScreen: (screen: Screen) => void;
+  setModalScreen: (screen: Screen | null) => void;
   setResolution: (width: number, height: number, label: string) => void;
   toggleSetting: (key: keyof Settings) => void;
   setGameConfig: (config: Partial<GameConfig>) => void;
@@ -74,7 +80,9 @@ interface GameState {
 export const useGameStore = create<GameState>((set, get) => ({
   // Basic navigation state
   screen: "home",
+  modalScreen: null,
 
+  // Display settings
   resolution: { width: 1024, height: 768, label: 'XGA (Default)' },
   settings: {
     useCase: false,
@@ -84,17 +92,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Game configuration state
   gameConfig: {
-    mode: null,
-    category: null,
-    difficulty: null,
-    questionLimit: null,
-    questionTimer: null,
-    answerTimer: null,
+    ...defaultGameConfig,
   },
 
   // Actions
   getPlayer: () => usePlayerStore.getState().getPlayer(),
   setScreen: (screen) => set({ screen }),
+  setModalScreen: (modalScreen) => set({ modalScreen }),
   setResolution: (width, height, label) => {
     set({ resolution: { width, height, label } });
   },

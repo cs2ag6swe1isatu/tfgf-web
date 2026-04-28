@@ -12,6 +12,12 @@ if (started) {
   app.quit();
 }
 
+// Support for multiple sessions for testing, remove later
+if (process.env.SESSION_ID) {
+  const currentPath = app.getPath('userData');
+  app.setPath('userData', `${currentPath}-${process.env.SESSION_ID}`);
+}
+
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -19,19 +25,28 @@ const createWindow = () => {
     height: 600,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      sandbox: false,
+      webPreferences: {
+        backgroundThrottling: false,
+      }
     },
   });
 
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    const pageTester = process.env.PAGE_TESTER;
+    const queryPrefix = MAIN_WINDOW_VITE_DEV_SERVER_URL.includes('?') ? '&' : '?';
+    const targetUrl = pageTester
+      ? `${MAIN_WINDOW_VITE_DEV_SERVER_URL}${queryPrefix}tester=${encodeURIComponent(pageTester)}`
+      : MAIN_WINDOW_VITE_DEV_SERVER_URL;
+    mainWindow.loadURL(targetUrl);
   } else {
     mainWindow.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
 
-  // Open the DevTools.
+  // Open the DevTools. remove later
   mainWindow.webContents.openDevTools();
 };
 
