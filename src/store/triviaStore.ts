@@ -3,9 +3,11 @@ import { Question } from '../types/question';
 import { Mode, Difficulty, Category } from '../constants';
 import type { GameConfig } from './gameStore';
 import { loadQuestions } from '../utils/loadQuestions';
-import { usePlayerStore, useMultiplayerStore } from './';
+import { usePlayerStore } from './playerStore';
+import { useMultiplayerStore } from './multiplayerStore';
 import type { MultiplayerBridge } from '../types/multiplayer';
 import { defaultGameConfig } from '../config/gameConfig';
+import { applyRoundScores, scoreIncrementForAnswer } from '../rules';
 
 /**
  * Trivia Store - Game Logic and State Management
@@ -187,7 +189,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     newUserAnswers[currentIndex] = answer;
     
     if (mode === 'solo') {
-      const newScore = isCorrect ? score + 1 : score;
+      const newScore = score + scoreIncrementForAnswer(isCorrect);
       
       const isLastQuestion = currentIndex + 1 >= questions.length;
       
@@ -400,19 +402,15 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     const state = get();
     const question = state.questions[state.currentIndex];
     if(!question) return;
-
-    const nextScores = { ...state.playerScores };
     const hostId = usePlayerStore.getState().getPlayer().id;
 
-    const hostAnswer = state.selectedAnswer;
-    if (hostAnswer === question.correctAnswer) {
-      nextScores[hostId] = (nextScores[hostId] ?? 0) + 10; // toremember: use constants for scoring rules
-    }
-
-    Object.entries(state.playerAnswers).forEach(([playerId, answers]) => {
-      if(answers[state.currentIndex] === question.correctAnswer) {
-        nextScores[playerId] = (nextScores[playerId] ?? 0) + 10;
-      }
+    const nextScores = applyRoundScores({
+      currentScores: state.playerScores,
+      hostPlayerId: hostId,
+      hostAnswer: state.selectedAnswer,
+      playerAnswers: state.playerAnswers,
+      questionIndex: state.currentIndex,
+      correctAnswer: question.correctAnswer,
     });
     set({ playerScores: nextScores });
   },

@@ -94,8 +94,8 @@ export interface MultiplayerBridge {
   startDiscovery: () => void;
   stopDiscovery: () => void;
   discoveryRequest: () => void;
-  onDiscoveryResponse: (cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
-  offDiscoveryResponse: (cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
+  onDiscoveryResponse: (id: string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
+  offDiscoveryResponse: (id:string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   onHostFound: (id: string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   offHostFound: (id: string) => void;
   onPlayerJoined: (id: string, cb: (player: LobbyMember) => void) => void;

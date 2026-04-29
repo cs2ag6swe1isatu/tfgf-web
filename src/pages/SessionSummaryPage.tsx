@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { Typography, Box, Button } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { useGameStore, useTriviaStore, usePlayerStore, useMultiplayerStore } from "../store";
@@ -30,8 +30,20 @@ const SessionSummaryPage = () => {
   const hostAddress = useMultiplayerStore((state) => state.hostAddress);
   const resetMultiplayer = useMultiplayerStore((state) => state.resetMultiplayer);
 
-  const player = usePlayerStore((state) => state.player ?? state.getPlayer());
-  const localPlayer = usePlayerStore((state) => state.getPlayer());
+ 
+  const player = usePlayerStore((state) => state.player);
+  const [localPlayer, setLocalPlayer] = useState(() => usePlayerStore.getState().player ?? null);
+
+  useEffect(() => {
+    if (!usePlayerStore.getState().player) {
+      const p = usePlayerStore.getState().getPlayer();
+      setLocalPlayer(p);
+    } else {
+      setLocalPlayer(usePlayerStore.getState().player);
+    }
+  }, [player]);
+
+  if (!localPlayer) return null;
 
   const isSolo = gameConfig.mode === "solo";
   const isMultiplayer = gameConfig.mode === "multiplayer";
