@@ -5,6 +5,7 @@ import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
 import type { TriviaState } from "../store";
+import { scoreForCorrectAnswers } from "../rules";
 
 const QuestionPage = () => {
   const {
@@ -206,7 +207,7 @@ const QuestionPage = () => {
       (q, index) => q.correctAnswer === userAnswers[index]
     ).length;
 
-    const fallbackScore = correctAnswersCount * 10;
+    const fallbackScore = scoreForCorrectAnswers(correctAnswersCount);
     const rankingEntry = triviaState.rankings.find((entry) => entry.playerId === localPlayerId);
     
     // Use playerScores directly if rankings aren't ready yet

@@ -467,6 +467,9 @@ const MultiplayerLobby = () => {
             </>
           ) : (
             <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
+              <Button variant="outlined" disabled sx={{ flex: 1 }}>
+                {gameConfig.category || "Select Category"}
+              </Button>
               <Button
                 variant="contained"
                 disabled={!currentPlayer}
@@ -474,6 +477,9 @@ const MultiplayerLobby = () => {
                 sx={{ flex: 1 }}
               >
                 {currentPlayer?.isReady ? "Not Ready" : "Ready"}
+              </Button>
+              <Button variant="outlined" disabled sx={{ flex: 1 }}>
+                {gameConfig.difficulty || "Select Difficulty"}
               </Button>
             </Box>
           )}
