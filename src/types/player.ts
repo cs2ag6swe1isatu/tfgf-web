@@ -60,6 +60,8 @@ export interface PlayData {
   averageTimePerQuestion?: number; // in seconds
 }
 
+// A limited stack of recent game sessions for quick access and display.
+// The cap is enforced per mode from config.
 export interface GameSession {
   id: string;
   date: Date;
