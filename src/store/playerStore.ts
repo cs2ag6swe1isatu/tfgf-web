@@ -4,6 +4,7 @@ import { buildSessionDelta, levelFromXp, rankFromLevel, SessionProgressInput, xp
 import { evaluateUnlocks } from "../progression/achievementRules";
 import type { Player, Achievement, GameSession, PlayData } from "../types/player";
 import { createId } from "../utils/uuid";
+import { defaultGameConfig } from "../config/gameConfig";
 
 /** Player Store - User Profile and Progress Management
   * 
@@ -52,6 +53,32 @@ const getPlayerStorage = (): Storage | null => {
   return window.localStorage;
 };
 
+const historyLimitByMode: Record<Mode, number> = {
+  solo: defaultGameConfig.recentSessionLimitSolo,
+  multiplayer: defaultGameConfig.recentSessionLimitMultiplayer,
+};
+
+const trimGameHistory = (history: GameSession[]): GameSession[] => {
+  const retainedCounts: Record<Mode, number> = {
+    solo: 0,
+    multiplayer: 0,
+  };
+
+  const trimmedReversed: GameSession[] = [];
+
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const entry = history[index];
+    const limit = historyLimitByMode[entry.mode];
+
+    if (retainedCounts[entry.mode] >= limit) continue;
+
+    retainedCounts[entry.mode] += 1;
+    trimmedReversed.push(entry);
+  }
+
+  return trimmedReversed.reverse();
+};
+
 // For debugging: use browser localStorage
 // TODO: Change to electron/desktop native paths later:
 // - Electron: app.getPath('userData') + '/player.json'
@@ -71,11 +98,12 @@ const getPlayerFromStorage = (): Player | null => {
       };
 
       const parsed = JSON.parse(existing) as SerializedPlayer;
+      const gameHistory = trimGameHistory((parsed.gameHistory ?? []).map((session) => ({ ...session, date: new Date(session.date) })));
       return {
         ...parsed,
         lastActive: new Date(parsed.lastActive),
         achievements: (parsed.achievements ?? []).map((a) => ({ ...a, unlockedAt: new Date(a.unlockedAt) })),
-        gameHistory: (parsed.gameHistory ?? []).map((session) => ({ ...session, date: new Date(session.date) })),
+        gameHistory,
       };
     }
   } catch (error) {
@@ -177,9 +205,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       ...gameData,
     };
 
+    const nextGameHistory = trimGameHistory([...player.gameHistory, newEntry]);
+
     const updatedPlayer: Player = {
       ...player,
-      gameHistory: [...player.gameHistory, newEntry],
+      gameHistory: nextGameHistory,
       lastActive: new Date(),
     };
 
@@ -239,6 +269,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       topThreeFinish: sessionInput.topThreeFinish,
     };
 
+    const nextGameHistory = trimGameHistory([...player.gameHistory, newHistoryEntry]);
+
     const updatedPlayer: Player = {
       ...player,
       totalXp: nextTotalXp,
@@ -257,7 +289,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       incorrectAnswers: player.incorrectAnswers + delta.incorrectAnswers,
       averageTimePerQuestion: nextAverageTimePerQuestion,
       lastActive: new Date(),
-      gameHistory: [...player.gameHistory, newHistoryEntry],
+      gameHistory: nextGameHistory,
       individualStats: {
         ...player.individualStats,
         [sessionInput.category]: {

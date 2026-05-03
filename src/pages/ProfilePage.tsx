@@ -1,11 +1,15 @@
+import { useMemo, useState } from "react";
 import { Typography, Box, Button } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { usePlayerStore } from "../store/playerStore";
+
+type HistoryView = "all" | "solo" | "multiplayer";
 
 const ProfilePage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
   const player = usePlayerStore((state) => state.getPlayer());
   const resetPlayer = usePlayerStore((state) => state.resetPlayer);
+  const [historyView, setHistoryView] = useState<HistoryView>("all");
 
   const handleReset = () => {
     if (confirm('Are you sure you want to delete all player data? This cannot be undone.')) {
@@ -27,6 +31,41 @@ const ProfilePage = () => {
   const correctAnswers = player.correctAnswers;
   const gamesMastered = player.gamesMastered;
   const achievements = player.achievements;
+  const gameHistory = player.gameHistory ?? [];
+
+  const visibleHistory = useMemo(() => {
+    const sortedHistory = [...gameHistory].reverse();
+    if (historyView === "all") return sortedHistory;
+    return sortedHistory.filter((session) => session.mode === historyView);
+  }, [gameHistory, historyView]);
+
+  const historyCounts = useMemo(() => {
+    const solo = gameHistory.filter((session) => session.mode === "solo").length;
+    const multiplayer = gameHistory.filter((session) => session.mode === "multiplayer").length;
+    return {
+      all: gameHistory.length,
+      solo,
+      multiplayer,
+    };
+  }, [gameHistory]);
+
+  const formatSessionLine = (index: number) => {
+    const session = visibleHistory[index];
+    if (!session) return null;
+
+    const dateLabel = new Date(session.date).toLocaleDateString();
+    const accuracy = session.totalQuestions > 0
+      ? `${Math.round((session.correctAnswers / session.totalQuestions) * 100)}%`
+      : "0%";
+
+    const resultLabel = session.mode === "multiplayer"
+      ? [session.won ? "won" : "lost", session.topThreeFinish ? "top 3" : "outside top 3"].join(", ")
+      : session.mastered
+        ? "perfect"
+        : "played";
+
+    return `${dateLabel} | ${session.mode} | ${session.category} | ${session.difficulty} | score ${session.score} | ${session.correctAnswers}/${session.totalQuestions} (${accuracy}) | ${resultLabel}`;
+  };
 
   return (
     <Box sx={{
@@ -72,6 +111,33 @@ const ProfilePage = () => {
             ))}
           </Box>
         )}
+
+        <Typography sx={{ mt: 4 }} variant="h6">Recent Game History</Typography>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
+          <Button size="small" variant={historyView === "all" ? "contained" : "outlined"} onClick={() => setHistoryView("all")}>
+            All ({historyCounts.all})
+          </Button>
+          <Button size="small" variant={historyView === "solo" ? "contained" : "outlined"} onClick={() => setHistoryView("solo")}>
+            Solo ({historyCounts.solo})
+          </Button>
+          <Button size="small" variant={historyView === "multiplayer" ? "contained" : "outlined"} onClick={() => setHistoryView("multiplayer")}>
+            Multiplayer ({historyCounts.multiplayer})
+          </Button>
+        </Box>
+
+        <Box sx={{ mt: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
+          {visibleHistory.length > 0 ? (
+            visibleHistory.map((session, index) => (
+              <Typography key={session.id} sx={{ fontSize: "0.9rem", mb: 0.75 }}>
+                {formatSessionLine(index)}
+              </Typography>
+            ))
+          ) : (
+            <Typography sx={{ color: "text.secondary" }}>
+              No sessions recorded for this view yet.
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>

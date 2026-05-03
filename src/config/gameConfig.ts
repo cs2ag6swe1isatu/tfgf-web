@@ -6,6 +6,10 @@ export const defaultGameConfig = {
   questionLimit: 2,     // default number of questions
   questionTimer: 3,      // seconds per question
   answerTimer: 3,        // seconds to answer
+
+  // Profile history limits
+  recentSessionLimitSolo: 10,
+  recentSessionLimitMultiplayer: 10,
   
   // Game timing
   readyTimer: 3,         // seconds before first question
