@@ -80,6 +80,34 @@ const ACHIEVEMENT_RULES: AchievementRule[] = [
       const gamesPlayedInCategory = countGames(player, { category: sessionInput.category });
       return gamesPlayedInCategory === 1 && sessionInput.mastered;
     },
+  },
+  {
+    id: "first_easy_perfect",
+    name: "Smooth Start",
+    description: "Get a perfect score the first time you play in easy mode solo.",
+    icon: "[first_easy_perfect.todo]",
+    check: (player, sessionInput) => sessionInput.difficulty === "easy" && sessionInput.mastered && sessionInput.mode === "solo" && countGames(player, { mode: "solo", difficulty: "easy" }) === 1,
+  },
+  {
+    id: "first_medium_perfect",
+    name: "Solid Performance",
+    description: "Get a perfect score the first time you play in medium mode solo.",
+    icon: "[first_medium_perfect.todo]",
+    check: (player, sessionInput) => sessionInput.difficulty === "medium" && sessionInput.mastered && sessionInput.mode === "solo" && countGames(player, { mode: "solo", difficulty: "medium" }) === 1,
+  },
+  {
+    id: "first_hard_perfect",
+    name: "True Expert",
+    description: "Get a perfect score the first time you play in hard mode solo.",
+    icon: "[first_hard_perfect.todo]",
+    check: (player, sessionInput) => sessionInput.difficulty === "hard" && sessionInput.mastered && sessionInput.mode === "solo" && countGames(player, { mode: "solo", difficulty: "hard" }) === 1,
+  },
+  {
+    id: "top_one_leaderboard",
+    name: "Champion",
+    description: "Finish a multiplayer game placing top 1 in ranking.",
+    icon: "[top_one_leaderboard.todo]",
+    check: (player, sessionInput) => sessionInput.mode === "multiplayer" && sessionInput.won === true,
   }
 ];
 
