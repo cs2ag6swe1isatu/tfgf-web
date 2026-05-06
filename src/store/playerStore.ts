@@ -26,6 +26,7 @@ interface PlayerState {
   saveGameToHistory: (gameData: Omit<GameSession, 'id' | 'date'>) => void;
   resetPlayer: () => void;
   setAvatar: (avatar: string) => void;
+  setPlayerName: (name: string) => void;
 }
 
 // Storage key for player data
@@ -321,6 +322,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         set({ player: updatedPlayer });
       } catch (error) {
         console.warn("Failed to set avatar:", error);
+      }
+    },
+
+    setPlayerName: (name: string) => {
+      try {
+        const player = get().getPlayer();
+        const updatedPlayer: Player = { ...player, name, lastActive: new Date() };
+        savePlayerToStorage(updatedPlayer);
+        set({ player: updatedPlayer });
+      } catch (error) {
+        console.warn("Failed to set player name:", error);
       }
     },
 
