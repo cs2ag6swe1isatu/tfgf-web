@@ -1,0 +1,20 @@
+@font-face {
+    font-family: 'pixelsboldpixels';
+    src: url('/fonts/boldpixels.eot');
+    src: url('/fonts/boldpixels.eot?#iefix') format('embedded-opentype'),
+         url('/fonts/boldpixels.woff2') format('woff2'),
+         url('/fonts/boldpixels.woff') format('woff'),
+         url('/fonts/boldpixels.ttf') format('truetype'),
+         url('/fonts/boldpixels.svg#pixelsboldpixels') format('svg');
+    font-weight: 100 900;
+    font-display: swap;
+
+}
+
+:root {
+  --font-display: 'pixelsboldpixels';
+}
+
+body {
+  font-family: var(--font-display);
+}

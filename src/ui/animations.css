@@ -1,0 +1,23 @@
+
+@keyframes pixel-ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.1;
+  }
+}
+
+@keyframes scanline {
+    0% {
+        bottom: 100%;
+    }
+    80% {
+        bottom: 100%;
+    }
+    100% {
+        bottom: 0%;
+    }
+}
