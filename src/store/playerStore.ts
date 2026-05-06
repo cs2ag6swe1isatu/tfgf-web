@@ -25,6 +25,7 @@ interface PlayerState {
   applySessionProgress: (sessionInput: SessionProgressInput) => void;
   saveGameToHistory: (gameData: Omit<GameSession, 'id' | 'date'>) => void;
   resetPlayer: () => void;
+  setAvatar: (avatar: string) => void;
 }
 
 // Storage key for player data
@@ -312,7 +313,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     savePlayerToStorage(finalPlayer);
     set({ player: finalPlayer });
   },
-  resetPlayer: () => {
+    setAvatar: (avatar: string) => {
+      try {
+        const player = get().getPlayer();
+        const updatedPlayer: Player = { ...player, avatar, lastActive: new Date() };
+        savePlayerToStorage(updatedPlayer);
+        set({ player: updatedPlayer });
+      } catch (error) {
+        console.warn("Failed to set avatar:", error);
+      }
+    },
+
+    resetPlayer: () => {
     try {
       const storage = getPlayerStorage();
       storage?.removeItem(PLAYER_STORAGE_KEY);

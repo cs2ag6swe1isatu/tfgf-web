@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Typography, Box, Button } from "@mui/material";
+import { Typography, Box, Button, Avatar } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { usePlayerStore } from "../store/playerStore";
 
@@ -78,6 +78,7 @@ const ProfilePage = () => {
       position: "relative"
     }}>
       <Box sx={{ textAlign: "center" }}>
+        <Avatar src={player.avatar || undefined} alt={playerName} sx={{ width: 96, height: 96, margin: "0 auto", mb: 2, imageRendering: 'pixelated' }} />
         <Typography variant="h4" gutterBottom>
           Profile
         </Typography>

@@ -1,6 +1,7 @@
-import { Typography, Box, Button, Grid, Paper } from "@mui/material";
+import { Typography, Box, Button, Grid, Paper, Avatar } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { Settings2, ChevronLeft2 } from "pixelarticons/react";
+import { usePlayerStore } from "../store/playerStore";
 
 const resolutions = [
   { width: 1280, height: 720, label: "HD 720p", ratio: "16:9" },
@@ -90,6 +91,52 @@ const SettingsPage = () => {
     });
   };
 
+  const AvatarSelector = () => {
+    const setAvatar = usePlayerStore((s) => s.setAvatar);
+    const player = usePlayerStore((s) => s.getPlayer());
+    const avatars = [
+      "Detective 1.png",
+      "Girl2 1.png",
+      "Glasses 1.png",
+      "Goblin 1.png",
+      "Kid2 1.png",
+      "Lady 1.png",
+      "Punk 1.png",
+      "old_man 1.png",
+    ];
+
+    return (
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h5" sx={{ mb: 1 }}>Player Avatar</Typography>
+        <Grid container spacing={1}>
+          {avatars.map((name) => {
+            const src = `/img/avatars/${encodeURIComponent(name)}`;
+            const isSelected = player.avatar === src;
+            return (
+              <Grid item key={name}>
+                <Box
+                  onClick={() => setAvatar(src)}
+                  sx={{
+                    border: isSelected ? "2px solid" : "1px solid",
+                    borderColor: isSelected ? "primary.main" : "divider",
+                    borderRadius: 1,
+                    p: 0.5,
+                    cursor: "pointer",
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Avatar src={src} alt={name} sx={{ width: 64, height: 64, imageRendering: 'pixelated' }} />
+                </Box>
+              </Grid>
+            );
+          })}
+        </Grid>
+      </Box>
+    );
+  };
+
   return (
     <Box sx={{
       width: '100%',
@@ -135,6 +182,7 @@ const SettingsPage = () => {
           backgroundColor: theme.palette.primary.dark,
         },
       })}>
+        <AvatarSelector />
         <Typography variant="h5" sx={{ mb: 3 }}>Display Resolution</Typography>
 
         <Grid container spacing={2} sx={{ flex: 1 }}>

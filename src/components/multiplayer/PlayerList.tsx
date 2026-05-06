@@ -30,7 +30,11 @@ export const PlayerList = ({ players, isHost, onKick }: PlayerListProps) => {
         <Box key={player.id} sx={{ display: "flex", alignItems: "center", mb: 1 }}>
           <Box sx={{ width:"100%", display: "flex", alignItems: "center", gap: 2}}>
             <Box width={48} height={48} sx={{ display:"flex", justifyContent:"center", alignItems: "center", border: `2px solid ${theme.palette.primary.main}`}}>
-              {!player.avatar && <UserSharp width={32} height={32}/>}
+              {player.avatar ? (
+                <Avatar src={player.avatar} alt={player.name} sx={{ width: 44, height: 44, imageRendering: 'pixelated' }} />
+              ) : (
+                <UserSharp width={32} height={32}/>
+              )}
             </Box>
             <Box>
               <Typography variant="body2">
