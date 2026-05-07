@@ -5,6 +5,24 @@ import { usePlayerStore } from "../store/playerStore";
 
 type HistoryView = "all" | "solo" | "multiplayer";
 
+/* Layout:
+- Top: Profile Icon and Profile Title
+- Middle to Bottom: Container: Sidebar, profile content
+
+> Sidebar:
+ - Player Avatar, Player Name, Player Rank, Player Level, XP Bar
+ - Sidebar Tabs: Stats, Achievements, Game History
+> Profile Content:
+ - Stats: 
+ > TopBar: Overall, solo, multiplayer 
+ > Middle: Stats grid: total score, top score, total games played, question answered, correct answers, accuracy
+ > Bottom: Individual difficuty stats: left side: bar graph(y-axis: accuracy(%), x-axis: columns: easy, medium, hard); right side per difficulty raw stat numbers: [difficulty]: total scores, top scores, total games played, question answered, correct answers, accuracy
+ > Achievements:
+
+ - Game History:
+ > Recent games title, recent games list (scrollable), each item: [category|difficulty|score] upper line, [date|mode|xp earned] lower line 
+ */
+
 const ProfilePage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
   const player = usePlayerStore((state) => state.getPlayer());
