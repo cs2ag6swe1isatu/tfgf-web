@@ -1,0 +1,35 @@
+body {
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  background-color: #0a0f1c;
+  color: #00ff88;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.title {
+  font-size: 28px;
+  letter-spacing: 3px;
+  margin-bottom: 30px;
+}
+
+.btn {
+  background: transparent;
+  border: 2px solid #00ff88;
+  color: #00ff88;
+  padding: 10px 25px;
+  margin: 10px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn:hover {
+  background: #00ff88;
+  color: #0a0f1c;
+}

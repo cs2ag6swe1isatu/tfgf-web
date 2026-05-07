@@ -1,0 +1,39 @@
+.result-bg {
+  background: linear-gradient(to bottom, #001f3f, #000814);
+}
+
+.game-over {
+  color: red;
+  margin-bottom: 20px;
+}
+
+.score-box {
+  display: flex;
+  gap: 50px;
+  border: 2px solid #00ff88;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.rank-box {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.progress-bar {
+  width: 200px;
+  height: 10px;
+  background: #222;
+  margin: 10px auto;
+}
+
+.progress {
+  width: 60%;
+  height: 100%;
+  background: #00ff88;
+}
+
+.result-buttons {
+  display: flex;
+  gap: 20px;
+}

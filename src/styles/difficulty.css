@@ -1,0 +1,17 @@
+.difficulty-bg {
+  background-image: radial-gradient(#00ff8855 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.difficulty-buttons {
+  display: flex;
+  gap: 20px;
+}
+
+.back-btn {
+  margin-top: 30px;
+  background: none;
+  border: none;
+  color: #00ff88;
+  cursor: pointer;
+}
