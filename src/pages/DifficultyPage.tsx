@@ -141,9 +141,9 @@ export default function DifficultyPage() {
       startGame({
         category,
         difficulty,
-        questionLimit: 1,
+        questionLimit: 10,
         mode: "solo",
-        questionTimer: 10,
+        questionTimer: 25,
         answerTimer: 10,
         recentSessionLimitSolo: 0,
         recentSessionLimitMultiplayer: 0
