@@ -101,7 +101,7 @@ const CategoryPage = () => {
             color: COLORS.neonGreen,
             textShadow: `3px 3px 0px ${COLORS.surface}` // Hard text shadow
           }}>
-            SELECT DATABASE
+            SELECT CATEGORY
           </Typography>
         </Box>
 
