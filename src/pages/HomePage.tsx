@@ -214,7 +214,7 @@ const HomePage = () => {
             color="primary"
             onClick={() => setScreen("settings")}
           >
-            <SettingsCog2 style={{ fontSize: "3rem", marginLeft: 10 }} />
+            <SettingsCog2 style={{ fontSize: "3rem", marginRight: 10 }} />
             Settings
           </Button>
 
