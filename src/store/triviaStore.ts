@@ -62,7 +62,6 @@ export interface TriviaState {
   playerScores: Record<string, number>;
   playerAnswers: Record<string, string[]>;
   rankings: PlayerRanking[];
-  currentScreen: string;
 }
 
 export interface TriviaActions {
@@ -75,7 +74,6 @@ export interface TriviaActions {
   receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string) => void;
   scoreCurrentQuestion: () => void;
   finalizeRankings: () => void;
-  setScreen: (screen: string) => void;
 }
 
 const readyTimer = defaultGameConfig.readyTimer; // Seconds to show "Get Ready" before asking first question 
@@ -100,7 +98,6 @@ const initialState: TriviaState = {
   playerScores: {},
   playerAnswers: {},
   rankings: [],
-  currentScreen: 'HomePage',
 };
 
 export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => ({
@@ -462,7 +459,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
     set({ rankings: sorted });
   },
-  setScreen: (screen: string) => set({ currentScreen: screen }),
 
   /* ---------- Reset ---------- */
   resetGame: () => set(initialState),
