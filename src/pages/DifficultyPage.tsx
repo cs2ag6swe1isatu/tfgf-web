@@ -1,6 +1,7 @@
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
 import { Difficulty } from "../constants";
+import { soloDifficultyStartConfig, sessionHistoryRuntimeLimits } from "../config/gameConfig";
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -141,12 +142,9 @@ export default function DifficultyPage() {
       startGame({
         category,
         difficulty,
-        questionLimit: 10,
         mode: "solo",
-        questionTimer: 25,
-        answerTimer: 15,
-        recentSessionLimitSolo: 0,
-        recentSessionLimitMultiplayer: 0
+        ...soloDifficultyStartConfig,
+        ...sessionHistoryRuntimeLimits,
       });
       setScreen("question");
     } else {
@@ -274,6 +272,9 @@ const styles: Record<string, React.CSSProperties> = {
   // Matches HomePage root exactly
   root: {
     position: "relative",
+    width: "100%",
+    height: "100%",
+    minHeight: "100%",
     width: "100vw",
     minHeight: "100vh",
     background: C.bg,
@@ -294,6 +295,8 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     gap: 0,
     width: "100%",
+    height: "100%",
+    minHeight: "100%",
     minHeight: "100",
     paddingTop: 80,
     paddingBottom: 60,

@@ -303,7 +303,7 @@ export default function ModeSelectPage() {
 const styles: Record<string, React.CSSProperties> = {
   root: {
     position: "relative",
-    width: "100vw",
+    width: "100%",
     minHeight: "100vh",
     background: C.bg,
     display: "flex",
@@ -323,7 +323,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     gap: 0,
     width: "100%",
-    minHeight: "100%",
+    minHeight: "100vh",
     paddingTop: 80,
     paddingBottom: 60,
   },
