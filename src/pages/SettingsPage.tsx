@@ -20,6 +20,7 @@ const SettingsPage = () => {
   const setResolution = useGameStore((state) => state.setResolution);
   const settings = useGameStore((state) => state.settings);
   const toggleSetting = useGameStore((state) => state.toggleSetting);
+  const setSfxVolume = useGameStore((state) => state.setSfxVolume);
 
   const player = usePlayerStore((state) => state.getPlayer());
   const setAvatar = usePlayerStore((state) => state.setAvatar);
@@ -27,6 +28,8 @@ const SettingsPage = () => {
 
   const [currentTab, setCurrentTab] = useState<SettingsTab>("profile");
   const [nameInput, setNameInput] = useState(player.name);
+  const volumeSteps = 10;
+  const filledBars = Math.round(settings.sfxVolume * volumeSteps);
 
   const handleNameSave = () => {
     if (nameInput.trim()) {
@@ -50,6 +53,7 @@ const SettingsPage = () => {
   const TabButton = ({ tab, label }: { tab: SettingsTab; label: string }) => (
     <Button
       fullWidth
+      data-sfx="navigate"
       onClick={() => setCurrentTab(tab)}
       sx={{
         justifyContent: "flex-start",
@@ -66,7 +70,13 @@ const SettingsPage = () => {
   );
 
   const EffectToggles = () => {
-    return (Object.keys(settings) as Array<keyof typeof settings>).map((key) => {
+    const effectKeys: Array<"useCase" | "useScanlines" | "useFlicker"> = [
+      "useCase",
+      "useScanlines",
+      "useFlicker",
+    ];
+
+    return effectKeys.map((key) => {
       const value = settings[key];
       const label = String(key)
         .replace(/([A-Z])/g, " $1")
@@ -153,7 +163,7 @@ const SettingsPage = () => {
                   flex: 1,
                 }}
               />
-              <Button variant="contained" onClick={handleNameSave}>
+              <Button variant="contained" onClick={handleNameSave} data-sfx="confirm">
                 Save
               </Button>
             </Box>
@@ -198,6 +208,7 @@ const SettingsPage = () => {
                   <Grid size={{ xs: 6 }} key={res.label} sx={{ flex: 1 }}>
                     <Button
                       fullWidth
+                      data-sfx="navigate"
                       variant={isSelected ? "contained" : "outlined"}
                       onClick={() => setResolution(res.width, res.height, res.label)}
                       sx={{
@@ -308,11 +319,16 @@ const SettingsPage = () => {
           Volume
         </Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          {Array.from({ length: 10 }).map((_, i) => {
-            const filled = i < 5;
+          {Array.from({ length: volumeSteps }).map((_, i) => {
+            const filled = i < filledBars;
             return (
               <Box
                 key={i}
+                data-sfx="navigate"
+                onClick={() => {
+                  setSfxVolume((i + 1) / volumeSteps);
+                  if (!settings.useSfx) toggleSetting("useSfx");
+                }}
                 sx={{
                   width: "18px",
                   height: "32px",
@@ -339,6 +355,8 @@ const SettingsPage = () => {
           Sound Effects
         </Typography>
         <Box
+          onClick={() => toggleSetting("useSfx")}
+          data-sfx={settings.useSfx ? "cancel" : "confirm"}
           sx={{
             cursor: "pointer",
             display: "flex",
@@ -350,7 +368,7 @@ const SettingsPage = () => {
           }}
         >
           {(() => {
-            const value = true;
+            const value = settings.useSfx;
             const p = 4;
             return (
               <>
@@ -416,6 +434,7 @@ const SettingsPage = () => {
       }}
     >
       <Button
+        data-sfx="navigate"
         fullWidth
         sx={{
           justifyContent: "flex-start",
@@ -436,6 +455,7 @@ const SettingsPage = () => {
 
       <Button
         fullWidth
+        data-sfx="navigate"
         sx={{
           justifyContent: "flex-start",
           p: 2,
@@ -542,6 +562,7 @@ const SettingsPage = () => {
           color="primary"
           startIcon={<ChevronLeft2 />}
           onClick={() => setScreen("home")}
+          data-sfx="navigate"
           sx={{ fontSize: "1.5rem" }}
         >
           Back to Menu

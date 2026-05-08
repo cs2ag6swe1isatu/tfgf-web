@@ -308,6 +308,7 @@ export default function HomePage() {
           className="play-btn"
           style={styles.playBtn}
           onClick={() => setScreen("mode-select")}
+          data-sfx="navigate"
           aria-label="Play"
         >
           <span style={styles.playTriangle} />
@@ -319,6 +320,7 @@ export default function HomePage() {
             className="nav-btn"
             style={styles.navBtn}
             onClick={() => setScreen("settings")}
+            data-sfx="navigate"
           >
             <GearIcon />
             <span style={styles.navLabel}>SETTINGS</span>
@@ -328,6 +330,7 @@ export default function HomePage() {
             className="nav-btn"
             style={styles.navBtn}
             onClick={() => setScreen("profile")}
+            data-sfx="navigate"
           >
             <ProfileIcon />
             <span style={styles.navLabel}>PROFILE</span>
@@ -337,6 +340,7 @@ export default function HomePage() {
             className="nav-btn"
             style={styles.navBtn}
             onClick={() => setScreen("standing")}
+            data-sfx="navigate"
           >
             <StandingIcon />
             <span style={styles.navLabel}>STANDING</span>

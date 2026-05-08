@@ -103,6 +103,7 @@ function DiffBtn({
     <button
       className="diff-btn"
       onClick={onClick}
+      data-sfx="navigate"
       style={{
         width: 210,
         height: 76,
@@ -256,6 +257,7 @@ export default function DifficultyPage() {
           <button
             className="back-btn"
             onClick={handleBack}
+            data-sfx="navigate"
             style={styles.backBtn}
           >
             BACK

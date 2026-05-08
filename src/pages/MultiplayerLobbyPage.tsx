@@ -434,6 +434,7 @@ const MultiplayerLobby = () => {
             {lobbyRole === "host" && (
               <Button
                 sx={{ gap: 1 }}
+                data-sfx="navigate"
                 variant={isPrivate ? "contained" : "outlined"}
                 color={isPrivate ? "warning" : "secondary"}
                 onClick={() => setPrivate(!isPrivate)}
@@ -445,7 +446,7 @@ const MultiplayerLobby = () => {
 
           </Box>
           <Typography variant="h6">Lobby: {currentLobbyId}</Typography>
-          <Button onClick={handleLeaveLobby}>Back</Button>
+          <Button onClick={handleLeaveLobby} data-sfx="navigate">Back</Button>
         </Box>
 
         <Box sx={{ mb: 3 }}>
@@ -459,31 +460,32 @@ const MultiplayerLobby = () => {
           {lobbyRole === "host" ? (
             <>
               <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
-                <Button variant="outlined" onClick={() => setModalScreen("category")} sx={{ flex: 1 }}>
+                <Button variant="outlined" data-sfx="navigate" onClick={() => setModalScreen("category")} sx={{ flex: 1 }}>
                   {gameConfig.category || "Select Category"}
                 </Button>
-                <Button variant="contained" onClick={handleStartGame} disabled={!canStart} sx={{ flex: 1 }}>
+                <Button variant="contained" data-sfx="confirm" onClick={handleStartGame} disabled={!canStart} sx={{ flex: 1 }}>
                   Start Game
                 </Button>
-                <Button variant="outlined" onClick={() => setModalScreen("difficulty")} sx={{ flex: 1 }}>
+                <Button variant="outlined" data-sfx="navigate" onClick={() => setModalScreen("difficulty")} sx={{ flex: 1 }}>
                   {gameConfig.difficulty || "Select Difficulty"}
                 </Button>
               </Box>
             </>
           ) : (
             <Box sx={{ display: "flex", gap: 2, width: "100%" }}>
-              <Button variant="outlined" disabled sx={{ flex: 1 }}>
+              <Button variant="outlined" disabled data-sfx="navigate" sx={{ flex: 1 }}>
                 {gameConfig.category || "Select Category"}
               </Button>
               <Button
                 variant="contained"
                 disabled={!currentPlayer}
                 onClick={() => currentPlayer && handleReadyToggle(currentPlayer.id, !isReady)}
+                data-sfx="navigate"
                 sx={{ flex: 1 }}
               >
                 {currentPlayer?.isReady ? "Not Ready" : "Ready"}
               </Button>
-              <Button variant="outlined" disabled sx={{ flex: 1 }}>
+              <Button variant="outlined" disabled data-sfx="navigate" sx={{ flex: 1 }}>
                 {gameConfig.difficulty || "Select Difficulty"}
               </Button>
             </Box>

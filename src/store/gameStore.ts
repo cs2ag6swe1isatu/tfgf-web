@@ -51,7 +51,11 @@ export interface Settings {
   useCase: boolean;
   useScanlines: boolean;
   useFlicker: boolean;
+  useSfx: boolean;
+  sfxVolume: number;
 }
+
+type BooleanSettingKey = "useCase" | "useScanlines" | "useFlicker" | "useSfx";
 
 interface GameState {
   screen: Screen;
@@ -67,7 +71,8 @@ interface GameState {
   setScreen: (screen: Screen) => void;
   setModalScreen: (screen: Screen | null) => void;
   setResolution: (width: number, height: number, label: string) => void;
-  toggleSetting: (key: keyof Settings) => void;
+  toggleSetting: (key: BooleanSettingKey) => void;
+  setSfxVolume: (volume: number) => void;
   setGameConfig: (config: Partial<GameConfig>) => void;
 
   // Game configuration actions
@@ -90,6 +95,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     useCase: false,
     useScanlines: false,
     useFlicker: false,
+    useSfx: true,
+    sfxVolume: 0.5,
   },
 
   // Game configuration state
@@ -104,10 +111,16 @@ export const useGameStore = create<GameState>((set, get) => ({
   setResolution: (width, height, label) => {
     set({ resolution: { width, height, label } });
   },
-  toggleSetting: (key) => set((state) => ({
+  toggleSetting: (key: BooleanSettingKey) => set((state) => ({
     settings: {
       ...state.settings,
       [key]: !state.settings[key]
+    }
+  })),
+  setSfxVolume: (volume) => set((state) => ({
+    settings: {
+      ...state.settings,
+      sfxVolume: Math.max(0, Math.min(1, volume)),
     }
   })),
 

@@ -5,7 +5,7 @@ import { CssBaseline, styled, keyframes } from "@mui/material";
 import App from "./App";
 import theme from "./ui/theme";
 import "./index.css";
-import { Cursor } from "./components/ui";
+import { Cursor, ToastProvider } from "./components/ui";
 import { runSessionSummaryPageTester } from "./tests/pageTesters/sessionSummaryPageTester";
 
 // Initialize mock multiplayer bridge for Vite dev mode
@@ -180,12 +180,14 @@ if (rootElement) {
   anyWindow.__react_root.render(
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <ResolutionFixer>
-      <RetroProcessor>
-          <App />
-      </RetroProcessor>
-      </ResolutionFixer>
-      <Cursor />
+      <ToastProvider>
+        <ResolutionFixer>
+          <RetroProcessor>
+            <App />
+          </RetroProcessor>
+        </ResolutionFixer>
+        <Cursor />
+      </ToastProvider>
     </ThemeProvider>
   );
 

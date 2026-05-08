@@ -155,6 +155,7 @@ const MultiplayerDiscovery = () => {
           />
           <Button 
             variant="contained" 
+            data-sfx="navigate"
             onClick={handleJoinById}
           >
             Join
@@ -183,6 +184,7 @@ const MultiplayerDiscovery = () => {
           variant="outlined" 
           onClick={handleBack} 
           sx={{ mt: 2 }}
+          data-sfx="navigate"
         >
           Back
         </Button>

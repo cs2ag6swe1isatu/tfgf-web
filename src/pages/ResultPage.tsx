@@ -412,6 +412,7 @@ const ResultPage: React.FC = () => {
           {/* MAIN MENU */}
           <Button
             onClick={() => setScreen('home')}
+            data-sfx="navigate"
             disableRipple={false}
             sx={{
               flex: 1,
@@ -453,6 +454,7 @@ const ResultPage: React.FC = () => {
           {/* VIEW PROFILE */}
           <Button
             onClick={() => setScreen('profile')}
+            data-sfx="navigate"
             disableRipple={false}
             sx={{
               flex: 1,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
-import { Box, Typography, Button } from "@mui/material";
+import { Box, Typography, Button, Card } from "@mui/material";
 import { useTriviaStore, useMultiplayerStore, useGameStore, usePlayerStore } from "../store";
 import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
@@ -7,6 +7,8 @@ import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplay
 import type { TriviaState } from "../store";
 import { scoreForCorrectAnswers } from "../rules";
 import { styled, keyframes } from "@mui/material/styles";
+import { timerTickIntervalMs } from "../config/gameConfig";
+import { playSfx } from "../utils/sfx";
 
 // ─── Keyframe Animations ────────────────────────────────────────────────────
 
@@ -514,6 +516,7 @@ const QuestionPage = () => {
   const { setScreen } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
   const category = useGameStore((state) => state.gameConfig.category);
+  const currentQuestion = questions[currentIndex];
 
   const multiplayerBridge: MultiplayerBridge | undefined = window.multiplayer;
 
@@ -600,6 +603,7 @@ const QuestionPage = () => {
   // ── Multiplayer: score current question (host) ──────────────────────────────
 
   const hasScoredRef = useRef(false);
+  const scoringSfxQuestionIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (hasScoredRef.current) return;
@@ -614,6 +618,19 @@ const QuestionPage = () => {
   useEffect(() => {
     if (phase !== "scoring") hasScoredRef.current = false;
   }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "scoring") {
+      scoringSfxQuestionIndexRef.current = null;
+      return;
+    }
+
+    if (scoringSfxQuestionIndexRef.current === currentIndex) return;
+    scoringSfxQuestionIndexRef.current = currentIndex;
+
+    const isCorrect = !!selectedAnswer && selectedAnswer === currentQuestion?.correctAnswer;
+    playSfx(isCorrect ? "correct" : "incorrect", 0.6);
+  }, [phase, currentIndex, selectedAnswer, currentQuestion?.correctAnswer]);
 
   // ── Multiplayer: broadcast on state changes ─────────────────────────────────
 
@@ -722,8 +739,6 @@ const QuestionPage = () => {
   }, [phase, applySessionProgress, localPlayerId]);
 
   // ── Derived state ───────────────────────────────────────────────────────────
-
-  const currentQuestion = questions[currentIndex];
 
   const displayedRankings = useMemo(() => {
     const byPlayerId = new Map<string, { playerId: string; name: string; score: number }>();
@@ -986,6 +1001,7 @@ const QuestionPage = () => {
               variant="contained"
               color="primary"
               onClick={() => setScreen('home')}
+              data-sfx="navigate"
             >
               Back to Menu
             </Button>
@@ -1051,6 +1067,7 @@ const QuestionPage = () => {
                 correct={isCorrect}
                 incorrect={isIncorrect}
                 disableRipple={false}
+                data-sfx="navigate"
               >
                 <AnswerLabel correct={isCorrect} incorrect={isIncorrect}>
                   {ANSWER_LABELS[idx]}.

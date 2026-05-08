@@ -28,6 +28,7 @@ const StandingPage = () => {
           color="primary"
           className="mt-4"
           onClick={() => setScreen("home")}
+          data-sfx="navigate"
         >
           Back
         </Button>

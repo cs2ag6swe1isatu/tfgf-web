@@ -5,6 +5,7 @@ import { evaluateUnlocks } from "../progression/achievementRules";
 import type { Player, Achievement, GameSession, PlayData } from "../types/player";
 import { createId } from "../utils/uuid";
 import { defaultGameConfig } from "../config/gameConfig";
+import { notifyGlobal } from "../components/ui/ToastManager";
 
 /** Player Store - User Profile and Progress Management
   * 
@@ -310,6 +311,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const achievements = [...updatedPlayer.achievements, ...newlyUnlocked].filter((item): item is Achievement => item !== null && item !== undefined);
 
     const finalPlayer = { ...updatedPlayer, achievements };
+
+    if (newlyUnlocked.length > 0) {
+      newlyUnlocked.forEach((a) => {
+        try {
+          if (notifyGlobal) {
+            notifyGlobal({ message: `Achievement unlocked: ${a.name}`, level: 'achievement', icon: '/img/placeholder.png' });
+          }
+        } catch (err) {
+        }
+      });
+    }
 
     savePlayerToStorage(finalPlayer);
     set({ player: finalPlayer });

@@ -411,6 +411,7 @@ const MultiplayerMenuPage = () => {
           {/* HOST GAME */}
           <Button
             onClick={handleHostGame}
+            data-sfx="navigate"
             disableRipple={false}
             sx={{
               flex: 1,
@@ -475,6 +476,7 @@ const MultiplayerMenuPage = () => {
           {/* JOIN GAME */}
           <Button
             onClick={handleJoinGame}
+            data-sfx="navigate"
             disableRipple={false}
             sx={{
               flex: 1,
@@ -546,6 +548,7 @@ const MultiplayerMenuPage = () => {
         }}>
           <Button
             onClick={() => setScreen("mode-select")}
+            data-sfx="navigate"
             disableRipple={false}
             sx={{
               width:        L.backW,

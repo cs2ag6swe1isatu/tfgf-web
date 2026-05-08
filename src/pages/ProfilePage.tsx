@@ -133,13 +133,13 @@ const ProfilePage = () => {
 
         <Typography sx={{ mt: 4 }} variant="h6">Recent Game History</Typography>
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
-          <Button size="small" variant={historyView === "all" ? "contained" : "outlined"} onClick={() => setHistoryView("all")}>
+          <Button data-sfx="navigate" size="small" variant={historyView === "all" ? "contained" : "outlined"} onClick={() => setHistoryView("all")}>
             All ({historyCounts.all})
           </Button>
-          <Button size="small" variant={historyView === "solo" ? "contained" : "outlined"} onClick={() => setHistoryView("solo")}>
+          <Button data-sfx="navigate" size="small" variant={historyView === "solo" ? "contained" : "outlined"} onClick={() => setHistoryView("solo")}>
             Solo ({historyCounts.solo})
           </Button>
-          <Button size="small" variant={historyView === "multiplayer" ? "contained" : "outlined"} onClick={() => setHistoryView("multiplayer")}>
+          <Button data-sfx="navigate" size="small" variant={historyView === "multiplayer" ? "contained" : "outlined"} onClick={() => setHistoryView("multiplayer")}>
             Multiplayer ({historyCounts.multiplayer})
           </Button>
         </Box>
@@ -161,6 +161,7 @@ const ProfilePage = () => {
 
       <Box sx={{ display: "flex", justifyContent: "center", gap: 2 }}>
         <Button
+          data-sfx="navigate"
           variant="contained"
           color="primary"
           onClick={() => setScreen("home")}
@@ -168,6 +169,7 @@ const ProfilePage = () => {
           Back
         </Button>
         <Button
+          data-sfx="navigate"
           variant="outlined"
           color="primary"
           onClick={handleReset}

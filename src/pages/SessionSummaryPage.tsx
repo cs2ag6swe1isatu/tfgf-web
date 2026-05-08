@@ -429,6 +429,7 @@ const SessionSummaryPage = () => {
         <Button
           variant="outlined"
           color="secondary"
+          data-sfx="navigate"
           onClick={() => handleNavigation("home")}
           sx={{
             py: 1,
@@ -444,6 +445,7 @@ const SessionSummaryPage = () => {
         <Button
           variant="outlined"
           color="primary"
+          data-sfx="navigate"
           onClick={() => handleNavigation("profile")}
           sx={{
             py: 1,

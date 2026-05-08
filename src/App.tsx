@@ -13,7 +13,9 @@ import MultiplayerLobbyPage from "./pages/MultiplayerLobbyPage";
 import MultiplayerDiscoveryPage from "./pages/MultiplayerDiscoveryPage";
 import { useGameStore } from "./store/gameStore";
 import theme from "./ui/theme";
+import { installGlobalUiSfx } from "./utils/sfx";
 import './ui/fonts.css';
+import { useEffect } from "react";
 
 
 const Overlay: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -38,6 +40,10 @@ export default function App() {
   const screen = useGameStore((state) => state.screen);
   const modalScreen = useGameStore((state) => state.modalScreen);
   const deferredScreen = useDeferredValue(screen); // small optimization, read concurrently in the bg
+
+  useEffect(() => {
+    installGlobalUiSfx();
+  }, []);
 
   let screenContent: React.ReactNode;
 

@@ -181,6 +181,7 @@ function ArrowBtn({
     <button
       onClick={onClick}
       disabled={disabled}
+      data-sfx="navigate"
       className="arrow-btn"
       aria-label={direction === "left" ? "Previous page" : "Next page"}
       style={{
@@ -371,6 +372,7 @@ export default function CategoryPage() {
           <button
             className="back-btn"
             onClick={handleBack}
+            data-sfx="navigate"
             style={styles.backBtn}
           >
             BACK

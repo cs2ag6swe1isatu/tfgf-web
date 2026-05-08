@@ -123,20 +123,18 @@ function MultiAvatar() {
 }
 
 // ─── Mode card ────────────────────────────────────────────────────────────────
-function ModeCard({
-  label,
-  avatar,
-  onClick,
-  animDelay = "0s",
-}: {
+function ModeCard(props: {
   label: React.ReactNode;
   avatar: React.ReactNode;
   onClick: () => void;
   animDelay?: string;
+  [key: string]: any;
 }) {
+  const { label, avatar, onClick, animDelay = "0s", ...rest } = props;
   return (
     <div
       className="mode-card"
+      {...rest}
       onClick={onClick}
       style={{
         display: "flex",
@@ -274,12 +272,14 @@ export default function ModeSelectPage() {
           <ModeCard
             label={<>SOLO<br />PLAYER</>}
             avatar={<SoloAvatar />}
+            data-sfx="navigate"
             onClick={() => { setMode("solo"); setScreen("category"); }}
             animDelay="0.1s"
           />
           <ModeCard
             label={<>MULTI-<br />PLAYER</>}
             avatar={<MultiAvatar />}
+            data-sfx="navigate"
             onClick={() => { setMode("multiplayer"); setScreen("multiplayer-menu"); }}
             animDelay="0.2s"
           />
@@ -288,6 +288,7 @@ export default function ModeSelectPage() {
         {/* Back button */}
         <button
           className="back-btn"
+          data-sfx="navigate"
           onClick={() => setScreen("home")}
           style={styles.backBtn}
         >
