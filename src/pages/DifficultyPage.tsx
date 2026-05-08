@@ -1,6 +1,7 @@
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
 import { Difficulty } from "../constants";
+import { soloDifficultyStartConfig, sessionHistoryRuntimeLimits } from "../config/gameConfig";
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -141,12 +142,9 @@ export default function DifficultyPage() {
       startGame({
         category,
         difficulty,
-        questionLimit: 1,
         mode: "solo",
-        questionTimer: 15,
-        answerTimer: 15,
-        recentSessionLimitSolo: 0,
-        recentSessionLimitMultiplayer: 0
+        ...soloDifficultyStartConfig,
+        ...sessionHistoryRuntimeLimits,
       });
       setScreen("question");
     } else {

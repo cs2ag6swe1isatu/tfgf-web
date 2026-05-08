@@ -6,6 +6,7 @@ import type { SessionProgressInput } from "src/progression/progressionRules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
 import type { TriviaState } from "../store";
 import { scoreForCorrectAnswers } from "../rules";
+import { timerTickIntervalMs } from "../config/gameConfig";
 
 const QuestionPage = () => {
   const {
@@ -86,7 +87,7 @@ const QuestionPage = () => {
         if (mode === 'multiplayer' && lobbyRole === 'host') {
           broadcastMultiplayerState();
         }
-      }, 1000);
+      }, timerTickIntervalMs);
     }
 
     return () => {

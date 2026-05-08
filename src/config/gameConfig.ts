@@ -28,3 +28,20 @@ export const defaultGameConfig = {
   hostPath: 'ws://localhost:8080',  // host connection path
   clientPath: 'ws://localhost:8081' // client connection path
 };
+
+// Solo defaults used when launching directly from difficulty selection. 
+// Temp var for testing only; Use defaultGameConfig later. 
+export const soloDifficultyStartConfig = {
+  questionLimit: 1,
+  questionTimer: 1000, // no question phase in solo mode
+  answerTimer: 30,
+};
+
+// Keep these zeroed for active game session state.
+export const sessionHistoryRuntimeLimits = {
+  recentSessionLimitSolo: 0,
+  recentSessionLimitMultiplayer: 0,
+};
+
+// Shared interval cadence for countdown timers.
+export const timerTickIntervalMs = 1000;
