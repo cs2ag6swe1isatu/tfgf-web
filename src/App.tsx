@@ -21,7 +21,7 @@ const Overlay: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <div
       style={{
-        position: 'fixed',
+        position: 'absolute',
         inset: 0,
         width: '100%',
         height: '100%',
@@ -39,45 +39,70 @@ export default function App() {
   const modalScreen = useGameStore((state) => state.modalScreen);
   const deferredScreen = useDeferredValue(screen); // small optimization, read concurrently in the bg
 
+  let screenContent: React.ReactNode;
+
   switch (deferredScreen) {
     case "mode-select":
-      return <ModeSelectPage />;
+      screenContent = <ModeSelectPage />;
+      break;
     case "category":
-      return <CategoryPage />;
+      screenContent = <CategoryPage />;
+      break;
     case "difficulty":
-      return <DifficultyPage />;
+      screenContent = <DifficultyPage />;
+      break;
     case "question":
-      return <QuestionPage />;
+      screenContent = <QuestionPage />;
+      break;
     case "result":
-      return <SessionSummaryPage />;
+      screenContent = <SessionSummaryPage />;
+      break;
     case "profile":
-      return <ProfilePage />;
+      screenContent = <ProfilePage />;
+      break;
     case "settings":
-      return <SettingsPage />;
+      screenContent = <SettingsPage />;
+      break;
     case "standing":
-      return <StandingPage />;
+      screenContent = <StandingPage />;
+      break;
     case "multiplayer-menu":
-      return <MultiplayerMenuPage />;
+      screenContent = <MultiplayerMenuPage />;
+      break;
     case "multiplayer-lobby":
-      return (
-      <>
-        <MultiplayerLobbyPage />
-        {modalScreen === "category" && (
-          <Overlay>
-            <CategoryPage />
-          </Overlay>
-        )}
-        {modalScreen === "difficulty" && (
-          <Overlay>
-            <DifficultyPage />
-          </Overlay>
-        )}
-      </>
+      screenContent = (
+        <>
+          <MultiplayerLobbyPage />
+          {modalScreen === "category" && (
+            <Overlay>
+              <CategoryPage />
+            </Overlay>
+          )}
+          {modalScreen === "difficulty" && (
+            <Overlay>
+              <DifficultyPage />
+            </Overlay>
+          )}
+        </>
       );
+      break;
     case "multiplayer-discovery":
-      return <MultiplayerDiscoveryPage />;
+      screenContent = <MultiplayerDiscoveryPage />;
+      break;
     case "home":
     default:
-      return <HomePage />;
+      screenContent = <HomePage />;
+      break;
   }
+
+  return <div style={styles.screenRoot}>{screenContent}</div>;
 }
+
+const styles = {
+  screenRoot: {
+    position: 'relative',
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+  },
+} as const;

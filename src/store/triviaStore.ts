@@ -216,7 +216,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
     if (phase !== 'readying' && phase !== 'answering' && phase !== 'asking' && phase !== 'scoring') return;
 
-    if (timer > 0) {
+    if (timer > 1) {
       set({ timer: timer - 1 });
       return;
     }
