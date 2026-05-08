@@ -144,7 +144,7 @@ export default function DifficultyPage() {
         questionLimit: 10,
         mode: "solo",
         questionTimer: 25,
-        answerTimer: 10,
+        answerTimer: 15,
         recentSessionLimitSolo: 0,
         recentSessionLimitMultiplayer: 0
       });

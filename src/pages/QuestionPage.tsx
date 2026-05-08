@@ -156,7 +156,7 @@ const CategoryLabel = styled(Typography)({
 const TimerBox = styled(Box)({
   display: "flex",
   alignItems: "center",
-  gap: "8px",
+  gap: "15px",
 });
 
 const TimerText = styled(Typography)<{ urgent?: boolean }>(({ urgent }) => ({
@@ -175,11 +175,11 @@ const TimerText = styled(Typography)<{ urgent?: boolean }>(({ urgent }) => ({
 // ─── Question Panel ───────────────────────────────────────────────────────────
 
 const QuestionPanel = styled(Box)({
-  marginTop: "18px",
-  width: "calc(100% - 75px)",
-  maxWidth: "860px",
-  minHeight: "150px",
-  borderRadius: "12px",
+  marginTop: "30px",
+  width: "calc(100% - 83px)",
+  maxWidth: "875px",
+  minHeight: "170px",
+  borderRadius: "15px",
   border: "1.5px solid #00DFFF",
   boxShadow:
     "0 0 12px #00DFFF44, 0 0 28px #00DFFF22, inset 0 0 20px rgba(0,20,40,0.5)",
@@ -221,17 +221,17 @@ const QuestionText = styled(Typography)({
 // ─── Answer Grid ──────────────────────────────────────────────────────────────
 
 const AnswerGrid = styled(Box)({
-  marginTop: "18px",
+  marginTop: "20px",
   width: "calc(100% - 75px)",
-  maxWidth: "820px",
+  maxWidth: "1000px",
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: "12px",
+  gap: "25px",
   position: "relative",
   zIndex: 5,
   animation: `${fadeSlideUp} 0.5s ease 0.2s both`,
   flex: "none",        // Stop it from stretching automatically
-  height: "45px",      // Let it only be as tall as the buttons
+  height: "72px",      // Let it only be as tall as the buttons
   marginBottom: "25px" // Add some breathing room before the bottom text
 });
 
@@ -272,25 +272,30 @@ const AnswerButton = styled(Button)<{
 
   return {
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "20px",
+    /* --- MATCHING THE SCREENSHOT --- */
+    fontSize: "25px",           // The text in the pic is small/clean
+    minHeight: "100px",          // The perfect "rectangle" height
+    padding: "0 25px",          // Side breathing room
+    letterSpacing: "1px",
+    /* ------------------------------ */
+    
     color: textColor,
-    textShadow: `0 0 6px ${textColor}88`,
-    letterSpacing: "1.5px",
+    textShadow: `0 0 5px ${textColor}88`,
     textTransform: "uppercase",
     lineHeight: 1.6,
     border: `1.5px solid ${borderColor}`,
-    borderRadius: "10px",
+    borderRadius: "8px",        // Matches the subtle rounded corner in the pic
     background: bgColor,
-    boxShadow: `0 0 8px ${glowColor}, 0 0 18px ${glowColor}55${extraGlow}`,
-    minHeight: "72px",
-    padding: "8px 20px",
+    boxShadow: `0 0 10px ${glowColor}44`, // Subtle glow
+    
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-start",
-    gap: "14px",
+    gap: "12px",
     transition: "all 0.15s ease",
     position: "relative",
     overflow: "hidden",
+  
 
     // Shimmer line on hover
     "&::after": {
