@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
-import { Box, Typography, Button } from "@mui/material";
+import { Box, Typography, Button, Card} from "@mui/material";
 import { useTriviaStore, useMultiplayerStore, useGameStore, usePlayerStore } from "../store";
 import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
@@ -560,6 +560,8 @@ const QuestionPage = () => {
       return;
 
     let timerInterval: number;
+    
+const timerTickIntervalMs = 1000; // 1000ms = 1 second
 
     if (mode === "solo" || lobbyRole === "host") {
       timerInterval = window.setInterval(() => {

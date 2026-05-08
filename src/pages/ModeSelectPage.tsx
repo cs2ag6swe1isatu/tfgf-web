@@ -304,7 +304,7 @@ const styles: Record<string, React.CSSProperties> = {
   root: {
     position: "relative",
     width: "100%",
-    minHeight: "100vh",
+    minHeight: "100%",
     background: C.bg,
     display: "flex",
     alignItems: "center",
@@ -323,7 +323,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     gap: 0,
     width: "100%",
-    minHeight: "100vh",
+    minHeight: "100%",
     paddingTop: 80,
     paddingBottom: 60,
   },

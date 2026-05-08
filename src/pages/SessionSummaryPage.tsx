@@ -1,462 +1,230 @@
-import { useMemo, useEffect, useState } from "react";
-import { Typography, Box, Button } from "@mui/material";
-import { alpha } from "@mui/material/styles";
-import { useGameStore, useTriviaStore, usePlayerStore, useMultiplayerStore } from "../store";
-import { buildSessionDelta } from "../progression/progressionRules";
+import React from 'react';
+import { Box, Typography, Button, LinearProgress } from '@mui/material';
+import StarIcon from '@mui/icons-material/Star';
+import { useGameStore } from '../store/gameStore';
+import { useTriviaStore } from '../store/triviaStore';
+import { useResponsiveScale } from '../hooks/useResponsiveScale';
+import { usePlayerStore } from '../store';
 
-function getLevelProgressPercent(totalXp: number) {
-  let threshold = 100;
-  let remaining = Math.max(0, totalXp);
+import { keyframes, styled } from '@mui/material/styles';
 
-  while (remaining >= threshold) {
-    remaining -= threshold;
-    threshold = Math.floor(threshold * 1.5);
-  }
+// ─── Keyframes (Keep these as you had them) ──────────────────────────────────
+const scanline = keyframes`
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+`;
 
-  if (threshold <= 0) return 0;
-  return Math.max(0, Math.min(100, Math.round((remaining / threshold) * 100)));
+const flickerRed = keyframes`
+  0%, 100% { text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 16px rgba(227,50,50,0.55); }
+  8%  { text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 6px rgba(227,50,50,0.2); }
+  9%  { text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 24px rgba(255,101,64,0.9); }
+  41% { text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 4px rgba(227,50,50,0.15); }
+  42% { text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 28px rgba(255,101,64,1); }
+`;
+
+const cyanPulse = keyframes`
+  0%, 100% { box-shadow: 0 0 14px rgba(0,223,255,0.45), 0 0 28px rgba(0,223,255,0.2); }
+  50%       { box-shadow: 0 0 24px rgba(0,223,255,0.7), 0 0 48px rgba(0,223,255,0.3); }
+`;
+
+const statGlow = keyframes`
+  0%, 100% { box-shadow: 0 0 10px rgba(0,229,255,0.3); }
+  50%       { box-shadow: 0 0 20px rgba(0,229,255,0.6); }
+`;
+
+const slideDown = keyframes`
+  from { opacity: 0; transform: translateY(-36px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
+const slideUp = keyframes`
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
+const fadeIn = keyframes`
+  from { opacity: 0; }
+  to   { opacity: 1; }
+`;
+
+const starSpin = keyframes`
+  0%   { transform: scale(0) rotate(-90deg); opacity: 0; }
+  65%  { transform: scale(1.3) rotate(15deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+`;
+
+const rankPop = keyframes`
+  0%   { opacity: 0; transform: scale(0.65) translateY(10px); }
+  70%  { transform: scale(1.1) translateY(-4px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+`;
+
+const btnHover = keyframes`
+  0%, 100% { box-shadow: 0 0 12px rgba(0,223,255,0.4), 0 0 0 2px #00DFFF; }
+  50%       { box-shadow: 0 0 24px rgba(0,223,255,0.75), 0 0 0 2px #00DFFF, 0 0 48px rgba(0,223,255,0.2); }
+`;
+
+// ─── Layout config ────────────────────────────────────────────────────────────
+
+const LAYOUTS = {
+  '1280x720': { w: 1280, h: 720,  header: 62, stat: 62, label: 15, btn: 18, pad: '34px 52px', statMinH: 168, gap: 22, rankTitle: 32 },
+  '1152x768': { w: 1152, h: 768,  header: 60, stat: 60, label: 15, btn: 17, pad: '38px 48px', statMinH: 180, gap: 24, rankTitle: 30 },
+  '1024x768': { w: 1024, h: 768,  header: 56, stat: 56, label: 14, btn: 16, pad: '36px 44px', statMinH: 170, gap: 22, rankTitle: 28 },
+  '1024x600': { w: 1024, h: 600,  header: 42, stat: 44, label: 11, btn: 13, pad: '22px 40px', statMinH: 128, gap: 16, rankTitle: 22 },
+  '600x600':  { w: 600,  h: 600,  header: 32, stat: 36, label: 10, btn: 11, pad: '20px 26px', statMinH: 108, gap: 14, rankTitle: 18 },
+} as const;
+
+type RatioKey = keyof typeof LAYOUTS;
+
+function detectRatio(): RatioKey {
+  if (typeof window === 'undefined') return '1024x768';
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (vw <= 600) return '600x600';
+  if (vw <= 1024 && vh <= 600) return '1024x600';
+  if (vw <= 1024) return '1024x768';
+  if (vw <= 1152) return '1152x768';
+  return '1280x720';
 }
 
-const SessionSummaryPage = () => {
-  const setScreen = useGameStore((state) => state.setScreen);
-  const gameConfig = useGameStore((state) => state.gameConfig);
-  const score = useTriviaStore((state) => state.score);
-  const rankings = useTriviaStore((state) => state.rankings);
-  const playerScores = useTriviaStore((state) => state.playerScores);
-  const resetGame = useTriviaStore((state) => state.resetGame);
-  const lobbyPlayers = useMultiplayerStore((state) => state.players);
-  const lobbyRole = useMultiplayerStore((state) => state.lobbyRole);
-  const lobbyId = useMultiplayerStore((state) => state.lobbyId);
-  const hostAddress = useMultiplayerStore((state) => state.hostAddress);
-  const resetMultiplayer = useMultiplayerStore((state) => state.resetMultiplayer);
+const ScaleRoot = styled(Box)({
+  width: '100%',
+  height: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  overflow: 'hidden',
+  background: '#010707', // Darker black for the letterboxing
+});
 
- 
-  const player = usePlayerStore((state) => state.player);
-  const [localPlayer, setLocalPlayer] = useState(() => usePlayerStore.getState().player ?? null);
+// ─── Component ────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (!usePlayerStore.getState().player) {
-      const p = usePlayerStore.getState().getPlayer();
-      setLocalPlayer(p);
-    } else {
-      setLocalPlayer(usePlayerStore.getState().player);
-    }
-  }, [player]);
+const SessionSummaryPage: React.FC = () => {
+  const setScreen   = useGameStore((s) => s.setScreen);
+  const score       = useTriviaStore((s) => (s as any).score ?? 0);
+  const questions   = useTriviaStore((s) => s.questions);
+  const userAnswers = useTriviaStore((s) => (s as any).userAnswers ?? {});
+  
+  // ─── ADDED THE SCALE HOOK ───
+  const scale = useResponsiveScale(); // Base design is for 1280x720
 
-  if (!localPlayer) return null;
+  let playerRankTitle = 'STUDENT';
+  try {
+    playerRankTitle = usePlayerStore((s: any) => s?.getPlayer?.()?.rankTitle) ?? 'STUDENT';
+  } catch (_) { }
 
-  const isSolo = gameConfig.mode === "solo";
-  const isMultiplayer = gameConfig.mode === "multiplayer";
+  const L = LAYOUTS[detectRatio()];
 
-  const handleNavigation = (targetScreen: "home" | "profile") => {
-    if (isMultiplayer) {
-      const bridge = window.multiplayer;
-      if (lobbyRole === "host") {
-        bridge?.stopBroadcast(); 
-      } else if (lobbyRole === "client" && lobbyId && hostAddress) {
-        bridge?.leaveLobby({
-          lobbyId,
-          hostAddress,
-          playerId: localPlayer.id,
-        });
-        bridge?.stopDiscovery(); 
-      }
-      resetMultiplayer();
-    }
-    resetGame();
-    setScreen(targetScreen);
-  };
-
-  const displayedScore = useMemo(() => {
-    if (isSolo) return score;
-    const rankingScore = rankings.find((entry) => entry.playerId === localPlayer.id)?.score;
-    if (typeof rankingScore === "number") return rankingScore;
-    if (isMultiplayer && typeof playerScores[localPlayer.id] === "number") return playerScores[localPlayer.id];
-    return score;
-  }, [isSolo, isMultiplayer, score, rankings, playerScores, localPlayer.id]);
-
-  const latestSession = useMemo(
-    () =>
-      [...(player?.gameHistory ?? [])]
-        .reverse()
-        .find((session) => session.mode === (isMultiplayer ? "multiplayer" : "solo")) ?? null,
-    [player?.gameHistory, isMultiplayer]
+  const totalQ    = questions.length;
+  const correct   = questions.reduce(
+    (acc: number, q: any, i: number) => acc + (userAnswers[i] === q.correctAnswer ? 1 : 0), 0
   );
-
-  const xpGained = useMemo(() => {
-    if (!latestSession) return 0;
-    return buildSessionDelta({
-      mode: latestSession.mode,
-      category: latestSession.category,
-      difficulty: latestSession.difficulty,
-      totalQuestions: latestSession.totalQuestions,
-      correctAnswers: latestSession.correctAnswers,
-      score: latestSession.score,
-      questions: latestSession.questions,
-      userAnswers: latestSession.userAnswers,
-      timeTaken: latestSession.timeTaken,
-      timePerQuestion: latestSession.timePerQuestion,
-      mastered: latestSession.mastered,
-      won: latestSession.won,
-      topThreeFinish: latestSession.topThreeFinish,
-    }).xpGained;
-  }, [latestSession]);
-
-  const rankProgress = getLevelProgressPercent(player?.totalXp ?? 0);
-  const rankName = player?.rank?.name?.toUpperCase() ?? "NO RANK";
-  const clampedRankProgress = Math.max(0, Math.min(100, rankProgress));
-
-  const placementRows = useMemo(() => {
-    if (!isMultiplayer) return [];
-
-    if (rankings.length > 0) {
-      const results = [...rankings]
-        .sort((a, b) => a.rank - b.rank)
-        .slice(0, 5)
-        .map((entry) => ({
-          rank: entry.rank,
-          name: entry.playerId === localPlayer.id ? "YOU" : entry.name.toUpperCase(),
-          score: entry.score,
-        }));
-      return results;
-    }
-
-    const orderedRankings = [...rankings]
-      .sort((a, b) => a.rank - b.rank)
-      .map((entry) => ({
-        playerId: entry.playerId,
-        name: entry.name,
-        score: entry.score,
-      }));
-
-    const included = new Set(orderedRankings.map((entry) => entry.playerId));
-
-    const fallbackEntries: Array<{ playerId: string; name: string; score: number }> = [];
-
-    lobbyPlayers.forEach((member) => {
-      if (included.has(member.id)) return;
-      fallbackEntries.push({
-        playerId: member.id,
-        name: member.name,
-        score: playerScores[member.id] ?? 0,
-      });
-    });
-
-    if (!included.has(localPlayer.id)) {
-      fallbackEntries.push({
-        playerId: localPlayer.id,
-        name: localPlayer.name,
-        score: playerScores[localPlayer.id] ?? score,
-      });
-    }
-
-    const merged = [
-      ...orderedRankings,
-      ...fallbackEntries.sort((a, b) => b.score - a.score),
-    ];
-
-    return merged.slice(0, 5).map((entry, index) => ({
-      rank: index + 1,
-      name: entry.playerId === localPlayer.id ? "YOU" : entry.name.toUpperCase(),
-      score: entry.score,
-    }));
-  }, [isMultiplayer, rankings, lobbyPlayers, localPlayer.id, localPlayer.name, playerScores]);
-
-  const renderRankIndicator = (rank: number) => {
-    return (
-      <Box
-        sx={{
-          minWidth: 24,
-          height: 24,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          border: "1px solid",
-          borderColor: "secondary.main",
-          color: "text.primary",
-          bgcolor: (theme) => alpha(theme.palette.secondary.main, rank <= 3 ? 0.18 : 0.1),
-          fontSize: "0.72rem",
-          lineHeight: 1,
-        }}
-      >
-        {rank}
-      </Box>
-    );
-  };
-
-  if (!isSolo && !isMultiplayer) {
-    return null;
-  }
+  const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
+  const rankProg  = accuracy;
+  const xpGained  = score;
 
   return (
-    <Box
-      sx={{
-        width: "100vw",
-        height: "100vh",
-        px: { xs: 2, md: 4 },
-        py: { xs: 2, md: 2.5 },
-        boxSizing: "border-box",
-        bgcolor: "background.default",
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: { xs: 1.5, md: 1.6 },
-      }}
-    >
-      <Typography
-        sx={{
-          mt: 0.2,
-          fontSize: { xs: "1.8rem", md: "2.3rem" },
-          letterSpacing: "0.08em",
-          color: "error.main",
-          textShadow: (theme) => `0 0 10px ${alpha(theme.palette.error.main, 0.6)}`,
-          textAlign: "center",
-        }}
-      >
-        GAME OVER !
-      </Typography>
-
-      {!isSolo && (
-        <Box sx={{ position: "relative", width: "fit-content", mt: -0.6 }}>
-          <Typography
-            sx={{
-              color: "secondary.main",
-              fontSize: { xs: "1rem", md: "1.1rem" },
-              letterSpacing: "0.06em",
-              textShadow: (theme) => `0 0 8px ${alpha(theme.palette.secondary.main, 0.5)}`,
-            }}
-          >
-            PLACEMENTS
-          </Typography>
-          <Box
-            sx={{
-              position: "absolute",
-              top: -9,
-              left: 0,
-              width: 16,
-              height: 10,
-              bgcolor: "secondary.main",
-              transform: "rotate(-12deg)",
-              boxShadow: (theme) => `0 0 6px ${alpha(theme.palette.secondary.main, 0.5)}`,
-              clipPath: "polygon(0% 100%, 12% 36%, 28% 100%, 50% 26%, 72% 100%, 88% 36%, 100% 100%)",
-            }}
-          />
-        </Box>
-      )}
-
-      <Box sx={{ width: "100%", maxWidth: 860, display: "grid", gap: 1.5, flex: 1, minHeight: 0 }}>
-        {!isSolo && (
-          <Box
-            sx={{
-              border: "2px solid",
-              borderColor: "secondary.main",
-              p: { xs: 1, md: 1.2 },
-              bgcolor: "background.paper",
-              boxShadow: (theme) => `0 0 16px ${alpha(theme.palette.secondary.main, 0.35)}`,
-              display: "grid",
-              gap: 0.8,
-              alignContent: "center",
-            }}
-          >
-            {placementRows.map((row) => {
-              const rowOpacity = [0.3, 0.24, 0.18, 0.14, 0.1][row.rank - 1] ?? 0.1;
-              return (
-                <Box
-                  key={row.rank}
-                  sx={{
-                    minHeight: { xs: 42, md: 46 },
-                    px: 1.2,
-                    py: 0.6,
-                    bgcolor: (theme) => alpha(theme.palette.secondary.main, rowOpacity),
-                    border: "1px solid",
-                    borderColor: (theme) => alpha(theme.palette.secondary.main, 0.45),
-                    display: "grid",
-                    gridTemplateColumns: "24px 28px 1fr auto auto",
-                    alignItems: "center",
-                    gap: 1,
-                  }}
-                >
-                  {renderRankIndicator(row.rank)}
-                  <Box sx={{ width: 20, height: 20 }} />
-                  <Typography sx={{ color: "text.primary", fontSize: { xs: "0.72rem", md: "0.8rem" }, letterSpacing: "0.03em" }}>
-                    {row.name}
-                  </Typography>
-                  <Typography sx={{ color: "text.secondary", fontSize: { xs: "0.72rem", md: "0.84rem" }, minWidth: 36, textAlign: "right" }}>
-                    {row.score}
-                  </Typography>
-                  <Typography sx={{ color: "text.secondary", fontSize: "0.5rem", letterSpacing: "0.04em", minWidth: 16, textAlign: "right" }}>
-                    XP
-                  </Typography>
-                </Box>
-              );
-            })}
-          </Box>
-        )}
-
+    <ScaleRoot>
+      {/* ─── NEW SCALING WRAPPER BOX ─── */}
+      <Box sx={{
+        transform: `scale(${scale})`,
+        transformOrigin: 'center center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}>
         <Box
           sx={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 1.5,
+            width:      `${L.w}px`,
+            height:     `${L.h}px`,
+            position:   'relative',
+            flexShrink: 0,
+            overflow:   'hidden',
+            fontFamily: `'Press Start 2P', monospace`,
+            background: `
+              radial-gradient(ellipse at 50% 0%,
+                #08235A 0%,
+                #041D49 40%,
+                #031533 75%,
+                #062B2B 100%
+              )
+            `,
+            display:        'flex',
+            flexDirection:  'column',
+            alignItems:     'center',
+            justifyContent: 'space-between',
+            padding:         L.pad,
+            boxSizing:      'border-box',
+
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              inset: 0,
+              background: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.09) 2px, rgba(0,0,0,0.09) 4px)`,
+              pointerEvents: 'none',
+              zIndex: 20,
+            },
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              left: 0, right: 0,
+              height: '100px',
+              background: 'linear-gradient(transparent, rgba(0,160,255,0.025) 50%, transparent)',
+              animation: `${scanline} 7s linear infinite`,
+              pointerEvents: 'none',
+              zIndex: 21,
+            },
           }}
         >
-          <Box
-            sx={{
-              border: "2px dashed",
-              borderColor: "secondary.main",
-              py: 1.2,
-              px: 1,
-              textAlign: "center",
-              bgcolor: "background.paper",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              alignItems: "center",
-              minHeight: 96,
-            }}
-          >
-            <Typography sx={{ fontSize: "0.72rem", color: "text.secondary", letterSpacing: "0.06em" }}>YOUR SCORE</Typography>
-            <Typography
-              sx={{
-                mt: 0.4,
-                fontSize: { xs: "1.5rem", md: "1.8rem" },
-                color: "text.primary",
-                fontWeight: 700,
-              }}
-            >
-              {displayedScore}
+          {/* Vignette */}
+          <Box sx={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.7) 100%)', pointerEvents: 'none', zIndex: 19 }} />
+
+          {/* HEADER */}
+          <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', zIndex: 5, animation: `${slideDown} 0.55s cubic-bezier(0.22,1,0.36,1) both` }}>
+            <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, fontSize: `${L.header}px`, color: '#E33232', letterSpacing: '4px', textAlign: 'center', WebkitTextStroke: '1px #2B0909', textShadow: `1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 16px rgba(227,50,50,0.55)`, animation: `${flickerRed} 5s ease-in-out 1.2s infinite`, userSelect: 'none' }}>
+              GAME OVER !
             </Typography>
           </Box>
 
-          <Box
-            sx={{
-              border: "2px dashed",
-              borderColor: "secondary.main",
-              py: 1.2,
-              px: 1,
-              textAlign: "center",
-              bgcolor: "background.paper",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              alignItems: "center",
-              minHeight: 96,
-            }}
-          >
-            <Typography sx={{ fontSize: "0.72rem", color: "text.secondary", letterSpacing: "0.06em" }}>XP GAINED</Typography>
-            <Typography
-              sx={{
-                mt: 0.4,
-                fontSize: { xs: "1.5rem", md: "1.8rem" },
-                color: "text.primary",
-                fontWeight: 700,
-              }}
-            >
-              {xpGained}
-            </Typography>
-          </Box>
-        </Box>
+          {/* STATS */}
+          <Box sx={{ width: '100%', border: '2.5px solid #00DFFF', borderRadius: '20px', background: '#072454', padding: `${L.gap}px`, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: `${L.gap}px`, position: 'relative', zIndex: 5, animation: `${cyanPulse} 3.5s ease-in-out infinite, ${fadeIn} 0.5s ease 0.3s both` }}>
+            <Box sx={{ border: '2.5px dashed #00E5FF', borderRadius: '14px', background: '#0A3766', minHeight: `${L.statMinH}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '18px 14px', animation: `${statGlow} 3s ease-in-out infinite, ${fadeIn} 0.5s ease 0.4s both` }}>
+              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#DADADA', fontSize: `${L.label}px`, mb: 2.5, textAlign: 'center' }}>YOUR SCORE</Typography>
+              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#F0F0F0', fontSize: `${L.stat}px`, textShadow: '0 0 12px rgba(240,240,240,0.3)' }}>{score}</Typography>
+            </Box>
 
-        <Box
-          sx={{
-            bgcolor: "background.paper",
-            border: "2px solid",
-            borderColor: "secondary.main",
-            p: { xs: 1.1, md: 1.2 },
-            position: "relative",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            minHeight: 120,
-          }}
-        >
-          <Typography sx={{ textAlign: "center", color: "text.secondary", fontSize: "0.72rem", mb: 0.8, letterSpacing: "0.05em" }}>
-            RANK PROGRESS
-          </Typography>
-
-          <Box sx={{ width: "100%", maxWidth: 620, mx: "auto", mt: 0.2, mb: 1 }}>
-            <Box
-              sx={{
-                position: "relative",
-                height: "16px",
-                bgcolor: (theme) => alpha(theme.palette.text.primary, 0.14),
-                border: "1px solid",
-                borderColor: "secondary.main",
-                overflow: "hidden",
-              }}
-            >
-              <Box
-                sx={{
-                  width: `${clampedRankProgress}%`,
-                  height: "100%",
-                  bgcolor: "secondary.main",
-                  transition: "width 300ms ease",
-                }}
-              />
-
-              <Typography
-                sx={{
-                  position: "absolute",
-                  top: "50%",
-                  left: `clamp(0%, calc(${clampedRankProgress}% - 12px), calc(100% - 28px))`,
-                  transform: "translateY(-50%)",
-                  color: "text.primary",
-                  fontSize: "0.58rem",
-                  lineHeight: 1,
-                }}
-              >
-                {clampedRankProgress}%
-              </Typography>
+            <Box sx={{ border: '2.5px dashed #00E5FF', borderRadius: '14px', background: '#0A3766', minHeight: `${L.statMinH}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '18px 14px', animation: `${statGlow} 3s ease-in-out 0.4s infinite, ${fadeIn} 0.5s ease 0.5s both` }}>
+              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#DADADA', fontSize: `${L.label}px`, mb: 2.5, textAlign: 'center' }}>XP GAINED</Typography>
+              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#F0F0F0', fontSize: `${L.stat}px`, textShadow: '0 0 12px rgba(240,240,240,0.3)' }}>{xpGained}</Typography>
             </Box>
           </Box>
 
-          <Typography
-            sx={{
-              textAlign: "center",
-              color: "text.primary",
-              fontSize: { xs: "1.05rem", md: "1.3rem" },
-              letterSpacing: "0.07em",
-            }}
-          >
-            {rankName}
-          </Typography>
+          {/* RANK PROGRESS */}
+          <Box sx={{ width: '100%', background: '#4B5248', borderRadius: '16px', padding: `${L.gap}px ${L.gap + 6}px`, boxShadow: '0 6px 0 #2E332E', display: 'flex', flexDirection: 'column', gap: `${Math.round(L.gap * 0.55)}px`, position: 'relative', zIndex: 5, animation: `${slideUp} 0.55s cubic-bezier(0.22,1,0.36,1) 0.55s both` }}>
+            <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#E5E5E5', fontSize: `${L.label}px`, textAlign: 'center' }}>RANK PROGRESS</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: `${Math.round(L.gap * 0.55)}px` }}>
+              <StarIcon sx={{ color: '#FFD42A', fontSize: `${Math.round(L.header * 0.58)}px`, animation: `${starSpin} 0.7s cubic-bezier(0.22,1,0.36,1) 0.75s both` }} />
+              <Box sx={{ flex: 1 }}>
+                <LinearProgress variant="determinate" value={rankProg} sx={{ height: `${Math.round(L.gap * 0.85)}px`, borderRadius: '99px', backgroundColor: '#3E443D', '& .MuiLinearProgress-bar': { backgroundColor: '#D9E600', borderRadius: '99px' } }} />
+              </Box>
+              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#E5E5E5', fontSize: `${Math.round(L.label * 0.85)}px`, minWidth: '52px', textAlign: 'right' }}>{rankProg}%</Typography>
+            </Box>
+            <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#D9E600', fontSize: `${L.rankTitle}px`, textAlign: 'center', animation: `${rankPop} 0.65s cubic-bezier(0.22,1,0.36,1) 1s both` }}>{playerRankTitle}</Typography>
+          </Box>
+
+          {/* NAV BUTTONS */}
+          <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', gap: `${L.gap}px`, position: 'relative', zIndex: 5, animation: `${slideUp} 0.5s ease 0.8s both` }}>
+            <Button onClick={() => setScreen('home')} sx={{ flex: 1, height: `${Math.round(L.gap * 3.3)}px`, borderRadius: '16px', background: '#0D4D73', border: '2px solid #00DFFF', boxShadow: '0 0 12px rgba(0,223,255,0.4)', transition: 'all 0.15s ease', '&:hover': { background: '#125C8A', animation: `${btnHover} 1s ease-in-out infinite` } }}>
+              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#35E52B', fontSize: `${L.btn}px` }}>MAIN MENU</Typography>
+            </Button>
+            <Button onClick={() => setScreen('profile')} sx={{ flex: 1, height: `${Math.round(L.gap * 3.3)}px`, borderRadius: '16px', background: '#0D4D73', border: '2px solid #00DFFF', boxShadow: '0 0 12px rgba(0,223,255,0.4)', transition: 'all 0.15s ease', '&:hover': { background: '#125C8A', animation: `${btnHover} 1s ease-in-out infinite` } }}>
+              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#35E52B', fontSize: `${L.btn}px` }}>VIEW PROFILE</Typography>
+            </Button>
+          </Box>
         </Box>
       </Box>
-
-      <Box sx={{ width: "100%", maxWidth: 860, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5, mb: 0.3 }}>
-        <Button
-          variant="outlined"
-          color="secondary"
-          onClick={() => handleNavigation("home")}
-          sx={{
-            py: 1,
-            fontSize: { xs: "0.72rem", md: "0.82rem" },
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          MAIN MENU
-        </Button>
-
-        <Button
-          variant="outlined"
-          color="primary"
-          onClick={() => handleNavigation("profile")}
-          sx={{
-            py: 1,
-            fontSize: { xs: "0.72rem", md: "0.82rem" },
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          VIEW PROFILE
-        </Button>
-      </Box>
-    </Box>
+    </ScaleRoot>
   );
 };
 
