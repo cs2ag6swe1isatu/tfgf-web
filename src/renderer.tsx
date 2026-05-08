@@ -141,8 +141,8 @@ export const ResolutionFixer: React.FC<{ children: React.ReactNode }> = ({ child
 
   return (
     <div style={{
-      width: '100vw',
-      height: '100vh',
+      width: '100%',
+      height: '100%',
       backgroundColor: settings.useCase ? CASE_COLOR : '#000',
       display: 'flex',
       justifyContent: 'center',
@@ -198,7 +198,7 @@ if (rootElement) {
         } catch (e) {
           console.warn("Hot reload unmount failed", e);
         }
-        anyWindow.__react_root = null;
+        anyWindow.__react_root = undefined;
       }
     });
   }

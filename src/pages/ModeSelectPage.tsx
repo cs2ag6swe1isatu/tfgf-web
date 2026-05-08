@@ -304,7 +304,6 @@ const styles: Record<string, React.CSSProperties> = {
   root: {
     position: "relative",
     width: "100%",
-    height: "100%",
     minHeight: "100%",
     background: C.bg,
     display: "flex",
@@ -324,7 +323,6 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     gap: 0,
     width: "100%",
-    height: "100%",
     minHeight: "100%",
     paddingTop: 80,
     paddingBottom: 60,
@@ -336,7 +334,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     fontFamily: "'Press Start 2P', monospace",
-    fontSize: "clamp(1.4rem, 3.5vw, 2.4rem)",
+    fontSize: "clamp(1.4rem, 3.5%, 2.4rem)",
     color: C.green,
     margin: 0,
     letterSpacing: "0.06em",

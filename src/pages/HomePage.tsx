@@ -225,7 +225,7 @@ export default function HomePage() {
         }
         @keyframes scanlineMove {
           0%   { transform: translateY(-100%); }
-          100% { transform: translateY(100vh); }
+          100% { transform: translateY(100%); }
         }
 
         .play-btn:hover  { transform: scale(1.05) !important; }
@@ -423,7 +423,6 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     gap: 0,
     width: "100%",
-    height: "100%",
     minHeight: "100%",
     paddingTop: 80,
     paddingBottom: 60,
@@ -435,7 +434,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     fontFamily: "'Press Start 2P', monospace",
-    fontSize: "clamp(1.8rem, 4.2vw, 2.8rem)",
+    fontSize: "clamp(1.8rem, 4.2%, 2.8rem)",
     color: "#1FC11A",
     lineHeight: 1.55,
     letterSpacing: "0.05em",

@@ -158,32 +158,44 @@ const SettingsPage = () => {
               </Button>
             </Box>
 
-            <Typography variant="h5" sx={{ mb: 2 }}>Avatar</Typography>
-            <Grid container spacing={1}>
-              {avatars.map((name) => {
-                const src = `/img/avatars/${encodeURIComponent(name)}`;
-                const isSelected = player.avatar === src;
-                return (
-                  <Grid item key={name}>
-                    <Box
-                      onClick={() => setAvatar(src)}
-                      sx={{
-                        border: isSelected ? "2px solid" : "1px solid",
-                        borderColor: isSelected ? "primary.main" : "divider",
-                        borderRadius: 1,
-                        p: 0.5,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Avatar src={src} alt={name} sx={{ width: 64, height: 64, imageRendering: "pixelated" }} />
-                    </Box>
-                  </Grid>
-                );
-              })}
-            </Grid>
+           <Grid container spacing={2}>
+  {avatars.map((name) => {
+    const src = `/img/avatars/${encodeURIComponent(name)}`;
+    const isSelected = player.avatar === src;
+    return (
+      // ❌ REMOVED 'item'
+      // ✅ ADDED 'xs="auto"' so they sit side-by-side like a gallery
+      <Grid key={name} sx={{ display: 'flex' }}> 
+        <Box
+          onClick={() => setAvatar(src)}
+          sx={{
+            border: isSelected ? "2px solid" : "1px solid",
+            borderColor: isSelected ? "#35E52B" : "rgba(0,229,255,0.3)", // Theming it to match your game colors
+            borderRadius: 1,
+            p: 0.5,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: isSelected ? "rgba(53,229,43,0.1)" : "transparent",
+            transition: "all 0.2s ease",
+            "&:hover": {
+               borderColor: "#00E5FF",
+               background: "rgba(0,229,255,0.1)"
+            }
+          }}
+        >
+          {/* Make sure 'Avatar' is also imported from @mui/material! */}
+          <Avatar 
+            src={src} 
+            alt={name} 
+            sx={{ width: 64, height: 64, imageRendering: "pixelated" }} 
+          />
+        </Box>
+      </Grid>
+    );
+  })}
+</Grid>
           </Box>
         );
 

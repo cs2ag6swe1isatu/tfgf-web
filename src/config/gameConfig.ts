@@ -32,9 +32,9 @@ export const defaultGameConfig = {
 // Solo defaults used when launching directly from difficulty selection. 
 // Temp var for testing only; Use defaultGameConfig later. 
 export const soloDifficultyStartConfig = {
-  questionLimit: 1,
+  questionLimit: 15,
   questionTimer: 1000, // no question phase in solo mode
-  answerTimer: 30,
+  answerTimer: 15,
 };
 
 // Keep these zeroed for active game session state.

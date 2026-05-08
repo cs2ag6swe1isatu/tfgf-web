@@ -306,7 +306,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     fontFamily: "'Press Start 2P', monospace",
-    fontSize: "clamp(1.4rem, 3.2vw, 2.2rem)",
+    fontSize: "clamp(1.4rem, 3.2%, 2.2rem)",
     color: C.green,
     margin: 0,
     lineHeight: 1.65,

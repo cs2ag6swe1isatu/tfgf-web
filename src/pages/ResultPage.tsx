@@ -99,8 +99,8 @@ function detectRatio(): RatioKey {
 // ─── Root wrapper ─────────────────────────────────────────────────────────────
 
 const ScaleRoot = styled(Box)({
-  width: '100vw',
-  height: '100vh',
+  width: '100%',
+  height: '100%',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -138,8 +138,8 @@ const ResultPage: React.FC = () => {
     <ScaleRoot>
       <Box
         sx={{
-          width:      `${L.w}px`,
-          height:     `${L.h}px`,
+          width:      '100%',
+          height:     `100%`,
           position:   'relative',
           flexShrink: 0,
           overflow:   'hidden',
