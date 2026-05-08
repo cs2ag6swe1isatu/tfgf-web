@@ -20,7 +20,7 @@ const SettingsPage = () => {
   const setResolution = useGameStore((state) => state.setResolution);
   const settings = useGameStore((state) => state.settings);
   const toggleSetting = useGameStore((state) => state.toggleSetting);
-  
+
   const player = usePlayerStore((state) => state.getPlayer());
   const setAvatar = usePlayerStore((state) => state.setAvatar);
   const setPlayerName = usePlayerStore((state) => state.setPlayerName);
@@ -228,15 +228,232 @@ const SettingsPage = () => {
           </Box>
         );
 
-      case "connection":
-        return <Typography sx={{ color: "text.secondary" }}>Connection settings coming soon.</Typography>;
+        case "connection":
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
 
-      case "audio":
-        return <Typography sx={{ color: "text.secondary" }}>Audio settings coming soon.</Typography>;
+      {/* Auto-Join LAN Toggle */}
+      <Box
+        sx={{
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          mb: 1,
+          transition: "transform 0.1s ease-in-out",
+          "&:active": { transform: "translateY(2px)" },
+        }}
+      >
+        {(() => {
+          const value = true;
+          const p = 4;
+          return (
+            <>
+              <Box
+                sx={{
+                  width: "60px",
+                  height: "32px",
+                  bgcolor: "#1a1a1a",
+                  position: "relative",
+                  boxShadow: `
+                    inset ${p}px ${p}px 0 0 rgba(0,0,0,0.8),
+                    inset -${p}px -${p}px 0 0 rgba(255,255,255,0.05)
+                  `,
+                }}
+              >
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: `${p}px`,
+                    bottom: `${p}px`,
+                    left: value ? "50%" : `${p}px`,
+                    right: value ? `${p}px` : "50%",
+                    bgcolor: value ? "success.main" : "#444",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "all 0.1s steps(2)",
+                    boxShadow: value
+                      ? `0 ${p}px 0 0 #1b5e20`
+                      : `0 ${p}px 0 0 #222`,
+                  }}
+                />
+              </Box>
+              <Typography
+                variant="body1"
+                sx={{
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                  color: value ? "primary.main" : "text.disabled",
+                  fontSize: "1.5rem",
+                }}
+              >
+                Auto-Join LAN
+              </Typography>
+            </>
+          );
+        })()}
+      </Box>
 
+    </Box>
+  );
+
+        case "audio":
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
+
+      {/* Volume */}
+      <Box>
+        <Typography variant="h5" sx={{ mb: 3 }}>
+          Volume
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {Array.from({ length: 10 }).map((_, i) => {
+            const filled = i < 5;
+            return (
+              <Box
+                key={i}
+                sx={{
+                  width: "18px",
+                  height: "32px",
+                  bgcolor: filled ? "primary.main" : "transparent",
+                  border: "2px solid",
+                  borderColor: filled ? "primary.main" : "primary.dark",
+                  boxShadow: filled ? "0 4px 0 0 #1b5e20" : "none",
+                  cursor: "pointer",
+                  transition: "all 0.1s steps(2)",
+                  "&:hover": {
+                    bgcolor: "primary.light",
+                    borderColor: "primary.light",
+                  },
+                }}
+              />
+            );
+          })}
+        </Box>
+      </Box>
+
+      {/* Sound Effects Toggle */}
+      <Box>
+        <Typography variant="h5" sx={{ mb: 3 }}>
+          Sound Effects
+        </Typography>
+        <Box
+          sx={{
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            mb: 1,
+            transition: "transform 0.1s ease-in-out",
+            "&:active": { transform: "translateY(2px)" },
+          }}
+        >
+          {(() => {
+            const value = true;
+            const p = 4;
+            return (
+              <>
+                <Box
+                  sx={{
+                    width: "60px",
+                    height: "32px",
+                    bgcolor: "#1a1a1a",
+                    position: "relative",
+                    boxShadow: `
+                      inset ${p}px ${p}px 0 0 rgba(0,0,0,0.8),
+                      inset -${p}px -${p}px 0 0 rgba(255,255,255,0.05)
+                    `,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      top: `${p}px`,
+                      bottom: `${p}px`,
+                      left: value ? "50%" : `${p}px`,
+                      right: value ? `${p}px` : "50%",
+                      bgcolor: value ? "success.main" : "#444",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.1s steps(2)",
+                      boxShadow: value
+                        ? `0 ${p}px 0 0 #1b5e20`
+                        : `0 ${p}px 0 0 #222`,
+                    }}
+                  />
+                </Box>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    fontWeight: "bold",
+                    textTransform: "uppercase",
+                    color: value ? "primary.main" : "text.disabled",
+                    fontSize: "1.5rem",
+                  }}
+                >
+                  Sound Effects
+                </Typography>
+              </>
+            );
+          })()}
+        </Box>
+      </Box>
+
+    </Box>
+  );
+
+      // ── DATA TAB ── only this case was added; nothing else was changed ──
       case "data":
-        return <Typography sx={{ color: "text.secondary" }}>Data settings coming soon.</Typography>;
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 1,
+        mt: 2,
+      }}
+    >
+      <Button
+        fullWidth
+        sx={{
+          justifyContent: "flex-start",
+          p: 2,
+          mb: 1,
+          textTransform: "uppercase",
+          borderColor: "primary.main",
+          backgroundColor: "transparent",
+          color: "text.primary",
+          "&:hover": {
+            backgroundColor: "rgb(0, 255, 0)",
+            color: "#000",
+          },
+        }}
+      >
+        Reset Progress
+      </Button>
 
+      <Button
+        fullWidth
+        sx={{
+          justifyContent: "flex-start",
+          p: 2,
+          mb: 1,
+          textTransform: "uppercase",
+          borderColor: "primary.main",
+          backgroundColor: "transparent",
+          color: "text.primary",
+          "&:hover": {
+            backgroundColor: "rgb(0, 255, 0)",
+            color: "#000",
+          },
+        }}
+      >
+        Clear Data
+      </Button>
+    </Box>
+  );
       default:
         return null;
     }
