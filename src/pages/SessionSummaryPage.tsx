@@ -191,8 +191,8 @@ const SessionSummaryPage = () => {
   return (
     <Box
       sx={{
-        width: "100%",
-        height: "100%",
+        width: "100vw",
+        height: "100vh",
         px: { xs: 2, md: 4 },
         py: { xs: 2, md: 2.5 },
         boxSizing: "border-box",

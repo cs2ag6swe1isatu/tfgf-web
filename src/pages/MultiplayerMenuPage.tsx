@@ -89,16 +89,7 @@ const LAYOUTS = {
 
 type RatioKey = keyof typeof LAYOUTS;
 
-function detectRatio(): RatioKey {
-  if (typeof window === "undefined") return "1024x768";
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  if (vw <= 600)               return "600x600";
-  if (vw <= 1024 && vh <= 600) return "1024x600";
-  if (vw <= 1024)              return "1024x768";
-  if (vw <= 1152)              return "1152x768";
-  return "1280x720";
-}
+
 
 // ─── Radar background ─────────────────────────────────────────────────────────
 
@@ -284,10 +275,11 @@ const MapPinIcon = ({ size }: { size: number }) => (
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const MultiplayerMenuPage = () => {
-  const setScreen    = useGameStore((state) => state.setScreen);
+  const setScreen = useGameStore((state) => state.setScreen);
   const setLobbyRole = useMultiplayerStore((state) => state.setLobbyRole);
 
-  const L = LAYOUTS[detectRatio()];
+  // 1. Hook up the layout config
+  const layout = LAYOUTS["1024x768"]; 
 
   const handleHostGame = () => {
     setLobbyRole("host");
@@ -299,6 +291,10 @@ const MultiplayerMenuPage = () => {
     setScreen("multiplayer-discovery");
   };
 
+  const radarSize = typeof window !== "undefined"
+    ? Math.min(window.innerWidth, window.innerHeight) * 1.05
+    : 1024;
+
   return (
     <Box sx={{
       width: "100vw",
@@ -309,279 +305,121 @@ const MultiplayerMenuPage = () => {
       overflow: "hidden",
       background: "#010707",
     }}>
-      {/* ── Fixed canvas ──────────────────────────────────────────────── */}
       <Box sx={{
-        width:      `${L.w}px`,
-        height:     `${L.h}px`,
-        position:   "relative",
+        width: `${layout.w}px`,
+        height: `${layout.h}px`,
+        position: "relative",
         flexShrink: 0,
-        overflow:   "hidden",
+        overflow: "hidden",
         fontFamily: `'Press Start 2P', monospace`,
-
-        background: `
-          radial-gradient(ellipse at 50% 50%,
-            #071919 0%,
-            #010707 55%,
-            #010707 100%
-          )
-        `,
-
-        display:        "flex",
-        flexDirection:  "column",
-        alignItems:     "center",
+        background: `radial-gradient(ellipse at 50% 50%, #071919 0%, #010707 55%, #010707 100%)`,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
         justifyContent: "space-between",
-        padding:        "44px 48px 40px",
-        boxSizing:      "border-box",
+        padding: "44px 48px 60px", // Increased bottom padding
+        boxSizing: "border-box",
 
-        // CRT scanlines
         "&::before": {
           content: '""',
           position: "absolute",
           inset: 0,
-          background: `repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 2px,
-            rgba(0,0,0,0.09) 2px,
-            rgba(0,0,0,0.09) 4px
-          )`,
+          background: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.09) 2px, rgba(0,0,0,0.09) 4px)`,
           pointerEvents: "none",
           zIndex: 30,
         },
-        // Moving sweep
-        "&::after": {
-          content: '""',
-          position: "absolute",
-          left: 0, right: 0,
-          height: "90px",
-          background: "linear-gradient(transparent, rgba(0,220,255,0.022) 50%, transparent)",
-          animation: `${scanline} 8s linear infinite`,
-          pointerEvents: "none",
-          zIndex: 31,
-        },
       }}>
         {/* Vignette */}
-        <Box sx={{
-          position: "absolute", inset: 0,
-          background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.72) 100%)",
-          pointerEvents: "none",
-          zIndex: 25,
-        }} />
+        <Box sx={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.72) 100%)", pointerEvents: "none", zIndex: 25 }} />
 
-        {/* Radar rings background */}
-        <RadarBg size={Math.min(L.w, L.h) * 1.05} />
+        <RadarBg size={radarSize} />
+        <RadarSweep size={radarSize} />
 
-        {/* Animated sweep arm */}
-        <RadarSweep size={Math.min(L.w, L.h) * 1.05} />
-
-        {/* Radar ping blips */}
-        <RadarPing x="32%" y="38%" delay="0s" />
-        <RadarPing x="68%" y="42%" delay="1.5s" />
-        <RadarPing x="50%" y="28%" delay="0.8s" />
-
-        {/* ── TITLE ──────────────────────────────────────────────────── */}
-        <Box sx={{
-          position:  "relative",
-          zIndex: 10,
-          textAlign: "center",
-          animation: `${slideDown} 0.55s cubic-bezier(0.22,1,0.36,1) both`,
-        }}>
+        {/* --- TITLE --- */}
+        <Box sx={{ position: "relative", zIndex: 10, textAlign: "center", animation: `${slideDown} 0.55s ease both` }}>
           <Typography sx={{
             fontFamily: `'Press Start 2P', monospace`,
-            fontSize:   `${L.titlePx}px`,
-            color:      "#35E52B",
+            fontSize: `${layout.titlePx}px`, // Fixed
+            color: "#35E52B",
             letterSpacing: "4px",
-            lineHeight: 1.2,
-            animation:  `${titleGlow} 3s ease-in-out infinite, ${neonFlicker} 7s ease-in-out 2s infinite`,
-            userSelect: "none",
+            animation: `${titleGlow} 3s ease-in-out infinite`,
           }}>
             MULTIPLAYER
           </Typography>
         </Box>
 
-        {/* ── ACTION PANELS ──────────────────────────────────────────── */}
+        {/* --- ACTION PANELS --- */}
         <Box sx={{
           display: "flex",
-          gap:     `${L.panelGap}px`,
-          width:   "100%",
+          gap: `${layout.panelGap}px`, // Fixed
+          width: "100%",
+          maxWidth: "900px",
           position: "relative",
           zIndex: 10,
-          animation: `${fadeScaleIn} 0.55s cubic-bezier(0.22,1,0.36,1) 0.2s both`,
         }}>
-          {/* HOST GAME */}
+          {/* HOST BUTTON */}
           <Button
             onClick={handleHostGame}
-            disableRipple={false}
             sx={{
               flex: 1,
-              display: "flex",
               flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: `${Math.round(L.panelGap * 0.65)}px`,
-              padding: L.panelPad,
+              gap: "24px",
+              padding: layout.panelPad, // Fixed
               borderRadius: "18px",
               border: "2px solid #00E5FF",
               background: "rgba(0,5,15,0.75)",
-              boxShadow: "0 0 14px rgba(0,229,255,0.45), 0 0 32px rgba(0,229,255,0.2), inset 0 0 20px rgba(0,10,20,0.5)",
               animation: `${panelGlow} 3.5s ease-in-out infinite`,
-              transition: "all 0.18s ease",
-              position: "relative",
-              overflow: "hidden",
-
-              // Shimmer on hover
-              "&::after": {
-                content: '""',
-                position: "absolute",
-                top: 0, left: "-100%",
-                width: "60%", height: "100%",
-                background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.08), transparent)",
-                transition: "left 0.45s ease",
-              },
-
               "&:hover": {
                 border: "2px solid #35E52B",
                 background: "rgba(0,15,8,0.85)",
-                boxShadow: "0 0 22px rgba(53,229,43,0.5), 0 0 48px rgba(53,229,43,0.2), inset 0 0 20px rgba(0,10,0,0.5)",
-                "& .panel-icon": { animation: `${iconFloat} 1.4s ease-in-out infinite` },
-                "& .panel-label": { textShadow: "0 0 14px #42FF5C, 0 0 28px #35E52B66" },
-                "&::after": { left: "160%" },
-              },
+              }
             }}
           >
-            {/* Icon */}
-            <Box className="panel-icon" sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <GlobeIcon size={L.iconPx} />
-            </Box>
-
-            {/* Label */}
-            <Typography
-              className="panel-label"
-              sx={{
-                fontFamily: `'Press Start 2P', monospace`,
-                fontSize:   `${L.btnLabelPx}px`,
-                color:      "#35E52B",
-                letterSpacing: "2px",
-                textShadow: "0 0 8px #42FF5C, 2px 2px 0 #0A3F0A",
-                textAlign:  "center",
-                transition: "text-shadow 0.18s ease",
-                userSelect: "none",
-              }}
-            >
+            <GlobeIcon size={layout.iconPx} /> 
+            <Typography sx={{ fontSize: `${layout.btnLabelPx}px`, color: "#35E52B" }}>
               HOST GAME
             </Typography>
           </Button>
 
-          {/* JOIN GAME */}
+          {/* JOIN BUTTON */}
           <Button
             onClick={handleJoinGame}
-            disableRipple={false}
             sx={{
               flex: 1,
-              display: "flex",
               flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: `${Math.round(L.panelGap * 0.65)}px`,
-              padding: L.panelPad,
+              gap: "24px",
+              padding: layout.panelPad, // Fixed
               borderRadius: "18px",
               border: "2px solid #00E5FF",
               background: "rgba(0,5,15,0.75)",
-              boxShadow: "0 0 14px rgba(0,229,255,0.45), 0 0 32px rgba(0,229,255,0.2), inset 0 0 20px rgba(0,10,20,0.5)",
               animation: `${panelGlow} 3.5s ease-in-out 0.5s infinite`,
-              transition: "all 0.18s ease",
-              position: "relative",
-              overflow: "hidden",
-
-              "&::after": {
-                content: '""',
-                position: "absolute",
-                top: 0, left: "-100%",
-                width: "60%", height: "100%",
-                background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.08), transparent)",
-                transition: "left 0.45s ease",
-              },
-
               "&:hover": {
                 border: "2px solid #35E52B",
                 background: "rgba(0,15,8,0.85)",
-                boxShadow: "0 0 22px rgba(53,229,43,0.5), 0 0 48px rgba(53,229,43,0.2), inset 0 0 20px rgba(0,10,0,0.5)",
-                "& .panel-icon": { animation: `${iconFloat} 1.4s ease-in-out infinite` },
-                "& .panel-label": { textShadow: "0 0 14px #42FF5C, 0 0 28px #35E52B66" },
-                "&::after": { left: "160%" },
-              },
+              }
             }}
           >
-            {/* Icon */}
-            <Box className="panel-icon" sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <MapPinIcon size={L.iconPx} />
-            </Box>
-
-            {/* Label */}
-            <Typography
-              className="panel-label"
-              sx={{
-                fontFamily: `'Press Start 2P', monospace`,
-                fontSize:   `${L.btnLabelPx}px`,
-                color:      "#35E52B",
-                letterSpacing: "2px",
-                textShadow: "0 0 8px #42FF5C, 2px 2px 0 #0A3F0A",
-                textAlign:  "center",
-                transition: "text-shadow 0.18s ease",
-                userSelect: "none",
-              }}
-            >
+            <MapPinIcon size={layout.iconPx} />
+            <Typography sx={{ fontSize: `${layout.btnLabelPx}px`, color: "#35E52B" }}>
               JOIN GAME
             </Typography>
           </Button>
         </Box>
 
-        {/* ── BACK BUTTON ────────────────────────────────────────────── */}
-        <Box sx={{
-          display: "flex",
-          justifyContent: "center",
-          position: "relative",
-          zIndex: 10,
-          animation: `${slideUp} 0.5s ease 0.4s both`,
-        }}>
+        {/* --- BACK BUTTON --- */}
+        <Box sx={{ position: "relative", zIndex: 10 }}>
           <Button
             onClick={() => setScreen("mode-select")}
-            disableRipple={false}
             sx={{
-              width:        L.backW,
-              height:       L.backH,
+              width: layout.backW, // Fixed
+              height: layout.backH, // Fixed
               borderRadius: "14px",
-              background:   "#10363A",
-              border:       "1.5px solid #00DFFF",
-              boxShadow:    "0 0 10px rgba(0,223,255,0.35)",
-              transition:   "all 0.15s ease",
-              position:     "relative",
-              overflow:     "hidden",
-
-              "&::after": {
-                content: '""',
-                position: "absolute",
-                top: 0, left: "-100%",
-                width: "60%", height: "100%",
-                background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.1), transparent)",
-                transition: "left 0.4s ease",
-              },
-
-              "&:hover": {
-                background: "#164249",
-                animation: `${btnHoverGlow} 1s ease-in-out infinite`,
-                "&::after": { left: "160%" },
-              },
+              background: "#10363A",
+              border: "1.5px solid #00DFFF",
+              "&:hover": { background: "#164249" }
             }}
           >
-            <Typography sx={{
-              fontFamily: `'Press Start 2P', monospace`,
-              fontSize:   `${L.backPx}px`,
-              color:      "#31D94A",
-              letterSpacing: "3px",
-              textShadow: "0 0 8px rgba(49,217,74,0.5)",
-              userSelect: "none",
-            }}>
+            <Typography sx={{ fontSize: `${layout.backPx}px`, color: "#31D94A" }}>
               BACK
             </Typography>
           </Button>
