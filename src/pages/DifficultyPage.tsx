@@ -143,8 +143,8 @@ export default function DifficultyPage() {
         difficulty,
         questionLimit: 1,
         mode: "solo",
-        questionTimer: 10,
-        answerTimer: 10,
+        questionTimer: 15,
+        answerTimer: 15,
         recentSessionLimitSolo: 0,
         recentSessionLimitMultiplayer: 0
       });
@@ -275,7 +275,8 @@ const styles: Record<string, React.CSSProperties> = {
   root: {
     position: "relative",
     width: "100%",
-    minHeight: "100vh",
+    height: "100%",
+    minHeight: "100%",
     background: C.bg,
     display: "flex",
     alignItems: "center",
@@ -294,7 +295,8 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     gap: 0,
     width: "100%",
-    minHeight: "100vh",
+    height: "100%",
+    minHeight: "100%",
     paddingTop: 80,
     paddingBottom: 60,
   },
