@@ -97,7 +97,8 @@ const MultiplayerLobby = () => {
         seed: payload.seed,
       });
 
-      await startGame({
+       await startGame({
+
         category: category,
         difficulty: difficulty,
         questionLimit: questionLimit,
@@ -105,6 +106,8 @@ const MultiplayerLobby = () => {
         questionTimer: questionTimer,
         answerTimer: answerTimer,
         seed: payload.seed,
+        recentSessionLimitSolo: 0, 
+        recentSessionLimitMultiplayer: 0,
       });
 
       const nextState = {
@@ -146,6 +149,8 @@ const MultiplayerLobby = () => {
       questionTimer: sessionQuestionTimer,
       answerTimer: sessionAnswerTimer,
       seed: gameSessionSeed,
+      recentSessionLimitSolo: 0, 
+      recentSessionLimitMultiplayer: 0,
     });
 
     const state = useTriviaStore.getState();
