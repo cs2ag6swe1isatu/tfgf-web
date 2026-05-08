@@ -77,6 +77,7 @@ export interface MultiplayerHostExitPayload {
 }
 
 export type DiscoveredHost = {
+  [x: string]: any;
   lobbyId: string;
   hostId: string;
   hostName?: string;

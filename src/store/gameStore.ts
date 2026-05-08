@@ -45,6 +45,7 @@ export interface GameConfig {
   recentSessionLimitSolo: number;
   recentSessionLimitMultiplayer: number;
   seed?: number;
+  autoJoinLan: boolean;
 }
 
 export interface Settings {
@@ -77,6 +78,7 @@ interface GameState {
   setQuestionLimit: (limit: number) => void;
   setQuestionTimer: (seconds: number) => void;
   setAnswerTimer: (seconds: number) => void;
+  setAutoJoinLan: (enabled: boolean) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -95,7 +97,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Game configuration state
   gameConfig: {
     ...defaultGameConfig,
+    autoJoinLan: false
   },
+
+  
 
   // Actions
   getPlayer: () => usePlayerStore.getState().getPlayer(),
@@ -127,4 +132,5 @@ export const useGameStore = create<GameState>((set, get) => ({
   setQuestionLimit: (limit) => set((s) => ({ gameConfig: { ...s.gameConfig, questionLimit: limit } })),
   setQuestionTimer: (seconds) => set((s) => ({ gameConfig: { ...s.gameConfig, questionTimer: seconds } })),
   setAnswerTimer: (seconds) => set((s) => ({ gameConfig: { ...s.gameConfig, answerTimer: seconds } })),
+  setAutoJoinLan: (enabled) => set((s) => ({ gameConfig: { ...s.gameConfig, autoJoinLan: enabled } })),
 }));

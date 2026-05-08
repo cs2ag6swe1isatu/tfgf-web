@@ -4,7 +4,10 @@
 
 @font-face {
   font-family: 'Press Start 2P';
-  src: url('C:\Users\Lenovo\Downloads\tfgf-web-main improved version\tfgf-web-main\public\fonts') format('truetype');
+  /* Assuming the file is in: public/fonts/PressStart2P-Regular.ttf
+     The browser sees it at: /fonts/PressStart2P-Regular.ttf
+  */
+  src: url('/fonts/PressStart2P-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
