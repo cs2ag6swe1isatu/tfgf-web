@@ -149,7 +149,7 @@ function FolderCard({
           className="folder-label"
           style={{
             fontFamily: "'Press Start 2P', monospace",
-            fontSize: 9,
+            fontSize: 11,
             color: C.folderText,
             textAlign: "center",
             lineHeight: 1.9,

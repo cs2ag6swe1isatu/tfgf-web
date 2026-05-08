@@ -10,10 +10,7 @@ import { styled, keyframes } from "@mui/material/styles";
 
 // ─── Keyframe Animations ────────────────────────────────────────────────────
 
-const scanline = keyframes`
-  0%   { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
-`;
+
 
 const neonFlicker = keyframes`
   0%, 100% { opacity: 1; }
@@ -108,7 +105,7 @@ const GameScreen = styled(Box)({
     height: "80px",
     background:
       "linear-gradient(transparent, rgba(0,229,255,0.025) 50%, transparent)",
-    animation: `${scanline} 8s linear infinite`,
+    animation: `${fadeSlideDown} 8s linear infinite`,
     pointerEvents: "none",
     zIndex: 21,
   },
@@ -138,7 +135,7 @@ const HudBar = styled(Box)({
 
 const ProgressText = styled(Typography)({
   fontFamily: "'Courier New', 'Lucida Console', monospace",
-  fontSize: "14px",
+  fontSize: "25px",
   fontWeight: 300,
   color: "#B7B7B7",
   letterSpacing: "1px",
@@ -147,7 +144,7 @@ const ProgressText = styled(Typography)({
 
 const CategoryLabel = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "11px",
+  fontSize: "25px",
   color: "#35E52B",
   textShadow: "0 0 8px #3FFF56, 0 0 16px #35E52B66",
   letterSpacing: "2px",
@@ -164,7 +161,7 @@ const TimerBox = styled(Box)({
 
 const TimerText = styled(Typography)<{ urgent?: boolean }>(({ urgent }) => ({
   fontFamily: "'Courier New', 'Lucida Console', monospace",
-  fontSize: "15px",
+  fontSize: "25px",
   fontWeight: 400,
   color: urgent ? "#FF6540" : "#E5E5E5",
   letterSpacing: "1px",
@@ -178,10 +175,10 @@ const TimerText = styled(Typography)<{ urgent?: boolean }>(({ urgent }) => ({
 // ─── Question Panel ───────────────────────────────────────────────────────────
 
 const QuestionPanel = styled(Box)({
-  marginTop: "28px",
-  width: "calc(100% - 80px)",
-  maxWidth: "880px",
-  minHeight: "168px",
+  marginTop: "18px",
+  width: "calc(100% - 75px)",
+  maxWidth: "860px",
+  minHeight: "150px",
   borderRadius: "12px",
   border: "1.5px solid #00DFFF",
   boxShadow:
@@ -211,7 +208,7 @@ const QuestionPanel = styled(Box)({
 
 const QuestionText = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "15px",
+  fontSize: "25px",
   color: "#35E52B",
   textShadow: "0 0 8px #42FF5C, 0 0 20px #35E52B55",
   textAlign: "center",
@@ -224,16 +221,18 @@ const QuestionText = styled(Typography)({
 // ─── Answer Grid ──────────────────────────────────────────────────────────────
 
 const AnswerGrid = styled(Box)({
-  marginTop: "28px",
-  width: "calc(100% - 80px)",
-  maxWidth: "880px",
+  marginTop: "18px",
+  width: "calc(100% - 75px)",
+  maxWidth: "820px",
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: "18px",
+  gap: "12px",
   position: "relative",
   zIndex: 5,
   animation: `${fadeSlideUp} 0.5s ease 0.2s both`,
-  flex: 1,
+  flex: "none",        // Stop it from stretching automatically
+  height: "45px",      // Let it only be as tall as the buttons
+  marginBottom: "25px" // Add some breathing room before the bottom text
 });
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
@@ -273,7 +272,7 @@ const AnswerButton = styled(Button)<{
 
   return {
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "11px",
+    fontSize: "20px",
     color: textColor,
     textShadow: `0 0 6px ${textColor}88`,
     letterSpacing: "1.5px",
@@ -283,8 +282,8 @@ const AnswerButton = styled(Button)<{
     borderRadius: "10px",
     background: bgColor,
     boxShadow: `0 0 8px ${glowColor}, 0 0 18px ${glowColor}55${extraGlow}`,
-    minHeight: "90px",
-    padding: "16px 20px",
+    minHeight: "72px",
+    padding: "8px 20px",
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-start",
@@ -328,7 +327,7 @@ const AnswerButton = styled(Button)<{
 const AnswerLabel = styled(Box)<{ correct?: boolean; incorrect?: boolean }>(
   ({ correct, incorrect }) => ({
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "13px",
+    fontSize: "25px",
     color: correct ? "#35E52B" : incorrect ? "#E33232" : "#00E5FF",
     textShadow: correct
       ? "0 0 8px #35E52B"
@@ -368,7 +367,7 @@ const RankingPanel = styled(Box)({
 
 const RankingTitle = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "12px",
+  fontSize: "25px",
   color: "#35E52B",
   textShadow: "0 0 8px #42FF5C",
   textAlign: "center",
@@ -388,7 +387,7 @@ const RankingRow = styled(Box)<{ isLocal?: boolean }>(({ isLocal }) => ({
 
 const RankNumber = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "10px",
+  fontSize: "25px",
   color: "#00E5FF",
   textShadow: "0 0 6px #00E5FF",
   minWidth: "24px",
@@ -397,7 +396,7 @@ const RankNumber = styled(Typography)({
 
 const RankName = styled(Typography)({
   fontFamily: "'Courier New', monospace",
-  fontSize: "13px",
+  fontSize: "25px",
   color: "#DADADA",
   flex: 1,
   letterSpacing: "1px",
@@ -408,7 +407,7 @@ const RankName = styled(Typography)({
 
 const RankScore = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "10px",
+  fontSize: "25px",
   color: "#35E52B",
   textShadow: "0 0 6px #35E52B",
 });
@@ -428,7 +427,7 @@ const PhaseBar = styled(Box)({
 
 const PhaseHint = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "9px",
+  fontSize: "25px",
   color: "#35E52B66",
   letterSpacing: "3px",
   textAlign: "center",
@@ -784,7 +783,7 @@ const QuestionPage = () => {
             <Typography
               sx={{
                 fontFamily: "'Press Start 2P', monospace",
-                fontSize: "14px",
+                fontSize: "25px",
                 color: "#35E52B",
                 textShadow: "0 0 8px #42FF5C",
                 letterSpacing: "3px",
