@@ -13,7 +13,6 @@ import MultiplayerLobbyPage from "./pages/MultiplayerLobbyPage";
 import MultiplayerDiscoveryPage from "./pages/MultiplayerDiscoveryPage";
 import { useGameStore } from "./store/gameStore";
 import theme from "./ui/theme";
-import './ui/fonts.css';
 
 
 const Overlay: React.FC<{ children: React.ReactNode }> = ({ children }) => {

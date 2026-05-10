@@ -40,7 +40,7 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"pixelsboldpixels", "Courier New", monospace',
+    fontFamily: '"Press Start 2P", "Courier New", monospace',
     allVariants: {
       fontSmooth: 'never',
       WebkitFontSmoothing: 'none',

@@ -1,5 +1,4 @@
 import { app, BrowserWindow } from 'electron';
-import "@fontsource/press-start-2p/index.css";
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 
