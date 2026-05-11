@@ -2,17 +2,6 @@
 @import './ui/animations.css';
 /* src/index.css */
 
-@font-face {
-  font-family: 'Press Start 2P';
-  /* Assuming the file is in: public/fonts/PressStart2P-Regular.ttf
-     The browser sees it at: /fonts/PressStart2P-Regular.ttf
-  */
-  src: url('/fonts/PressStart2P-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
 canvas, img, div {
   image-rendering: pixelated;
   image-rendering: crisp-edges;

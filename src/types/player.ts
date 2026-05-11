@@ -18,7 +18,8 @@ export interface Player {
 
   // Total Stats
   totalScore: number;
-  topScore: number;
+  soloTopScore: number;
+  multiplayerTopScore: number;
   totalTimePlayed?: number; // in seconds
 
   soloGamesPlayed: number;
@@ -26,6 +27,10 @@ export interface Player {
   gamesMastered: number; // perfect games
   gamesWon: number; // multiplayer wins
   topThreeFinishes: number; // multiplayer top 3 finishes
+  leaderboardAppearances: number; // multiplayer top 3 finishes used as leaderboard entries
+  lobbiesCreated: number; // hosted multiplayer games that were completed and saved
+  lastPlayedDate?: Date;
+  currentPlayStreak: number;
 
   totalQuestionsAnswered: number;
   correctAnswers: number;
@@ -80,4 +85,6 @@ export interface GameSession {
   mastered: boolean; // perfect score
   won: boolean; // for multiplayer
   topThreeFinish: boolean; // for multiplayer
+  hostedLobby?: boolean;
+  fellBehindByHalfAndWon?: boolean;
 }
