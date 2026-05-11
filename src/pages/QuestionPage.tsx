@@ -135,7 +135,7 @@ const HudBar = styled(Box)({
 
 const ProgressText = styled(Typography)({
   fontFamily: "'Courier New', 'Lucida Console', monospace",
-  fontSize: "25px",
+  fontSize: "20spx",
   fontWeight: 300,
   color: "#B7B7B7",
   letterSpacing: "1px",
@@ -273,8 +273,8 @@ const AnswerButton = styled(Button)<{
   return {
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
     /* --- MATCHING THE SCREENSHOT --- */
-    fontSize: "25px",           // The text in the pic is small/clean
-    minHeight: "100px",          // The perfect "rectangle" height
+    fontSize: "20px",           // The text in the pic is small/clean
+    minHeight: "12px",          // The perfect "rectangle" height
     padding: "0 25px",          // Side breathing room
     letterSpacing: "1px",
     /* ------------------------------ */
@@ -332,7 +332,7 @@ const AnswerButton = styled(Button)<{
 const AnswerLabel = styled(Box)<{ correct?: boolean; incorrect?: boolean }>(
   ({ correct, incorrect }) => ({
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "20px",
+    fontSize: "15px",
     color: correct ? "#35E52B" : incorrect ? "#E33232" : "#00E5FF",
     textShadow: correct
       ? "0 0 8px #35E52B"
@@ -432,7 +432,7 @@ const PhaseBar = styled(Box)({
 
 const PhaseHint = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "25px",
+  fontSize: "20px",
   color: "#35E52B66",
   letterSpacing: "3px",
   textAlign: "center",
@@ -718,6 +718,13 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       mastered: correctAnswersCount === questionsState.length,
       won: mode === "multiplayer" ? playerRank === 1 : false,
       topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
+      scoreEarned: undefined,
+      xpEarned: undefined,
+      isWin: undefined,
+      isMastery: undefined,
+      isTopThree: undefined,
+      questionsAnswered: undefined,
+      incorrectAnswers: undefined
     };
 
     applySessionProgress(progressionInput);
@@ -792,7 +799,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
             <Typography
               sx={{
                 fontFamily: "'Press Start 2P', monospace",
-                fontSize: "18px",
+                fontSize: "15px",
                 color: "#35E52B",
                 textShadow: "0 0 8px #42FF5C",
                 letterSpacing: "3px",

@@ -1,51 +1,5 @@
+// src/types/player.ts
 import { Category, Difficulty, Mode, Rank } from "../constants";
-import { Question } from "./question";
-
-export interface Player {
-  // Basic Profile
-  id: string;
-  name: string;
-  avatar: string;
-  lastActive: Date;
-  gameHistory: GameSession[];
-
-  // Progress
-  totalXp: number;
-  xpToNextLevel: number;
-  level: number;
-  rank: Rank;
-  achievements: Achievement[];
-
-  // Total Stats
-  totalScore: number;
-  topScore: number;
-  totalTimePlayed?: number; // in seconds
-
-  soloGamesPlayed: number;
-  multiplayerGamesPlayed: number;
-  gamesMastered: number; // perfect games
-  gamesWon: number; // multiplayer wins
-  topThreeFinishes: number; // multiplayer top 3 finishes
-
-  totalQuestionsAnswered: number;
-  correctAnswers: number;
-  incorrectAnswers: number;
-  averageTimePerQuestion?: number; // in seconds
-
-  // Specific stats
-  individualStats: Record<Category, Record<Mode, Record<Difficulty, PlayData>>>;
-}
-
-
-export interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  unlockedAt: Date;
-  progress: number;
-}
-
 
 export interface PlayData {
   xpGained: number;
@@ -57,27 +11,68 @@ export interface PlayData {
   totalQuestionsAnswered: number;
   correctAnswers: number;
   incorrectAnswers: number;
-  averageTimePerQuestion?: number; // in seconds
+  averageTimePerQuestion: number;
 }
 
-// A limited stack of recent game sessions for quick access and display.
-// The cap is enforced per mode from config.
 export interface GameSession {
   id: string;
   date: Date;
   mode: Mode;
   category: Category;
   difficulty: Difficulty;
-  totalQuestions: number;
-  correctAnswers: number;
   score: number;
-  
-  questions: Question[]; 
-  userAnswers: string[];
+  correctAnswers: number;
+  questionsAnswered: number;
   timeTaken: number; // in seconds
-  timePerQuestion?: number[];
+  questions: any[]; // Placeholder for question details, can be expanded as needed
+  userAnswers: string[]; // Player's answers for the session
+  mastered: boolean; // Whether the player mastered the session (e.g., perfect score)
+  won: boolean; // For multiplayer sessions, whether the player won
+  topThreeFinish: boolean; // For multiplayer sessions, whether the player finished in the top three  
+  // 👇 Here is the line that fixes your error!
+  totalQuestions: number;
+  timePerQuestion?: number[]; // Optional array of time taken for each question, in seconds
+  incorrectAnswers: number; // Added field for incorrect answers
+}
 
-  mastered: boolean; // perfect score
-  won: boolean; // for multiplayer
-  topThreeFinish: boolean; // for multiplayer
+export interface Achievement {
+  progress: number;
+  id: string;
+  name: string;
+  description: string;
+  unlockedAt: Date;
+}
+
+export interface Player {
+  // Basic Profile
+  id: string;
+  name: string;
+  avatar: string;
+  lastActive: Date;
+  gameHistory: GameSession[];
+
+  // Progress & Leveling
+  totalXp: number;
+  xpToNextLevel: number;
+  level: number;
+  rank: Rank;
+  achievements: Achievement[];
+
+  // Aggregate Statistics
+  totalScore: number;
+  topScore: number;
+  totalTimePlayed: number;
+  soloGamesPlayed: number;
+  multiplayerGamesPlayed: number;
+  gamesMastered: number;
+  gamesWon: number;
+  topThreeFinishes: number;
+  totalQuestionsAnswered: number;
+  correctAnswers: number;
+  incorrectAnswers: number;
+  averageTimePerQuestion: number;
+
+  // Root Data & Deep Stats
+  playData: PlayData;
+  individualStats: Record<Category, Record<Mode, Record<Difficulty, PlayData>>>;
 }
