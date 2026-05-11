@@ -36,6 +36,8 @@ export interface SessionProgressInput {
     mastered: boolean; // perfect score
     won: boolean; // for multiplayer
     topThreeFinish: boolean; // for multiplayer
+    hostedLobby?: boolean; // multiplayer host who completed a saved match
+    fellBehindByHalfAndWon?: boolean; // achieved comeback from <=50% of leader score and still won
 }
 
 export interface SessionDelta {

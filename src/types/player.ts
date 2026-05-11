@@ -1,5 +1,52 @@
 // src/types/player.ts
 import { Category, Difficulty, Mode, Rank } from "../constants";
+import { Question } from "./question";
+
+export interface Player {
+  // Basic Profile
+  id: string;
+  name: string;
+  avatar: string;
+  lastActive: Date;
+  gameHistory: GameSession[];
+
+  // Progress
+  totalXp: number;
+  xpToNextLevel: number;
+  level: number;
+  rank: Rank;
+  achievements: Achievement[];
+
+  // Total Stats
+  totalScore: number;
+  topScore: number;
+  totalTimePlayed?: number; // in seconds
+
+  soloGamesPlayed: number;
+  multiplayerGamesPlayed: number;
+  gamesMastered: number; // perfect games
+  gamesWon: number; // multiplayer wins
+  topThreeFinishes: number; // multiplayer top 3 finishes
+
+  totalQuestionsAnswered: number;
+  correctAnswers: number;
+  incorrectAnswers: number;
+  averageTimePerQuestion?: number; // in seconds
+
+  // Specific stats
+  individualStats: Record<Category, Record<Mode, Record<Difficulty, PlayData>>>;
+}
+
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  unlockedAt: Date;
+  progress: number;
+}
+
 
 export interface PlayData {
   xpGained: number;
@@ -72,7 +119,7 @@ export interface Player {
   incorrectAnswers: number;
   averageTimePerQuestion: number;
 
-  // Root Data & Deep Stats
-  playData: PlayData;
-  individualStats: Record<Category, Record<Mode, Record<Difficulty, PlayData>>>;
+  mastered: boolean; // perfect score
+  won: boolean; // for multiplayer
+  topThreeFinish: boolean; // for multiplayer
 }

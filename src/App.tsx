@@ -12,8 +12,8 @@ import MultiplayerMenuPage from "./pages/MultiplayerMenuPage";
 import MultiplayerLobbyPage from "./pages/MultiplayerLobbyPage";
 import MultiplayerDiscoveryPage from "./pages/MultiplayerDiscoveryPage";
 import { useGameStore } from "./store/gameStore";
+import { usePlayerStore } from "./store/playerStore";
 import theme from "./ui/theme";
-import './ui/fonts.css';
 
 const styles = {
   screenRoot: {
@@ -81,6 +81,34 @@ export default function App() {
   }, [bgmEnabled, vol]);
 
   // ── Screen router ────────────────────────────────────────
+  const screen = useGameStore((state) => state.screen);
+  const modalScreen = useGameStore((state) => state.modalScreen);
+  const deferredScreen = useDeferredValue(screen); // small optimization, read concurrently in the bg
+  
+  const initializePlayer = usePlayerStore((state) => state.initialize);
+  const isPlayerLoading = usePlayerStore((state) => state.isLoading);
+
+  useEffect(() => {
+    initializePlayer();
+  }, [initializePlayer]);
+
+  if (isPlayerLoading) {
+    return (
+      <div style={{
+        ...styles.screenRoot,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#000',
+        color: '#1FC11A',
+        fontFamily: "'Press Start 2P', monospace",
+        fontSize: '20px'
+      }}>
+        LOADING...
+      </div>
+    );
+  }
+
   let screenContent: React.ReactNode;
 
   switch (deferredScreen) {

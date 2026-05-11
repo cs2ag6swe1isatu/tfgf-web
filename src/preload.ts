@@ -1,6 +1,6 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
-import { contextBridge } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 import * as dgram from "dgram";
 import type {
   LobbyMember,
@@ -486,6 +486,13 @@ function leaveLobby(payload: MultiplayerLeaveRequest) {
     if (err) console.warn('[preload] send leave-request error', err);
   });
 }
+
+// Expose file-based player storage API for Electron
+contextBridge.exposeInMainWorld("playerStorage", {
+  read: async () => ipcRenderer.invoke('player-storage:read'),
+  write: async (data: string) => ipcRenderer.invoke('player-storage:write', data),
+  delete: async () => ipcRenderer.invoke('player-storage:delete'),
+});
 
 contextBridge.exposeInMainWorld("multiplayer", {
   startBroadcast,

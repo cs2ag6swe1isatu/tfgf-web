@@ -2,7 +2,6 @@ import { CATEGORIES, Category, DIFFICULTIES, Difficulty, Mode, MODES, Rank } fro
 import { SessionProgressInput } from "../progression/progressionRules";
 import type { Player, Achievement, GameSession, PlayData } from "../types/player";
 import { defaultGameConfig } from "../config/gameConfig";
-import { create } from 'zustand';
 
 /** Player Store - User Profile and Progress Management
   * 
@@ -18,6 +17,8 @@ import { create } from 'zustand';
 
 export interface PlayerState {
   player: Player | null;
+  isLoading: boolean;
+  initialize: () => Promise<void>;
   generatePlayer: () => Player;
   getPlayer: () => Player;
   applySessionProgress: (sessionInput: SessionProgressInput) => void;
@@ -51,10 +52,23 @@ export const getPlayerStorage = (): Storage | null => {
   const isElectron =
     typeof navigator !== "undefined" && navigator.userAgent.toLowerCase().includes("electron");
   const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV === true;
-  if (isDev && !isElectron) {
+  if (isElectron) {
+    // In Electron, we use file-based storage via IPC, not browser storage
+    return null;
+  }
+  if (isDev) {
     return window.sessionStorage;
   }
   return window.localStorage;
+};
+
+const hasPlayerStorageAPI = (): boolean => {
+  return typeof window !== "undefined" && (window as unknown as Record<string, unknown>).playerStorage !== undefined;
+};
+
+const getPlayerStorageAPI = (): PlayerStorageAPI | null => {
+  if (!hasPlayerStorageAPI()) return null;
+  return (window as unknown as Record<string, unknown>).playerStorage as PlayerStorageAPI;
 };
 
 const historyLimitByMode: Record<Mode, number> = {
@@ -102,14 +116,43 @@ export const getPlayerFromStorage = (): Player | null => {
         gameHistory?: SerializedGameSession[];
       };
 
-      const parsed = JSON.parse(existing) as SerializedPlayer;
-      const gameHistory = trimGameHistory((parsed.gameHistory ?? []).map((session) => ({ ...session, date: new Date(session.date) })));
-      return {
-        ...parsed,
-        lastActive: new Date(parsed.lastActive),
-        achievements: (parsed.achievements ?? []).map((a) => ({ ...a, unlockedAt: new Date(a.unlockedAt) })),
-        gameHistory,
-      };
+  const parsed = JSON.parse(existing) as SerializedPlayer;
+  const gameHistory = trimGameHistory((parsed.gameHistory ?? []).map((session) => ({ ...session, date: new Date(session.date) })));
+  return {
+    ...parsed,
+    lastActive: new Date(parsed.lastActive),
+    lastPlayedDate: parsed.lastPlayedDate ? new Date(parsed.lastPlayedDate) : undefined,
+    leaderboardAppearances: parsed.leaderboardAppearances ?? 0,
+    lobbiesCreated: parsed.lobbiesCreated ?? 0,
+    currentPlayStreak: parsed.currentPlayStreak ?? 0,
+    soloTopScore: parsed.soloTopScore ?? parsed.topScore ?? 0,
+    multiplayerTopScore: parsed.multiplayerTopScore ?? 0,
+    achievements: (parsed.achievements ?? []).map((a) => ({ ...a, unlockedAt: new Date(a.unlockedAt) })),
+    gameHistory,
+  };
+};
+
+// For debugging: use browser localStorage or electron file storage
+// Electron: app.getPath('userData') + '/player.json' (via IPC)
+// Browser: localStorage or sessionStorage
+const loadPlayerFromStorage = async (): Promise<Player | null> => {
+  try {
+    // 1. Try Electron File Storage
+    const playerStorageAPI = getPlayerStorageAPI();
+    if (playerStorageAPI) {
+      const result = await playerStorageAPI.read();
+      if (result.success && result.data) {
+        return deserializePlayer(result.data);
+      }
+    }
+
+    // 2. Try Browser Storage
+    const storage = getPlayerStorage();
+    if (storage) {
+      const existing = storage.getItem(PLAYER_STORAGE_KEY);
+      if (existing) {
+        return deserializePlayer(existing);
+      }
     }
   } catch (error) {
     console.warn("Failed to load player from storage:", error);
@@ -119,6 +162,16 @@ export const getPlayerFromStorage = (): Player | null => {
 
 export const savePlayerToStorage = (player: Player): void => {
   try {
+    // If we have the playerStorage API (Electron), use it
+    const playerStorageAPI = getPlayerStorageAPI();
+    if (playerStorageAPI) {
+      const result = await playerStorageAPI.write(JSON.stringify(player));
+      if (!result.success) {
+        console.warn("Failed to save player to Electron storage:", result.error);
+      }
+      return;
+    }
+    // Fall back to browser storage
     const storage = getPlayerStorage();
     if (!storage) return;
     storage.setItem(PLAYER_STORAGE_KEY, JSON.stringify(player));
@@ -192,6 +245,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       gamesMastered: 0,
       gamesWon: 0,
       topThreeFinishes: 0,
+      leaderboardAppearances: 0,
+      lobbiesCreated: 0,
       totalQuestionsAnswered: 0,
       correctAnswers: 0,
       incorrectAnswers: 0,

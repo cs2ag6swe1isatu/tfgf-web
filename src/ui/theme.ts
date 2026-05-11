@@ -40,7 +40,7 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"pixelsboldpixels", "Courier New", monospace',
+    fontFamily: '"Press Start 2P", "Courier New", monospace',
     allVariants: {
       fontSmooth: 'never',
       WebkitFontSmoothing: 'none',
@@ -92,7 +92,7 @@ const theme = createTheme({
               backgroundColor: mainColor,
               color: '#000',
               border: `4px solid ${mainColor}`,
-              boxShadow: `6px 6px 0px ${hoverShadowColor}`,
+              boxShadow: `0px 0px 0px ${hoverShadowColor}`,
               '& .MuiTouchRipple-root': { color: '#000' },
             },
             '&:active': {
