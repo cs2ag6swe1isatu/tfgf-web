@@ -1,5 +1,6 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
+import * as fs from 'node:fs';
 import started from 'electron-squirrel-startup';
 
 // having trouble on linux; disable HW acceleration there or when explicitly requested via env
@@ -17,6 +18,54 @@ if (process.env.SESSION_ID) {
   const currentPath = app.getPath('userData');
   app.setPath('userData', `${currentPath}-${process.env.SESSION_ID}`);
 }
+
+// IPC Handlers for player data persistence
+const getPlayerDataPath = (): string => {
+  const userDataPath = app.getPath('userData');
+  // Ensure the directory exists
+  if (!fs.existsSync(userDataPath)) {
+    fs.mkdirSync(userDataPath, { recursive: true });
+  }
+  return path.join(userDataPath, 'player.json');
+};
+
+ipcMain.handle('player-storage:read', async () => {
+  try {
+    const filePath = getPlayerDataPath();
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8');
+      return { success: true, data };
+    }
+    return { success: true, data: null };
+  } catch (error) {
+    console.error('Error reading player data:', error);
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle('player-storage:write', async (_event, data: string) => {
+  try {
+    const filePath = getPlayerDataPath();
+    fs.writeFileSync(filePath, data, 'utf-8');
+    return { success: true };
+  } catch (error) {
+    console.error('Error writing player data:', error);
+    return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle('player-storage:delete', async () => {
+  try {
+    const filePath = getPlayerDataPath();
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting player data:', error);
+    return { success: false, error: String(error) };
+  }
+});
 
 const createWindow = () => {
   // Create the browser window.

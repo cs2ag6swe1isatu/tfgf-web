@@ -6,6 +6,7 @@ import type { SessionProgressInput } from "src/progression/progressionRules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
 import type { TriviaState } from "../store";
 import { scoreForCorrectAnswers } from "../rules";
+import { defaultGameConfig } from "../config/gameConfig";
 import { styled, keyframes } from "@mui/material/styles";
 
 // ─── Keyframe Animations ────────────────────────────────────────────────────
@@ -50,6 +51,10 @@ const buttonHoverGlow = keyframes`
   0%, 100% { box-shadow: 0 0 8px #00E5FF55, 0 0 16px #00E5FF22; }
   50%       { box-shadow: 0 0 16px #00E5FFaa, 0 0 32px #00E5FF44; }
 `;
+
+const CLUTCH_MIN_ROUNDS = 3;
+const CLUTCH_MIN_LEADER_CORRECT_ANSWERS = 4;
+const CLUTCH_MIN_SCORE_GAP_CORRECT_ANSWERS = 2;
 
 // ─── Responsive Scale Wrapper ─────────────────────────────────────────────────
 // Default: 1024x768. Scales down/up for other target resolutions.
@@ -237,7 +242,10 @@ const AnswerGrid = styled(Box)({
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
 
-const AnswerButton = styled(Button)<{
+const AnswerButton = styled(Button, {
+  shouldForwardProp: (prop) =>
+    prop !== 'selected' && prop !== 'correct' && prop !== 'incorrect' && prop !== 'revealed',
+})<{
   selected?: boolean;
   correct?: boolean;
   incorrect?: boolean;
@@ -329,7 +337,9 @@ const AnswerButton = styled(Button)<{
   };
 });
 
-const AnswerLabel = styled(Box)<{ correct?: boolean; incorrect?: boolean }>(
+const AnswerLabel = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'correct' && prop !== 'incorrect',
+})<{ correct?: boolean; incorrect?: boolean }>(
   ({ correct, incorrect }) => ({
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
     fontSize: "20px",
@@ -672,6 +682,39 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
   // ── Apply session progress at end ──────────────────────────────────────────
 
   const endProgressAppliedRef = useRef(false);
+  const fellBehindByHalfRef = useRef(false);
+
+  useEffect(() => {
+    if (phase === "readying" && currentIndex === 0) {
+      fellBehindByHalfRef.current = false;
+    }
+  }, [phase, currentIndex]);
+
+  useEffect(() => {
+    if (mode !== "multiplayer") return;
+
+    if (currentIndex < CLUTCH_MIN_ROUNDS) return;
+
+    const scoreValues = Object.values(playerScores);
+    if (scoreValues.length === 0) return;
+
+    const highestScore = Math.max(...scoreValues);
+    if (highestScore <= 0) return;
+
+    const localScore = playerScores[localPlayerId] ?? 0;
+    const baseScore = defaultGameConfig.baseScore;
+    const minLeaderScore = CLUTCH_MIN_LEADER_CORRECT_ANSWERS * baseScore;
+    const minScoreGap = CLUTCH_MIN_SCORE_GAP_CORRECT_ANSWERS * baseScore;
+    const scoreGap = highestScore - localScore;
+
+    if (
+      highestScore >= minLeaderScore &&
+      scoreGap >= minScoreGap &&
+      localScore <= highestScore * 0.5
+    ) {
+      fellBehindByHalfRef.current = true;
+    }
+  }, [mode, playerScores, localPlayerId, currentIndex]);
 
   useEffect(() => {
     if (phase !== "end" || endProgressAppliedRef.current) return;
@@ -718,6 +761,9 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       mastered: correctAnswersCount === questionsState.length,
       won: mode === "multiplayer" ? playerRank === 1 : false,
       topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
+      hostedLobby: mode === "multiplayer" && lobbyRole === "host",
+      fellBehindByHalfAndWon:
+        mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
     };
 
     applySessionProgress(progressionInput);
