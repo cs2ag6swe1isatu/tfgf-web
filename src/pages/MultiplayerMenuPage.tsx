@@ -84,7 +84,7 @@ const LAYOUTS = {
   "1152x768": { w: 1152, h: 768,  titlePx: 50, iconPx: 128, btnLabelPx: 19, backPx: 13, panelGap: 30, panelPad: "36px 28px", backW: "210px", backH: "60px" },
   "1024x768": { w: 1024, h: 768,  titlePx: 45, iconPx: 120, btnLabelPx: 18, backPx: 12, panelGap: 28, panelPad: "32px 24px", backW: "200px", backH: "58px" },
   "1024x600": { w: 1024, h: 600,  titlePx: 40, iconPx: 96,  btnLabelPx: 15, backPx: 11, panelGap: 22, panelPad: "24px 20px", backW: "180px", backH: "52px" },
-  "600x600":  { w: 600,  h: 600,  titlePx: 30, iconPx: 80,  btnLabelPx: 12, backPx: 10, panelGap: 16, panelPad: "20px 16px", backW: "150px", backH: "48px" },
+  "600x600":  { w: 600,  h: 600,  titlePx: 45, iconPx: 80,  btnLabelPx: 12, backPx: 10, panelGap: 16, panelPad: "20px 16px", backW: "150px", backH: "48px" },
 } as const;
 
 type RatioKey = keyof typeof LAYOUTS;

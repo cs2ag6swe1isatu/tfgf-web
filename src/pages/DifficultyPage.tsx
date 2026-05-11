@@ -145,6 +145,7 @@ export default function DifficultyPage() {
         mode: "solo",
         ...soloDifficultyStartConfig,
         ...sessionHistoryRuntimeLimits,
+        autoJoinLan: false
       });
       setScreen("question");
     } else {

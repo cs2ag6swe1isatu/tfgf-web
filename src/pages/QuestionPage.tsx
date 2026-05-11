@@ -208,7 +208,7 @@ const QuestionPanel = styled(Box)({
 
 const QuestionText = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "25px",
+  fontSize: "20px",
   color: "#35E52B",
   textShadow: "0 0 8px #42FF5C, 0 0 20px #35E52B55",
   textAlign: "center",
@@ -332,7 +332,7 @@ const AnswerButton = styled(Button)<{
 const AnswerLabel = styled(Box)<{ correct?: boolean; incorrect?: boolean }>(
   ({ correct, incorrect }) => ({
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "25px",
+    fontSize: "20px",
     color: correct ? "#35E52B" : incorrect ? "#E33232" : "#00E5FF",
     textShadow: correct
       ? "0 0 8px #35E52B"
@@ -749,7 +749,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
 
   // ── Answer state helpers ────────────────────────────────────────────────────
 
-  const isRevealed = phase === "scoring" 
+  const isRevealed = phase === "scoring";
   const correctAnswer = currentQuestion?.correctAnswer;
 
   const getAnswerState = (answer: string) => {
@@ -761,15 +761,17 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
 
   const isAnswered = !!selectedAnswer || phase === "scoring";
   const isUrgent = timer !== undefined && timer <= 5;
-
-  const phaseHint =
+  const currentHint =
     phase === "readying"
-      ? "GET READY..."
-      : phase === "asking" || phase === "answering"
-      ? "SELECT YOUR ANSWER"
+      ? "Get ready..."
+      : phase === "answering" || phase === "asking"
+      ? !selectedAnswer
+        ? "Choose your answer"
+        : "Answer submitted"
       : phase === "scoring"
-      ? "ANSWER REVEALED"
-      : "";
+      ? "Reviewing results"
+      : undefined;
+
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -790,7 +792,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
             <Typography
               sx={{
                 fontFamily: "'Press Start 2P', monospace",
-                fontSize: "25px",
+                fontSize: "18px",
                 color: "#35E52B",
                 textShadow: "0 0 8px #42FF5C",
                 letterSpacing: "3px",
@@ -1063,10 +1065,12 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
           })}
         </AnswerGrid>
 
-        {/* ── PHASE HINT BAR ────────────────────────────────────────────────── */}
-        <PhaseBar>
-          {phaseHint && <PhaseHint>{phaseHint}</PhaseHint>}
-        </PhaseBar>
+       <PhaseBar>
+      {/* ✅ Use the Tag for the UI 
+         ✅ Use the Variable for the Text 
+      */}
+      {currentHint && <PhaseHint>{currentHint}</PhaseHint>}
+    </PhaseBar>
 
         {/* ── RANKING OVERLAY (multiplayer scoring phase) ───────────────────── */}
         {phase === "scoring" && mode === "multiplayer" && displayedRankings.length > 0 && (

@@ -1,91 +1,86 @@
 import { useState, useEffect } from "react";
-import { Typography, Box, Button, TextField } from "@mui/material";
+import { Box, Typography, Paper } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { usePlayerStore } from "../store/playerStore";
-import { LobbyList } from "../components/multiplayer/LobbyList";
-import type { MultiplayerBridge, MultiplayerDiscoveredPayload, MultiplayerHostExitPayload } from "../types/multiplayer";
+import type { 
+  MultiplayerBridge, 
+  MultiplayerDiscoveredPayload, 
+  MultiplayerHostExitPayload 
+} from "../types/multiplayer";
+
+const COLORS = {
+  bg: '#1E1E1E',
+  surface: '#0F2A2A',
+  neonGreen: '#39FF14',
+  cyan: '#4AD2D2',
+  shadow: '#000000'
+};
 
 const MultiplayerDiscovery = () => {
+  // Store actions/state
   const setScreen = useGameStore((s) => s.setScreen);
-  const setLobbyId = useMultiplayerStore((s) => s.setLobbyId);
-  const setLobbyRole = useMultiplayerStore((s) => s.setLobbyRole);
-  const setHostAddress = useMultiplayerStore((s) => s.setHostAddress);
-  const setCurrentPlayerId = useMultiplayerStore((s) => s.setCurrentPlayerId);
-  const addOrUpdatePlayer = useMultiplayerStore((s) => s.addOrUpdatePlayer);
-  const addOrUpdateDiscoveredHost = useMultiplayerStore((s) => s.addOrUpdateDiscoveredHost);
-  const discoveredHosts = useMultiplayerStore((s) => s.discoveredHosts);
-  const removeDiscoveredHost = useMultiplayerStore((s) => s.removeDiscoveredHost);
-  const pruneStaleDiscoveredHosts = useMultiplayerStore((s) => s.pruneStaleDiscoveredHosts);
+  const autoJoinLan = useGameStore((s) => s.gameConfig.autoJoinLan); // Setting check 
+  
+  const { 
+    setLobbyId, setLobbyRole, setHostAddress, setCurrentPlayerId,
+    addOrUpdatePlayer, addOrUpdateDiscoveredHost, discoveredHosts,
+    removeDiscoveredHost, pruneStaleDiscoveredHosts 
+  } = useMultiplayerStore();
 
   const player = usePlayerStore((s) => s.getPlayer());
-  const multiplayerBridge = (window as unknown as { multiplayer?: MultiplayerBridge }).multiplayer;
+  const multiplayerBridge = (window as any).multiplayer as MultiplayerBridge;
 
-  const [hostId, setHostId] = useState("");
+  const [hostIdInput, setHostIdInput] = useState("");
   const [status, setStatus] = useState<string>("");
 
   const handleJoinLobby = (selectedLobbyId: string) => {
     const discovered = discoveredHosts.find((host) => host.lobbyId === selectedLobbyId);
     if (!discovered?.hostAddress) {
-      setStatus("Lobby not found on LAN.");
+      setStatus("LOBBY NOT FOUND ON LAN.");
       return;
     }
 
+    // Update global state before transition [cite: 1021]
     setLobbyId(selectedLobbyId);
     setLobbyRole("client");
     setHostAddress(discovered.hostAddress);
     setCurrentPlayerId(player.id);
     addOrUpdatePlayer(player, { isHost: false, isReady: false });
-    console.log('[discovery] requesting join to', discovered.hostAddress, 'lobby', selectedLobbyId, 'player', player.id);
-    window.multiplayer?.requestJoin({
+
+    // Bridge request to Electron [cite: 1017]
+    multiplayerBridge?.requestJoin({
       lobbyId: selectedLobbyId,
       hostAddress: discovered.hostAddress,
-      player: {
-        id: player.id,
-        name: player.name,
-        avatar: player.avatar,
-        level: player.level,
-        rank: player.rank,
-        isReady: false,
-        isHost: false,
-      },
+      player: { ...player, isReady: false, isHost: false },
     });
 
-    setStatus("Joining lobby...");
+    setStatus("JOINING LOBBY...");
     setScreen("multiplayer-lobby");
   };
 
-  const handleJoinById = () => {
-    if (hostId.trim()) {
-      handleJoinLobby(hostId);
+  // 1. AUTO-JOIN LOGIC [cite: 975, 976]
+  useEffect(() => {
+    if (autoJoinLan && discoveredHosts.length > 0) {
+      // Find the first public, joinable lobby
+      const autoTarget = discoveredHosts.find(h => !h.isPrivate && !h.isGameActive);
+      if (autoTarget) {
+        setStatus("AUTO-JOINING LAN HOST...");
+        handleJoinLobby(autoTarget.lobbyId);
+      }
     }
-  };
+  }, [discoveredHosts, autoJoinLan]);
 
-  const handleBack = () => setScreen("multiplayer-menu");
-
-  // Start discovery on mount. request every few seconds, and subscribe to host arrival.
+  // 2. DISCOVERY LIFECYCLE [cite: 1017, 1020]
   useEffect(() => {
     if (!multiplayerBridge) return;
 
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
-      if (payload.isPrivate) {
-        removeDiscoveredHost(payload.lobbyId);
-        return;
-      }
-
-      if (payload.isGameActive) {
-        const amIInThisLobby = payload.players?.some((member) => member.id === player.id);
-        if (!amIInThisLobby) {
-          removeDiscoveredHost(payload.lobbyId);
-          return;
-        }
-      }
-
+      if (payload.isPrivate) { removeDiscoveredHost(payload.lobbyId); return; }
       addOrUpdateDiscoveredHost(payload);
     };
 
     const onHostExitCb = (payload: MultiplayerHostExitPayload) => {
-      console.log(`[discovery] host left, lobbyId=${payload.lobbyId}`);
       removeDiscoveredHost(payload.lobbyId);
     };
 
@@ -93,99 +88,114 @@ const MultiplayerDiscovery = () => {
     multiplayerBridge.onHostFound("Discovery", onHostFoundCb);
     multiplayerBridge.onHostExit?.("Discovery", onHostExitCb);
 
-    const discoveryTick = () => {
-      multiplayerBridge.discoveryRequest?.();
-    };
-
-    discoveryTick();
-    const intervalId = window.setInterval(discoveryTick, 3000);
+    const intervalId = window.setInterval(() => multiplayerBridge.discoveryRequest?.(), 3000);
 
     return () => {
-      try {
-        multiplayerBridge.offHostFound?.("Discovery");
-        multiplayerBridge.offHostExit?.("Discovery");
-        multiplayerBridge.stopDiscovery();
-      } catch {
-        void 0;
-      }
+      multiplayerBridge.offHostFound?.("Discovery");
+      multiplayerBridge.offHostExit?.("Discovery");
+      multiplayerBridge.stopDiscovery();
       window.clearInterval(intervalId);
     };
-  }, [addOrUpdateDiscoveredHost, removeDiscoveredHost, multiplayerBridge, player.id]);
+  }, [multiplayerBridge]);
 
-  // Periodically prune stale hosts
+  // 3. STALE HOST PRUNING [cite: 1020]
   useEffect(() => {
-    const TTL = 4500; // ms — consider ~4x broadcast interval
-    const INTERVAL = 1500;
-    const id = setInterval(() => {
-      try {
-        pruneStaleDiscoveredHosts(TTL);
-      } catch {
-        void 0;
-      }
-    }, INTERVAL);
-
+    const id = setInterval(() => pruneStaleDiscoveredHosts(4500), 1500);
     return () => clearInterval(id);
   }, [pruneStaleDiscoveredHosts]);
 
+  // STYLES 
+  const styles = {
+    root: {
+      width: "100vw", height: "100vh",
+      bgcolor: COLORS.bg, display: "flex",
+      justifyContent: "center", alignItems: "center",
+      fontFamily: "'VT323', monospace", overflow: "hidden"
+    },
+    container: {
+      width: "100%", maxWidth: "1024px", // Ratios [cite: 978, 979]
+      height: "100%", maxHeight: "768px",
+      display: "flex", flexDirection: "column", p: 4, gap: 3
+    },
+    // FOLDER TAB CARD [cite: 977]
+    lobbyCard: {
+      position: 'relative', borderRadius: 0,
+      bgcolor: COLORS.surface, p: 2, mb: 3,
+      border: `2px solid ${COLORS.cyan}`,
+      boxShadow: `8px 8px 0px ${COLORS.shadow}`,
+      cursor: 'pointer', transition: '0.1s',
+      '&:hover': {
+        transform: 'translate(-2px, -2px)',
+        boxShadow: `10px 10px 0px ${COLORS.neonGreen}`, // Hover feedback [cite: 952]
+        borderColor: COLORS.neonGreen
+      },
+      '&:before': { // The Folder Tab [cite: 948, 977]
+        content: '""', position: 'absolute',
+        top: '-14px', left: '-2px',
+        width: '120px', height: '14px',
+        bgcolor: COLORS.surface,
+        border: `2px solid ${COLORS.cyan}`,
+        borderBottom: 'none'
+      }
+    }
+  };
+
   return (
-    <Box sx={{
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '40px',
-      boxSizing: 'border-box',
-      color: 'primary.main',
-      overflow: 'hidden'
-    }}>
-      <Box sx={{ mt: 4 }}>
+    <Box sx={styles.root}>
+      <Box sx={styles.container}>
+        {/* Top Bar */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography sx={{ color: COLORS.neonGreen, fontSize: '2rem' }}>
+            {autoJoinLan ? "AUTO-DISCOVERY ACTIVE" : "MANUAL DISCOVERY"}
+          </Typography>
+          <button 
+            style={{ 
+              background: COLORS.surface, color: COLORS.cyan, 
+              border: `2px solid ${COLORS.cyan}`, padding: '8px 24px',
+              fontFamily: 'inherit', cursor: 'pointer'
+            }}
+            onClick={() => setScreen("multiplayer-menu")}
+          >
+            BACK
+          </button>
+        </Box>
+
         {status && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2">{status}</Typography>
-          </Box>
+          <Typography sx={{ color: COLORS.neonGreen, textAlign: 'center' }}>
+            {status}
+          </Typography>
         )}
 
-        {/* Top: Host ID Search */}
-        <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-          <TextField 
-            fullWidth 
-            placeholder="Enter host lobby ID" 
-            value={hostId}
-            onChange={(e) => setHostId(e.target.value)}
-          />
-          <Button 
-            variant="contained" 
-            onClick={handleJoinById}
-          >
-            Join
-          </Button>
+        {/* Lobbies List */}
+        <Box sx={{ flex: 1, overflowY: 'auto', pr: 1 }}>
+          {discoveredHosts.length === 0 ? (
+            <Typography sx={{ color: COLORS.cyan, opacity: 0.5, textAlign: 'center', mt: 10 }}>
+              SCANNING LOCAL NETWORK...
+            </Typography>
+          ) : (
+            discoveredHosts.map((lobby) => (
+              <Paper 
+                key={lobby.lobbyId} 
+                sx={styles.lobbyCard}
+                onClick={() => handleJoinLobby(lobby.lobbyId)}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography sx={{ color: COLORS.neonGreen, fontSize: '1.5rem' }}>
+                      {lobby.hostName || 'UNKNOWN HOST'}
+                    </Typography>
+                    <Typography sx={{ color: COLORS.cyan }}>
+                      ID: #{lobby.lobbyId} | {lobby.category || 'ANY'} | {lobby.difficulty || 'ANY'}
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ color: COLORS.cyan, alignSelf: 'center' }}>
+                    {lobby.playerCount}/{lobby.maxPlayers} USERS
+                  </Typography>
+                </Box>
+              </Paper>
+            ))
+          )}
         </Box>
-
-        {/* Middle: Active Lobbies */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h5" sx={{ mb: 2 }}>Active Lobbies</Typography>
-          <LobbyList onJoinLobby={handleJoinLobby} lobbies={discoveredHosts
-          .filter((d) => !d.isPrivate)
-          .map((d) => ({
-            id: d.lobbyId,
-            hostName: d.hostName || d.hostId,
-            hostLevel: d.hostLevel ?? 1,
-            category: d.category,
-            difficulty: d.difficulty,
-            playerCount: d.playerCount || 1,
-            maxPlayers: d.maxPlayers || 4,
-            isPrivate: d.isPrivate,
-          }))} />
-        </Box>
-
-        {/* Bottom: Back Button */}
-        <Button 
-          variant="outlined" 
-          onClick={handleBack} 
-          sx={{ mt: 2 }}
-        >
-          Back
-        </Button>
       </Box>
     </Box>
   );
