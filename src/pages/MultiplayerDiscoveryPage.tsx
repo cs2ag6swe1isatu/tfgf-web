@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Box, Typography, Paper } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
-import { usePlayerStore } from "../store/playerStore";
+import { getMultiplayerPlayer, usePlayerStore } from "../store/playerStore";
 import type { 
   MultiplayerBridge, 
   MultiplayerDiscoveredPayload, 
@@ -29,6 +29,7 @@ const MultiplayerDiscovery = () => {
   } = useMultiplayerStore();
 
   const player = usePlayerStore((s) => s.getPlayer());
+  const multiplayerPlayer = getMultiplayerPlayer(player);
   const multiplayerBridge = (window as any).multiplayer as MultiplayerBridge;
 
   const [hostIdInput, setHostIdInput] = useState("");
@@ -45,14 +46,14 @@ const MultiplayerDiscovery = () => {
     setLobbyId(selectedLobbyId);
     setLobbyRole("client");
     setHostAddress(discovered.hostAddress);
-    setCurrentPlayerId(player.id);
-    addOrUpdatePlayer(player, { isHost: false, isReady: false });
+    setCurrentPlayerId(multiplayerPlayer.id);
+    addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
 
     // Bridge request to Electron [cite: 1017]
     multiplayerBridge?.requestJoin({
       lobbyId: selectedLobbyId,
       hostAddress: discovered.hostAddress,
-      player: { ...player, isReady: false, isHost: false },
+      player: { ...multiplayerPlayer, isReady: false, isHost: false },
     });
 
     setStatus("JOINING LOBBY...");

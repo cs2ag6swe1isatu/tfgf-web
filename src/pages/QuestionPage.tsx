@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { Box, Typography, Button, Card} from "@mui/material";
 import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
-import { usePlayerStore } from "../store/playerStore";
+import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
@@ -524,12 +524,12 @@ const QuestionPage = () => {
   } = useTriviaStore();
 
   const { applySessionProgress } = usePlayerStore();
-  const localPlayerId = usePlayerStore((state) => state.getPlayer().id);
   const localPlayer = usePlayerStore((state) => state.getPlayer());
   const { lobbyRole, players } = useMultiplayerStore();
   const { setScreen } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
   const category = useGameStore((state) => state.gameConfig.category);
+  const localPlayerId = mode === "multiplayer" ? getMultiplayerPlayerId(localPlayer.id) : localPlayer.id;
 
   const multiplayerBridge: MultiplayerBridge | undefined = window.multiplayer;
 

@@ -1,9 +1,8 @@
 import { useMemo, useEffect, useCallback, useRef } from "react";
-import { Box, Button } from "@mui/material";
+import { Box } from "@mui/material";
 import { Phase, useGameStore, useTriviaStore } from "../store";
-import { usePlayerStore } from "../store/playerStore";
+import { getMultiplayerPlayer, usePlayerStore } from "../store/playerStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
-import { PlayerList } from "../components/multiplayer/PlayerList";
 import { Globe, Lock } from "pixelarticons/react";
 
 import type {
@@ -37,6 +36,7 @@ const MultiplayerLobby = () => {
   const resetMultiplayer = useMultiplayerStore((s) => s.resetMultiplayer);
 
   const player = usePlayerStore((s) => s.getPlayer());
+  const multiplayerPlayer = useMemo(() => getMultiplayerPlayer(player), [player]);
   const multiplayerBridge = (window as unknown as { multiplayer?: MultiplayerBridge }).multiplayer;
   const currentPlayer = useMultiplayerStore((s) => s.currentPlayer());
   const isReady = currentPlayer?.isReady ?? false;
@@ -63,8 +63,8 @@ const MultiplayerLobby = () => {
   const handleCreateLobby = () => {
     setLobbyId(currentLobbyId);
     setLobbyRole("host");
-    addOrUpdatePlayer(player, { isHost: true, isReady: true });
-    setCurrentPlayerId(player.id);
+    addOrUpdatePlayer(multiplayerPlayer, { isHost: true, isReady: true });
+    setCurrentPlayerId(multiplayerPlayer.id);
   };
 
   const handleGameStateSync = useCallback(
@@ -162,9 +162,9 @@ const MultiplayerLobby = () => {
     const updatedPlayers = players.filter((p) => p.id !== playerId);
     window.multiplayer?.updateLobbySnapshot?.({
       lobbyId,
-      hostId: player.id,
-      hostName: player.name,
-      hostLevel: player.level,
+      hostId: multiplayerPlayer.id,
+      hostName: multiplayerPlayer.name,
+      hostLevel: multiplayerPlayer.level,
       playerCount: updatedPlayers.length || 1,
       maxPlayers: defaultGameConfig.maxPlayers,
       category: gameConfig.category ?? undefined,
@@ -177,7 +177,7 @@ const MultiplayerLobby = () => {
 
   const handleLeaveLobby = () => {
     if (lobbyRole === "client" && lobbyId && hostAddress) {
-      multiplayerBridge?.leaveLobby({ lobbyId, hostAddress, playerId: player.id });
+      multiplayerBridge?.leaveLobby({ lobbyId, hostAddress, playerId: multiplayerPlayer.id });
     } else if (lobbyRole === "host") {
       multiplayerBridge?.stopBroadcast();
     }
@@ -192,8 +192,8 @@ const MultiplayerLobby = () => {
 
     const sendLeaveOnUnload = () => {
       const state = useMultiplayerStore.getState();
-      if (state.lobbyId && state.hostAddress && player.id) {
-        multiplayerBridge?.leaveLobby({ lobbyId: state.lobbyId, hostAddress: state.hostAddress, playerId: player.id });
+      if (state.lobbyId && state.hostAddress && multiplayerPlayer.id) {
+        multiplayerBridge?.leaveLobby({ lobbyId: state.lobbyId, hostAddress: state.hostAddress, playerId: multiplayerPlayer.id });
       }
     };
 
@@ -208,7 +208,7 @@ const MultiplayerLobby = () => {
       if (packetTime < newestTimestampRef.current) return;
       newestTimestampRef.current = packetTime;
 
-      const amIStillInLobby = payload.players.some((p) => p.id === player.id);
+      const amIStillInLobby = payload.players.some((p) => p.id === multiplayerPlayer.id);
       if (amIStillInLobby) {
         if (!hasConfirmedJoinRef.current) hasConfirmedJoinRef.current = true;
         syncLobbySnapshot(payload, payload.hostAddress);
@@ -235,8 +235,8 @@ const MultiplayerLobby = () => {
 
     const heartbeatInterval = window.setInterval(() => {
       const state = useMultiplayerStore.getState();
-      if (state.lobbyId && player.id && multiplayerBridge.sendHeartbeat && state.hostAddress) {
-        multiplayerBridge.sendHeartbeat({ lobbyId: state.lobbyId, hostAddress: state.hostAddress, playerId: player.id });
+      if (state.lobbyId && multiplayerPlayer.id && multiplayerBridge.sendHeartbeat && state.hostAddress) {
+        multiplayerBridge.sendHeartbeat({ lobbyId: state.lobbyId, hostAddress: state.hostAddress, playerId: multiplayerPlayer.id });
       }
     }, 3000);
 
@@ -248,10 +248,24 @@ const MultiplayerLobby = () => {
       multiplayerBridge.offGameStateSync?.("Lobby");
       window.removeEventListener("beforeunload", sendLeaveOnUnload);
     };
-  }, [lobbyRole, multiplayerBridge, syncLobbySnapshot, handleHostExit, handleGameStateSync, player.id]);
+  }, [lobbyRole, multiplayerBridge, syncLobbySnapshot, handleHostExit, handleGameStateSync, multiplayerPlayer.id]);
 
   useEffect(() => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
+
+    const payload: MultiplayerLobbySnapshot = {
+      lobbyId,
+      hostId: multiplayerPlayer.id,
+      hostName: multiplayerPlayer.name,
+      hostLevel: multiplayerPlayer.level,
+      playerCount: players.length || 1,
+      maxPlayers: defaultGameConfig.maxPlayers,
+      category: gameConfig.category ?? undefined,
+      difficulty: gameConfig.difficulty ?? undefined,
+      isPrivate,
+      lastActive: new Date().toISOString(),
+      players,
+    };
 
     const handlePlayerJoined = (p: LobbyMember) => addOrUpdatePlayer(p, { isHost: false, isReady: false });
     multiplayerBridge.onPlayerJoined("Lobby", handlePlayerJoined);
@@ -262,19 +276,6 @@ const MultiplayerLobby = () => {
     const handlePlayerLeft = (playerId: string) => removePlayer(playerId);
     multiplayerBridge.onPlayerLeft("Lobby", handlePlayerLeft);
 
-    const payload: MultiplayerLobbySnapshot = {
-      lobbyId,
-      hostId: player.id,
-      hostName: player.name,
-      hostLevel: player.level,
-      playerCount: players.length || 1,
-      maxPlayers: defaultGameConfig.maxPlayers,
-      category: gameConfig.category ?? undefined,
-      difficulty: gameConfig.difficulty ?? undefined,
-      isPrivate,
-      lastActive: new Date().toISOString(),
-      players,
-    };
     multiplayerBridge.startBroadcast(payload);
 
     return () => {
@@ -282,15 +283,15 @@ const MultiplayerLobby = () => {
       multiplayerBridge.offPlayerReadyChanged?.("Lobby");
       multiplayerBridge.offPlayerLeft?.("Lobby");
     };
-  }, [lobbyRole, lobbyId, multiplayerBridge, player.id, player.name, player.level, addOrUpdatePlayer, setPlayerReady, removePlayer]);
+  }, [lobbyRole, lobbyId, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level, addOrUpdatePlayer, setPlayerReady, removePlayer, players, isPrivate, gameConfig.category, gameConfig.difficulty]);
 
   useEffect(() => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
     const payload: MultiplayerLobbySnapshot = {
       lobbyId,
-      hostId: player.id,
-      hostName: player.name,
-      hostLevel: player.level,
+      hostId: multiplayerPlayer.id,
+      hostName: multiplayerPlayer.name,
+      hostLevel: multiplayerPlayer.level,
       playerCount: players.length || 1,
       maxPlayers: defaultGameConfig.maxPlayers,
       category: gameConfig.category ?? undefined,
@@ -302,7 +303,7 @@ const MultiplayerLobby = () => {
     if (typeof multiplayerBridge.updateLobbySnapshot === "function") {
       multiplayerBridge.updateLobbySnapshot(payload);
     }
-  }, [players, gameConfig, lobbyId, lobbyRole, multiplayerBridge, player.id, player.name, player.level, isPrivate]);
+  }, [players, gameConfig, lobbyId, lobbyRole, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level, isPrivate]);
 
   const handleReadyToggle = (playerId: string, ready: boolean) => {
     const targetPlayer = players.find((p) => p.id === playerId);
@@ -324,10 +325,10 @@ const MultiplayerLobby = () => {
       return;
     }
     if (lobbyRole === "client" && players.length === 0) {
-      addOrUpdatePlayer(player, { isHost: false, isReady: false });
-      setCurrentPlayerId(player.id);
+      addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
+      setCurrentPlayerId(multiplayerPlayer.id);
     }
-  }, [lobbyRole, players.length, player]);
+  }, [lobbyRole, players.length, multiplayerPlayer, addOrUpdatePlayer, setCurrentPlayerId, handleCreateLobby]);
 
   // ─── Styles ──────────────────────────────────────────────────────────────
   const styles = {
