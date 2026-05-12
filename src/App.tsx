@@ -5,6 +5,7 @@ import CategoryPage from "./pages/CategoryPage";
 import DifficultyPage from "./pages/DifficultyPage";
 import QuestionPage from "./pages/QuestionPage";
 import SessionSummaryPage from "./pages/SessionSummaryPage";
+import AchievementUnlockPage from "./pages/AchievementUnlockPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import StandingPage from "./pages/StandingPage";
@@ -188,6 +189,7 @@ export default function App() {
     case "difficulty":            screenContent = <DifficultyPage />;            break;
     case "question":              screenContent = <QuestionPage />;              break;
     case "result":                screenContent = <SessionSummaryPage />;        break;
+    case "achievement-unlock":    screenContent = <AchievementUnlockPage />;     break;
     case "profile":               screenContent = <ProfilePage />;               break;
     case "settings":              screenContent = <SettingsPage />;              break;
     case "standing":              screenContent = <StandingPage />;              break;

@@ -29,7 +29,7 @@ export interface PlayerState {
   initialize: () => Promise<void>;
   generatePlayer: () => Player;
   getPlayer: () => Player;
-  applySessionProgress: (sessionInput: SessionProgressInput) => void;
+  applySessionProgress: (sessionInput: SessionProgressInput) => Achievement[];
   saveGameToHistory: (gameData: Omit<GameSession, "id" | "date">) => void;
   resetPlayer: () => void;
   setAvatar: (avatar: string) => void;
@@ -433,8 +433,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     return get().generatePlayer();
   },
 
-  applySessionProgress: (sessionInput) => set((state) => {
-    const player = state.player ?? createDefaultPlayer();
+  applySessionProgress: (sessionInput) => {
+    const player = get().player ?? createDefaultPlayer();
     const delta = buildSessionDelta(sessionInput);
     const nextTotalXp = player.totalXp + delta.xpGained;
     const nextLevel = levelFromXp(nextTotalXp);
@@ -528,8 +528,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const finalPlayer = { ...updatedPlayer, achievements };
 
     persistPlayer(finalPlayer);
-    return { player: finalPlayer };
-  }),
+    set({ player: finalPlayer });
+
+    return newlyUnlocked;
+  },
 
   saveGameToHistory: (gameData) => set((state) => {
     const player = state.player ?? createDefaultPlayer();

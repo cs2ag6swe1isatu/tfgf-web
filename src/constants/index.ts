@@ -5,6 +5,7 @@ export const PAGES = [
     "difficulty",
     "question",
     "result",
+    "achievement-unlock",
     "profile",
     "settings",
     "standing",
