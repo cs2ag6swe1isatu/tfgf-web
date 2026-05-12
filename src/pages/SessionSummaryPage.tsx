@@ -199,12 +199,12 @@ const SessionSummaryPage: React.FC = () => {
   const questions = useTriviaStore((s) => s.questions);
   const userAnswers = useTriviaStore((s) => s.userAnswers ?? {});
   const scale = useResponsiveScale();
-  const playerTotalXp = usePlayerStore((s) => s.getPlayer().totalXp);
+  const player = usePlayerStore((s) => s.getPlayer());
+  const playerTotalXp = player.totalXp;
 
   let playerRankTitle = 'STUDENT';
   try {
-    playerRankTitle =
-      usePlayerStore((s: any) => s?.getPlayer?.()?.rankTitle) ?? 'STUDENT';
+    playerRankTitle = player.rankTitle ?? 'STUDENT';
   } catch (_) {}
 
   const L = LAYOUTS[detectRatio()];
@@ -219,7 +219,17 @@ const SessionSummaryPage: React.FC = () => {
   const accuracy = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
   const xpGained = calculateXP(score, maxStreak);
   const rankProg = getLevelProgressPercent(playerTotalXp + xpGained);
-  const timeSpent = totalQ * 10;
+  
+  // Get actual time from most recent game session
+  const mostRecentSession = player.gameHistory && player.gameHistory.length > 0 
+    ? player.gameHistory[player.gameHistory.length - 1] 
+    : null;
+  const totalTimeSeconds = mostRecentSession?.timeTaken ?? (totalQ * 10);
+  
+  // Calculate average time per question
+  const totalAnswered = totalQ > 0 ? totalQ : 1;
+  const avgTimeSeconds = totalTimeSeconds / totalAnswered;
+  const avgTimeDisplay = avgTimeSeconds.toFixed(1) + 's';
 
   const gridPad = Math.round(L.gap * 1.35);
 
@@ -293,10 +303,11 @@ const SessionSummaryPage: React.FC = () => {
               ['ACCURACY', `${accuracy}%`],
               [
                 'TIME',
-                `${Math.floor(timeSpent / 60)}:${(timeSpent % 60)
+                `${Math.floor(totalTimeSeconds / 60)}:${(totalTimeSeconds % 60)
                   .toString()
                   .padStart(2, '0')}`,
               ],
+              ['AVG TIME', avgTimeDisplay],
             ].map(([label, value], i) => (
               <Box
                 key={label}
@@ -325,6 +336,11 @@ const SessionSummaryPage: React.FC = () => {
                 >
                   {value}
                 </Typography>
+                {label === 'AVG TIME' && (
+                  <Typography sx={{ fontSize: `${Math.round(L.label * 0.75)}px`, color: '#8ECFFF' }}>
+                    per question
+                  </Typography>
+                )}
               </Box>
             ))}
           </Box>

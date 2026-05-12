@@ -74,7 +74,7 @@ export interface TriviaActions {
   nextPhase: () => void;
   resetGame: () => void;
   submitAnswer: (answer: string) => void;
-  receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string) => void;
+  receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string, remainingTime?: number) => void;
   scoreCurrentQuestion: () => void;
   finalizeRankings: () => void;
 }

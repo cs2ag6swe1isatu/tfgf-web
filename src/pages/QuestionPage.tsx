@@ -6,9 +6,15 @@ import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
 import type { TriviaState } from "../store";
-import { scoreForCorrectAnswers } from "../rules";
+import { scoreForCorrectAnswers, scoreIncrementForAnswer } from "../rules";
 import { defaultGameConfig } from "../config/gameConfig";
 import { styled, keyframes } from "@mui/material/styles";
+import {
+  useRewardSystem,
+  RewardOverlay,
+  XPBarAnimate,
+} from '../components/rewards/RewardSystem';
+import { calculateXP, getLevel } from "../utils/progression";
 
 // ─── Keyframe Animations ────────────────────────────────────────────────────
 
@@ -509,6 +515,7 @@ const QuestionPage = () => {
     phase,
     selectedAnswer,
     timer,
+    answerTimer,
     playerScores,
     rankings,
     submitAnswer,
@@ -529,6 +536,22 @@ const QuestionPage = () => {
   const multiplayerBridge: MultiplayerBridge | undefined = window.multiplayer;
 
   const scale = useResponsiveScale();
+
+  // ── Reward System hooks ────────────────────────────────────────────────────
+  const { state: rewardState, trigger: triggerReward } = useRewardSystem();
+  const answerButtonRef = useRef<HTMLElement>(null);
+
+  // ── Game timer tracking ─────────────────────────────────────────────────────
+  const gameStartTimeRef = useRef<number | null>(null);
+  const gameElapsedTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (phase === 'answering' || phase === 'asking') {
+      if (gameStartTimeRef.current === null) {
+        gameStartTimeRef.current = Date.now();
+      }
+    }
+  }, [phase]);
 
   // ── Broadcast helper ────────────────────────────────────────────────────────
 
@@ -555,8 +578,38 @@ const QuestionPage = () => {
   const handleAnswerClick = useCallback(
     (answer: string) => {
       submitAnswer(answer);
+
+      const currentQuestion = questions[currentIndex];
+      if (!currentQuestion) return;
+
+      const isCorrect = answer === currentQuestion.correctAnswer;
+      if (!isCorrect) return;
+
+      const finalScore = scoreIncrementForAnswer(
+        true,
+        useGameStore.getState().gameConfig.difficulty ?? 'easy',
+        timer ?? 0,
+        answerTimer,
+      );
+      const xpEarned = calculateXP(finalScore, currentQuestion ? useTriviaStore.getState().currentStreak + 1 : 1);
+      const oldXP = localPlayer.totalXp;
+      const newXP = oldXP + xpEarned;
+      const oldLevel = localPlayer.level;
+      const newLevel = getLevel(newXP);
+
+      triggerReward({
+        score: finalScore,
+        xp: xpEarned,
+        streak: useTriviaStore.getState().currentStreak + 1,
+        oldXP,
+        newXP,
+        oldLevel,
+        newLevel,
+        xpPerLevel: 1000,
+        buttonRef: answerButtonRef,
+      });
     },
-    [submitAnswer]
+    [submitAnswer, questions, currentIndex, timer, answerTimer, localPlayer, triggerReward]
   );
 
   // ── Timer tick ──────────────────────────────────────────────────────────────
@@ -719,8 +772,10 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
   }, [mode, playerScores, localPlayerId, currentIndex]);
 
   useEffect(() => {
-    if (phase !== "end" || endProgressAppliedRef.current) return;
-    endProgressAppliedRef.current = true;
+    if (phase === "end" || endProgressAppliedRef.current) return;
+    if (phase === "end") {
+      endProgressAppliedRef.current = true;
+    }
 
     const gameConfig = useGameStore.getState().gameConfig;
     const { mode, category, difficulty } = gameConfig || {};
@@ -750,6 +805,13 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
           1 + Object.values(triviaPlayerScores).filter((s) => s > currentPlayerScore).length
         : 0;
 
+    // Calculate elapsed time in seconds
+    const elapsedMs = gameStartTimeRef.current 
+      ? Date.now() - gameStartTimeRef.current 
+      : 0;
+    const elapsedSeconds = Math.max(0, Math.round(elapsedMs / 1000));
+    gameElapsedTimeRef.current = elapsedSeconds;
+
     const progressionInput: SessionProgressInput = {
       mode,
       category,
@@ -760,7 +822,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       maxStreak: triviaState.maxStreak,
       questions: questionsState,
       userAnswers,
-      timeTaken: 0,
+      timeTaken: elapsedSeconds,
       mastered: correctAnswersCount === questionsState.length,
       won: mode === "multiplayer" ? playerRank === 1 : false,
       topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
@@ -775,6 +837,9 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
   // ── Derived state ───────────────────────────────────────────────────────────
 
   const currentQuestion = questions[currentIndex];
+  const previousXP = localPlayer.totalXp;
+  const xpEarned = rewardState.data?.xp ?? 0;
+  const currentLevel = localPlayer.level;
 
   const displayedRankings = useMemo(() => {
     const byPlayerId = new Map<string, { playerId: string; name: string; score: number }>();
@@ -1051,7 +1116,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
 
   return (
     <ScaleWrapper>
-      <GameScreen style={{ transform: scale }}>
+      <GameScreen style={{ transform: scale, position: 'relative' }}>
         {/* CRT vignette */}
         <div className="vignette" />
 
@@ -1083,6 +1148,17 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
           </TimerBox>
         </HudBar>
 
+        {/* ── XP BAR ──────────────────────────────────────────────────────── */}
+        <Box sx={{ width: 'calc(100% - 100px)', px: 6, py: 1 }}>
+          <XPBarAnimate
+            oldXP={previousXP}
+            newXP={previousXP + xpEarned}
+            xpPerLevel={1000}
+            level={currentLevel}
+            animate={rewardState.showXPBar}
+          />
+        </Box>
+
         {/* Divider */}
         <NeonDivider />
 
@@ -1098,6 +1174,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
             return (
               <AnswerButton
                 key={answer}
+                ref={isSelected ? (answerButtonRef as any) : undefined}
                 onClick={() => handleAnswerClick(answer)}
                 disabled={isAnswered}
                 selected={isSelected && !isRevealed}
@@ -1139,6 +1216,13 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
             </RankingPanel>
           </RankingOverlay>
         )}
+
+        {/* ── REWARD OVERLAY ───────────────────────────────────────────────── */}
+        <RewardOverlay
+          rewardState={rewardState}
+          onLevelUpDone={() => {}}
+          xpPerLevel={1000}
+        />
       </GameScreen>
     </ScaleWrapper>
   );
