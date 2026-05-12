@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useGameStore } from "../store/gameStore";
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
