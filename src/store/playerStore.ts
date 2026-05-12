@@ -3,6 +3,7 @@ import { CATEGORIES, Category, DIFFICULTIES, Difficulty, getRankForLevel, MODES,
 import { evaluateUnlocks } from "../progression/achievementRules";
 import { buildSessionDelta, levelFromXp, rankFromLevel, SessionProgressInput, xpToNextLevel } from "../progression/progressionRules";
 import type { Achievement, GameSession, PlayData, Player } from "../types/player";
+import { getAvatarFileName } from "../utils/avatar";
 import { createId } from "../utils/uuid";
 import { create } from "zustand";
 
@@ -274,7 +275,7 @@ const normalizePlayer = (value: unknown): Player | null => {
     ...createDefaultPlayer(),
     id: typeof value.id === "string" ? value.id : createId(),
     name: typeof value.name === "string" ? value.name : "PLAYER_01",
-    avatar: typeof value.avatar === "string" ? value.avatar : "Detective 1.png",
+    avatar: typeof value.avatar === "string" ? getAvatarFileName(value.avatar) : "Detective 1.png",
     lastActive: readDate(value.lastActive),
     lastPlayedDate: readOptionalDate(value.lastPlayedDate),
     gameHistory: Array.isArray(value.gameHistory) ? trimGameHistory(value.gameHistory.map((entry) => normalizeGameSession(entry))) : [],

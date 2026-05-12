@@ -4,6 +4,7 @@ import { Phase, useGameStore, useTriviaStore } from "../store";
 import { getMultiplayerPlayer, usePlayerStore } from "../store/playerStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { Globe, Lock } from "pixelarticons/react";
+import { getAvatarSrc } from "../utils/avatar";
 
 import type {
   MultiplayerBridge,
@@ -611,7 +612,7 @@ const MultiplayerLobby = () => {
             <Box key={p.id} sx={styles.playerRow(true)}>
               <Box sx={styles.avatar}>
                 {p.avatar ? (
-                  <img src={p.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "3px" }} />
+                  <img src={getAvatarSrc(p.avatar)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "3px" }} />
                 ) : (
                   <span style={{ fontSize: "16px", color: "#444" }}>👤</span>
                 )}
