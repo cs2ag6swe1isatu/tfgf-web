@@ -442,7 +442,7 @@ export default function SettingsPage() {
             {([
               ["RESET PROGRESS", () => {
                 if (window.confirm("RESET PROGRESS?")) {
-                  if (updatePlayer) updatePlayer({ gameHistory: [] });
+                  resetPlayer();
                 }
               }],
               ["CLEAR DATA",     () => {
