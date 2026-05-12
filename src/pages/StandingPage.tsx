@@ -587,7 +587,7 @@ export default function RankingPage() {
   const currentRanks = PAGES[page];
   const totalPages = PAGES.length;
 
-  const handleBack = () => window.history.back();
+   const setScreen      = useGameStore((s) => s.setScreen);
 
   return (
     <div style={styles.root}>
