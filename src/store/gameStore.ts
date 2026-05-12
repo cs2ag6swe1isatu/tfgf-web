@@ -33,6 +33,7 @@ export interface GameConfig {
 }
 
 export interface Settings {
+  sfxEnabled: any;
   bgmEnabled: boolean;
   volume: number;
   useCase: boolean;
@@ -75,7 +76,8 @@ export const useGameStore = create<GameState>()(
 
       // ── Proper defaults so nothing is ever undefined ──
       settings: {
-        bgmEnabled:  false,
+        bgmEnabled:  true,
+        sfxEnabled:  true,
         volume:      5,
         useCase:     false,
         useScanlines: false,
