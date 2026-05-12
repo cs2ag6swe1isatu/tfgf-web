@@ -361,11 +361,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } catch (error) {
       console.warn("Failed to reset player:", error);
     }
-  }
-  // Inside your playerStore.ts create() function:
-  ,
+  },
 
-  // Inside your playerStore.ts create() function:
   updatePlayer: (updates) => set((state) => ({
     player: {
       ...state.player, // Keep the old data
