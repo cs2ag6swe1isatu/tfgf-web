@@ -1,19 +1,26 @@
-import { CATEGORIES, Category, DIFFICULTIES, Difficulty, Mode, MODES, Rank } from "../constants";
-import { SessionProgressInput } from "../progression/progressionRules";
-import type { Player, Achievement, GameSession, PlayData } from "../types/player";
 import { defaultGameConfig } from "../config/gameConfig";
+import { CATEGORIES, Category, DIFFICULTIES, Difficulty, getRankForLevel, MODES, Mode } from "../constants";
+import { evaluateUnlocks } from "../progression/achievementRules";
+import { buildSessionDelta, levelFromXp, rankFromLevel, SessionProgressInput, xpToNextLevel } from "../progression/progressionRules";
+import type { Achievement, GameSession, PlayData, Player } from "../types/player";
+import { createId } from "../utils/uuid";
+import { create } from "zustand";
 
-/** Player Store - User Profile and Progress Management
-  * 
-  * RESPONSIBILITIES:
-  * - Managing user profile information
-  * - Tracking player progress and achievements
-  * 
-  * SEPARATION OF CONCERNS:
-  * This store is solely responsible for player data management.
-  * It does NOT handle any game logic, navigation, or UI state.
-  * 
- **/
+interface PlayerStorageResult {
+  success: boolean;
+  data?: string;
+  error?: string;
+}
+
+interface PlayerStorageAPI {
+  read: () => Promise<PlayerStorageResult>;
+  write: (data: string) => Promise<PlayerStorageResult>;
+  delete: () => Promise<PlayerStorageResult>;
+}
+
+type PlayerStorageWindow = Window & {
+  playerStorage?: PlayerStorageAPI;
+};
 
 export interface PlayerState {
   player: Player | null;
@@ -22,14 +29,13 @@ export interface PlayerState {
   generatePlayer: () => Player;
   getPlayer: () => Player;
   applySessionProgress: (sessionInput: SessionProgressInput) => void;
-  saveGameToHistory: (gameData: Omit<GameSession, 'id' | 'date'>) => void;
+  saveGameToHistory: (gameData: Omit<GameSession, "id" | "date">) => void;
   resetPlayer: () => void;
   setAvatar: (avatar: string) => void;
   setPlayerName: (name: string) => void;
-  updatePlayer: (updates: any) => void;
+  updatePlayer: (updates: Partial<Player>) => void;
 }
 
-// Storage key for player data
 export const PLAYER_STORAGE_KEY = "tfgf-player";
 
 export const createEmptyPlayData = (): PlayData => ({
@@ -42,33 +48,24 @@ export const createEmptyPlayData = (): PlayData => ({
   totalQuestionsAnswered: 0,
   correctAnswers: 0,
   incorrectAnswers: 0,
-  averageTimePerQuestion: 0
+  averageTimePerQuestion: 0,
 });
-
-
 
 export const getPlayerStorage = (): Storage | null => {
   if (typeof window === "undefined") return null;
-  const isElectron =
-    typeof navigator !== "undefined" && navigator.userAgent.toLowerCase().includes("electron");
-  const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV === true;
-  if (isElectron) {
-    // In Electron, we use file-based storage via IPC, not browser storage
-    return null;
-  }
-  if (isDev) {
-    return window.sessionStorage;
-  }
-  return window.localStorage;
-};
 
-const hasPlayerStorageAPI = (): boolean => {
-  return typeof window !== "undefined" && (window as unknown as Record<string, unknown>).playerStorage !== undefined;
+  const isElectron = typeof navigator !== "undefined" && navigator.userAgent.toLowerCase().includes("electron");
+  const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV === true;
+
+  if (isElectron) return null;
+  return isDev ? window.sessionStorage : window.localStorage;
 };
 
 const getPlayerStorageAPI = (): PlayerStorageAPI | null => {
-  if (!hasPlayerStorageAPI()) return null;
-  return (window as unknown as Record<string, unknown>).playerStorage as PlayerStorageAPI;
+  if (typeof window === "undefined") return null;
+
+  const storageWindow = window as PlayerStorageWindow;
+  return storageWindow.playerStorage ?? null;
 };
 
 const historyLimitByMode: Record<Mode, number> = {
@@ -76,17 +73,203 @@ const historyLimitByMode: Record<Mode, number> = {
   multiplayer: defaultGameConfig.recentSessionLimitMultiplayer,
 };
 
-export const trimGameHistory = (history: GameSession[]): GameSession[] => {
-  const retainedCounts: Record<Mode, number> = {
-    solo: 0,
-    multiplayer: 0,
-  };
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
+const readNumber = (value: unknown, fallback = 0): number => {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+};
+
+const readDate = (value: unknown, fallback = new Date()): Date => {
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+  }
+  return fallback;
+};
+
+const readOptionalDate = (value: unknown): Date | undefined => {
+  if (value === undefined || value === null || value === "") return undefined;
+  return readDate(value);
+};
+
+const normalizePlayData = (value: unknown): PlayData => {
+  const raw = isRecord(value) ? value : {};
+
+  return {
+    xpGained: readNumber(raw.xpGained),
+    scoreGained: readNumber(raw.scoreGained),
+    gamesPlayed: readNumber(raw.gamesPlayed),
+    gamesMastered: readNumber(raw.gamesMastered),
+    topThreeFinishes: readNumber(raw.topThreeFinishes),
+    gamesWon: readNumber(raw.gamesWon),
+    totalQuestionsAnswered: readNumber(raw.totalQuestionsAnswered),
+    correctAnswers: readNumber(raw.correctAnswers),
+    incorrectAnswers: readNumber(raw.incorrectAnswers),
+    averageTimePerQuestion: readNumber(raw.averageTimePerQuestion),
+  };
+};
+
+const createInitialIndividualStats = (): Player["individualStats"] => {
+  const stats = {} as Player["individualStats"];
+
+  for (const category of CATEGORIES) {
+    stats[category] = {} as Record<Mode, Record<Difficulty, PlayData>>;
+
+    for (const mode of MODES) {
+      stats[category][mode] = {} as Record<Difficulty, PlayData>;
+
+      for (const difficulty of DIFFICULTIES) {
+        stats[category][mode][difficulty] = createEmptyPlayData();
+      }
+    }
+  }
+
+  return stats;
+};
+
+const normalizeIndividualStats = (value: unknown): Player["individualStats"] => {
+  const stats = createInitialIndividualStats();
+  if (!isRecord(value)) return stats;
+
+  for (const category of CATEGORIES) {
+    const categoryStats = value[category];
+    if (!isRecord(categoryStats)) continue;
+
+    for (const mode of MODES) {
+      const modeStats = categoryStats[mode];
+      if (!isRecord(modeStats)) continue;
+
+      for (const difficulty of DIFFICULTIES) {
+        stats[category][mode][difficulty] = normalizePlayData(modeStats[difficulty]);
+      }
+    }
+  }
+
+  return stats;
+};
+
+const normalizeAchievement = (value: unknown): Achievement => {
+  const raw = isRecord(value) ? value : {};
+
+  return {
+    id: typeof raw.id === "string" ? raw.id : "",
+    name: typeof raw.name === "string" ? raw.name : "",
+    description: typeof raw.description === "string" ? raw.description : "",
+    icon: typeof raw.icon === "string" ? raw.icon : "",
+    progress: readNumber(raw.progress),
+    unlockedAt: readDate(raw.unlockedAt, new Date(0)),
+  };
+};
+
+const normalizeGameSession = (value: unknown): GameSession => {
+  const raw = isRecord(value) ? value : {};
+
+  return {
+    id: typeof raw.id === "string" ? raw.id : createId(),
+    date: readDate(raw.date),
+    mode: raw.mode === "multiplayer" ? "multiplayer" : "solo",
+    category: typeof raw.category === "string" ? (raw.category as Category) : CATEGORIES[0],
+    difficulty: raw.difficulty === "medium" || raw.difficulty === "hard" ? raw.difficulty : "easy",
+    totalQuestions: readNumber(raw.totalQuestions),
+    correctAnswers: readNumber(raw.correctAnswers),
+    questionsAnswered: readNumber(raw.questionsAnswered),
+    score: readNumber(raw.score),
+    questions: Array.isArray(raw.questions) ? raw.questions : [],
+    userAnswers: Array.isArray(raw.userAnswers) ? raw.userAnswers.filter((item): item is string => typeof item === "string") : [],
+    timeTaken: readNumber(raw.timeTaken),
+    timePerQuestion: Array.isArray(raw.timePerQuestion)
+      ? raw.timePerQuestion.filter((item): item is number => typeof item === "number" && Number.isFinite(item))
+      : undefined,
+    mastered: Boolean(raw.mastered),
+    won: Boolean(raw.won),
+    topThreeFinish: Boolean(raw.topThreeFinish),
+    incorrectAnswers: readNumber(raw.incorrectAnswers),
+  };
+};
+
+const createDefaultPlayer = (): Player => ({
+  id: createId(),
+  name: "PLAYER_01",
+  avatar: "Detective 1.png",
+  lastActive: new Date(),
+  lastPlayedDate: undefined,
+  gameHistory: [],
+  totalXp: 0,
+  xpToNextLevel: 100,
+  level: 1,
+  rank: getRankForLevel(1),
+  achievements: [],
+  totalScore: 0,
+  topScore: 0,
+  soloTopScore: 0,
+  multiplayerTopScore: 0,
+  totalTimePlayed: 0,
+  soloGamesPlayed: 0,
+  multiplayerGamesPlayed: 0,
+  gamesMastered: 0,
+  gamesWon: 0,
+  topThreeFinishes: 0,
+  leaderboardAppearances: 0,
+  lobbiesCreated: 0,
+  currentPlayStreak: 0,
+  totalQuestionsAnswered: 0,
+  correctAnswers: 0,
+  incorrectAnswers: 0,
+  averageTimePerQuestion: 0,
+  individualStats: createInitialIndividualStats(),
+});
+
+const normalizePlayer = (value: unknown): Player | null => {
+  if (!isRecord(value)) return null;
+
+  const level = readNumber(value.level, 1);
+  const totalXp = readNumber(value.totalXp, 0);
+  const soloTopScore = readNumber(value.soloTopScore, readNumber(value.topScore, 0));
+  const multiplayerTopScore = readNumber(value.multiplayerTopScore, 0);
+  const topScore = readNumber(value.topScore, Math.max(soloTopScore, multiplayerTopScore));
+
+  return {
+    ...createDefaultPlayer(),
+    id: typeof value.id === "string" ? value.id : createId(),
+    name: typeof value.name === "string" ? value.name : "PLAYER_01",
+    avatar: typeof value.avatar === "string" ? value.avatar : "Detective 1.png",
+    lastActive: readDate(value.lastActive),
+    lastPlayedDate: readOptionalDate(value.lastPlayedDate),
+    gameHistory: Array.isArray(value.gameHistory) ? trimGameHistory(value.gameHistory.map((entry) => normalizeGameSession(entry))) : [],
+    totalXp,
+    xpToNextLevel: readNumber(value.xpToNextLevel, xpToNextLevel(totalXp)),
+    level,
+    rank: isRecord(value.rank) ? (value.rank as unknown as Player["rank"]) : getRankForLevel(level),
+    achievements: Array.isArray(value.achievements) ? value.achievements.map((entry) => normalizeAchievement(entry)) : [],
+    totalScore: readNumber(value.totalScore, 0),
+    topScore,
+    soloTopScore,
+    multiplayerTopScore,
+    totalTimePlayed: readNumber(value.totalTimePlayed, 0),
+    soloGamesPlayed: readNumber(value.soloGamesPlayed, 0),
+    multiplayerGamesPlayed: readNumber(value.multiplayerGamesPlayed, 0),
+    gamesMastered: readNumber(value.gamesMastered, 0),
+    gamesWon: readNumber(value.gamesWon, 0),
+    topThreeFinishes: readNumber(value.topThreeFinishes, 0),
+    leaderboardAppearances: readNumber(value.leaderboardAppearances, 0),
+    lobbiesCreated: readNumber(value.lobbiesCreated, 0),
+    currentPlayStreak: readNumber(value.currentPlayStreak, 0),
+    totalQuestionsAnswered: readNumber(value.totalQuestionsAnswered, 0),
+    correctAnswers: readNumber(value.correctAnswers, 0),
+    incorrectAnswers: readNumber(value.incorrectAnswers, 0),
+    averageTimePerQuestion: readNumber(value.averageTimePerQuestion, 0),
+    individualStats: normalizeIndividualStats(value.individualStats),
+  };
+};
+
+export const trimGameHistory = (history: GameSession[]): GameSession[] => {
+  const retainedCounts: Record<Mode, number> = { solo: 0, multiplayer: 0 };
   const trimmedReversed: GameSession[] = [];
 
   for (let index = history.length - 1; index >= 0; index -= 1) {
     const entry = history[index];
-    const mode = entry.mode as Mode;
+    const mode = entry.mode;
     const limit = historyLimitByMode[mode];
 
     if (retainedCounts[mode] >= limit) continue;
@@ -98,228 +281,279 @@ export const trimGameHistory = (history: GameSession[]): GameSession[] => {
   return trimmedReversed.reverse();
 };
 
-// For debugging: use browser localStorage
-// TODO: Change to electron/desktop native paths later:
-// - Electron: app.getPath('userData') + '/player.json'
-// - Desktop: process.env.APPDATA or ~/.config for config files
 export const getPlayerFromStorage = (): Player | null => {
   try {
     const storage = getPlayerStorage();
     if (!storage) return null;
-    const existing = storage.getItem(PLAYER_STORAGE_KEY);
-    if (existing) {
-      type SerializedAchievement = Omit<Achievement, "unlockedAt"> & { unlockedAt: string };
-      type SerializedGameSession = Omit<GameSession, "date"> & { date: string };
-      type SerializedPlayer = Omit<Player, "lastActive" | "achievements" | "gameHistory"> & {
-        lastActive: string;
-        achievements?: SerializedAchievement[];
-        gameHistory?: SerializedGameSession[];
-      };
 
-  const parsed = JSON.parse(existing) as SerializedPlayer;
-  const gameHistory = trimGameHistory((parsed.gameHistory ?? []).map((session) => ({ ...session, date: new Date(session.date) })));
-  return {
-    ...parsed,
-    lastActive: new Date(parsed.lastActive),
-    lastPlayedDate: parsed.lastPlayedDate ? new Date(parsed.lastPlayedDate) : undefined,
-    leaderboardAppearances: parsed.leaderboardAppearances ?? 0,
-    lobbiesCreated: parsed.lobbiesCreated ?? 0,
-    currentPlayStreak: parsed.currentPlayStreak ?? 0,
-    soloTopScore: parsed.soloTopScore ?? parsed.topScore ?? 0,
-    multiplayerTopScore: parsed.multiplayerTopScore ?? 0,
-    achievements: (parsed.achievements ?? []).map((a) => ({ ...a, unlockedAt: new Date(a.unlockedAt) })),
-    gameHistory,
-  };
+    const existing = storage.getItem(PLAYER_STORAGE_KEY);
+    if (!existing) return null;
+
+    return normalizePlayer(JSON.parse(existing));
+  } catch (error) {
+    console.warn("Failed to load player from browser storage:", error);
+    return null;
+  }
 };
 
-// For debugging: use browser localStorage or electron file storage
-// Electron: app.getPath('userData') + '/player.json' (via IPC)
-// Browser: localStorage or sessionStorage
 const loadPlayerFromStorage = async (): Promise<Player | null> => {
   try {
-    // 1. Try Electron File Storage
     const playerStorageAPI = getPlayerStorageAPI();
     if (playerStorageAPI) {
       const result = await playerStorageAPI.read();
       if (result.success && result.data) {
-        return deserializePlayer(result.data);
+        const player = normalizePlayer(JSON.parse(result.data));
+        if (player) return player;
       }
     }
 
-    // 2. Try Browser Storage
-    const storage = getPlayerStorage();
-    if (storage) {
-      const existing = storage.getItem(PLAYER_STORAGE_KEY);
-      if (existing) {
-        return deserializePlayer(existing);
-      }
-    }
+    return getPlayerFromStorage();
   } catch (error) {
     console.warn("Failed to load player from storage:", error);
+    return null;
   }
-  return null;
 };
 
-export const savePlayerToStorage = (player: Player): void => {
+export const savePlayerToStorage = async (player: Player): Promise<void> => {
   try {
-    // If we have the playerStorage API (Electron), use it
+    const serialized = JSON.stringify(player);
     const playerStorageAPI = getPlayerStorageAPI();
+
     if (playerStorageAPI) {
-      const result = await playerStorageAPI.write(JSON.stringify(player));
+      const result = await playerStorageAPI.write(serialized);
       if (!result.success) {
         console.warn("Failed to save player to Electron storage:", result.error);
       }
       return;
     }
-    // Fall back to browser storage
+
     const storage = getPlayerStorage();
     if (!storage) return;
-    storage.setItem(PLAYER_STORAGE_KEY, JSON.stringify(player));
+    storage.setItem(PLAYER_STORAGE_KEY, serialized);
   } catch (error) {
     console.warn("Failed to save player to storage:", error);
   }
 };
-// ─── ZUSTAND STORE CREATION ──────────────────────────────────────────────
-/** * Dynamically builds the deep individualStats record required by the Player interface.
- * Structure: Category -> Mode -> Difficulty -> PlayData
- */
-const createInitialIndividualStats = (): Record<Category, Record<Mode, Record<Difficulty, PlayData>>> => {
-  // Assuming you went with Option 1 in the previous step
-  const categories = CATEGORIES; 
-  const modes = MODES;
-  const difficulties = DIFFICULTIES;
 
-  // We use Partial here so TS doesn't demand all categories instantly
-  const stats: Partial<Record<Category, Record<Mode, Record<Difficulty, PlayData>>>> = {};
-
-  categories.forEach((cat) => {
-    // Tell TS: "This is a work-in-progress Mode record"
-    const modeObj: Partial<Record<Mode, Record<Difficulty, PlayData>>> = {};
-
-    modes.forEach((mode) => {
-      // Tell TS: "This is a work-in-progress Difficulty record"
-      const diffObj: Partial<Record<Difficulty, PlayData>> = {};
-
-      difficulties.forEach((diff) => {
-        diffObj[diff] = createEmptyPlayData();
-      });
-
-      // Once diffObj is full, we can safely cast it to the strict Record type
-      modeObj[mode] = diffObj as Record<Difficulty, PlayData>;
-    });
-
-    // Once modeObj is full, safely cast it to the strict Record type
-    stats[cat] = modeObj as Record<Mode, Record<Difficulty, PlayData>>;
-  });
-
-  // Finally, cast the completely built object to the required return type
-  return stats as Record<Category, Record<Mode, Record<Difficulty, PlayData>>>;
+const persistPlayer = (player: Player): void => {
+  void savePlayerToStorage(player);
 };
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
-  // Initialize the player directly from storage on load
-  player: getPlayerFromStorage(),
+  player: null,
+  isLoading: true,
 
- generatePlayer: (): Player => {
-    const newPlayer: Player = {
-      // Basic Profile
-      id: `player_${Date.now()}`,
-      name: "PLAYER_01",
-      avatar: "Detective 1.png",
-      lastActive: new Date(),
-      gameHistory: [],
+  initialize: async () => {
+    set({ isLoading: true });
 
-      // Progress & Leveling
-      totalXp: 0,
-      xpToNextLevel: 100,
-      level: 1,
-      rank: "NOVICE" as unknown as Rank,
-      achievements: [],
+    if (get().player) {
+      set({ isLoading: false });
+      return;
+    }
 
-      // Total Stats (Root Level)
-      totalScore: 0,
-      topScore: 0,
-      totalTimePlayed: 0,
-      soloGamesPlayed: 0,
-      multiplayerGamesPlayed: 0,
-      gamesMastered: 0,
-      gamesWon: 0,
-      topThreeFinishes: 0,
-      leaderboardAppearances: 0,
-      lobbiesCreated: 0,
-      totalQuestionsAnswered: 0,
-      correctAnswers: 0,
-      incorrectAnswers: 0,
-      averageTimePerQuestion: 0,
+    const loadedPlayer = await loadPlayerFromStorage();
+    if (get().player) {
+      set({ isLoading: false });
+      return;
+    }
 
-      // Data Structures
-      playData: createEmptyPlayData(), //
-      individualStats: createInitialIndividualStats(), // The deep fix
-    };
+    if (loadedPlayer) {
+      set({ player: loadedPlayer, isLoading: false });
+      return;
+    }
 
-    savePlayerToStorage(newPlayer); //
+    const newPlayer = createDefaultPlayer();
+    persistPlayer(newPlayer);
+    set({ player: newPlayer, isLoading: false });
+  },
+
+  generatePlayer: () => {
+    const newPlayer = createDefaultPlayer();
+    persistPlayer(newPlayer);
     set({ player: newPlayer });
     return newPlayer;
   },
 
   getPlayer: () => {
-    let currentPlayer = get().player;
-    if (!currentPlayer) {
-      currentPlayer = get().generatePlayer();
+    const currentPlayer = get().player;
+    if (currentPlayer) return currentPlayer;
+
+    const storedPlayer = getPlayerFromStorage();
+    if (storedPlayer) {
+      set({ player: storedPlayer });
+      return storedPlayer;
     }
-    return currentPlayer;
+
+    return get().generatePlayer();
+  },
+
+  applySessionProgress: (sessionInput) => set((state) => {
+    const player = state.player ?? createDefaultPlayer();
+    const delta = buildSessionDelta(sessionInput);
+    const nextTotalXp = player.totalXp + delta.xpGained;
+    const nextLevel = levelFromXp(nextTotalXp);
+    const nextRank = rankFromLevel(nextLevel);
+
+    const currentCategoryStats = player.individualStats[sessionInput.category];
+    const currentModeStats = currentCategoryStats[sessionInput.mode];
+    const currentDifficultyStats = currentModeStats[sessionInput.difficulty] ?? createEmptyPlayData();
+    const nextDifficultyStats: PlayData = {
+      ...currentDifficultyStats,
+      xpGained: currentDifficultyStats.xpGained + delta.xpGained,
+      scoreGained: currentDifficultyStats.scoreGained + delta.scoreGained,
+      gamesPlayed: currentDifficultyStats.gamesPlayed + delta.gamesPlayed,
+      gamesMastered: currentDifficultyStats.gamesMastered + delta.gamesMastered,
+      topThreeFinishes: currentDifficultyStats.topThreeFinishes + delta.topThreeFinishes,
+      gamesWon: currentDifficultyStats.gamesWon + delta.gamesWon,
+      totalQuestionsAnswered: currentDifficultyStats.totalQuestionsAnswered + delta.totalQuestionsAnswered,
+      correctAnswers: currentDifficultyStats.correctAnswers + delta.correctAnswers,
+      incorrectAnswers: currentDifficultyStats.incorrectAnswers + delta.incorrectAnswers,
+      averageTimePerQuestion: delta.averageTimePerQuestion ?? currentDifficultyStats.averageTimePerQuestion,
+    };
+
+    const nextTotalQuestionsAnswered = player.totalQuestionsAnswered + delta.totalQuestionsAnswered;
+    const previousTotalAnswerTime = player.averageTimePerQuestion * player.totalQuestionsAnswered;
+    const sessionAverageTime = delta.averageTimePerQuestion ?? (sessionInput.totalQuestions > 0 ? sessionInput.timeTaken / sessionInput.totalQuestions : undefined);
+    const sessionTotalAnswerTime = (sessionAverageTime ?? 0) * delta.totalQuestionsAnswered;
+    const nextAverageTimePerQuestion = nextTotalQuestionsAnswered > 0
+      ? (previousTotalAnswerTime + sessionTotalAnswerTime) / nextTotalQuestionsAnswered
+      : 0;
+
+    const newHistoryEntry: GameSession = {
+      id: createId(),
+      date: new Date(),
+      mode: sessionInput.mode,
+      category: sessionInput.category,
+      difficulty: sessionInput.difficulty,
+      totalQuestions: sessionInput.totalQuestions,
+      correctAnswers: sessionInput.correctAnswers,
+      questionsAnswered: delta.totalQuestionsAnswered,
+      score: sessionInput.score,
+      questions: sessionInput.questions,
+      userAnswers: sessionInput.userAnswers,
+      timeTaken: sessionInput.timeTaken,
+      timePerQuestion: sessionInput.timePerQuestion,
+      mastered: sessionInput.mastered,
+      won: sessionInput.won,
+      topThreeFinish: sessionInput.topThreeFinish,
+      incorrectAnswers: delta.incorrectAnswers,
+    };
+
+    const nextGameHistory = trimGameHistory([...player.gameHistory, newHistoryEntry]);
+
+    const updatedPlayer: Player = {
+      ...player,
+      totalXp: nextTotalXp,
+      xpToNextLevel: xpToNextLevel(nextTotalXp),
+      level: nextLevel,
+      rank: nextRank,
+      totalScore: player.totalScore + delta.scoreGained,
+      topScore: Math.max(player.topScore, sessionInput.score),
+      soloTopScore: sessionInput.mode === "solo" ? Math.max(player.soloTopScore, sessionInput.score) : player.soloTopScore,
+      multiplayerTopScore: sessionInput.mode === "multiplayer" ? Math.max(player.multiplayerTopScore, sessionInput.score) : player.multiplayerTopScore,
+      totalTimePlayed: player.totalTimePlayed + sessionInput.timeTaken,
+      soloGamesPlayed: player.soloGamesPlayed + (sessionInput.mode === "solo" ? delta.gamesPlayed : 0),
+      multiplayerGamesPlayed: player.multiplayerGamesPlayed + (sessionInput.mode === "multiplayer" ? delta.gamesPlayed : 0),
+      gamesMastered: player.gamesMastered + delta.gamesMastered,
+      gamesWon: player.gamesWon + delta.gamesWon,
+      topThreeFinishes: player.topThreeFinishes + delta.topThreeFinishes,
+      totalQuestionsAnswered: nextTotalQuestionsAnswered,
+      correctAnswers: player.correctAnswers + delta.correctAnswers,
+      incorrectAnswers: player.incorrectAnswers + delta.incorrectAnswers,
+      averageTimePerQuestion: nextAverageTimePerQuestion,
+      lastActive: new Date(),
+      lastPlayedDate: new Date(),
+      gameHistory: nextGameHistory,
+      individualStats: {
+        ...player.individualStats,
+        [sessionInput.category]: {
+          ...currentCategoryStats,
+          [sessionInput.mode]: {
+            ...currentModeStats,
+            [sessionInput.difficulty]: nextDifficultyStats,
+          },
+        },
+      },
+    };
+
+    const unlocks = evaluateUnlocks(updatedPlayer, sessionInput);
+    const newlyUnlocked = unlocks.filter((achievement) => achievement.progress === 100);
+    const achievements = [...updatedPlayer.achievements, ...newlyUnlocked].filter((achievement): achievement is Achievement => achievement !== null && achievement !== undefined);
+    const finalPlayer = { ...updatedPlayer, achievements };
+
+    persistPlayer(finalPlayer);
+    return { player: finalPlayer };
+  }),
+
+  saveGameToHistory: (gameData) => set((state) => {
+    const player = state.player ?? createDefaultPlayer();
+    const newSession: GameSession = {
+      ...gameData,
+      id: createId(),
+      date: new Date(),
+    };
+
+    const updatedPlayer: Player = {
+      ...player,
+      gameHistory: trimGameHistory([...player.gameHistory, newSession]),
+      lastActive: new Date(),
+      lastPlayedDate: new Date(),
+    };
+
+    persistPlayer(updatedPlayer);
+    return { player: updatedPlayer };
+  }),
+
+  resetPlayer: () => {
+    try {
+      const storage = getPlayerStorage();
+      storage?.removeItem(PLAYER_STORAGE_KEY);
+      void getPlayerStorageAPI()?.delete();
+    } catch (error) {
+      console.warn("Failed to clear player storage:", error);
+    }
+
+    const newPlayer = createDefaultPlayer();
+    persistPlayer(newPlayer);
+    set({ player: newPlayer });
   },
 
   setAvatar: (avatar: string) => set((state) => {
-    if (!state.player) return state;
-    const updatedPlayer = { ...state.player, avatar };
-    savePlayerToStorage(updatedPlayer);
+    if (!state.player) return {};
+
+    const updatedPlayer = {
+      ...state.player,
+      avatar,
+      lastActive: new Date(),
+    };
+
+    persistPlayer(updatedPlayer);
     return { player: updatedPlayer };
   }),
 
   setPlayerName: (name: string) => set((state) => {
-    if (!state.player) return state;
-    const updatedPlayer = { ...state.player, name };
-    savePlayerToStorage(updatedPlayer);
-    return { player: updatedPlayer };
-  }),
+    if (!state.player) return {};
 
-  // The new method we needed for the Settings Page!
-  updatePlayer: (updates: any) => set((state) => {
-    if (!state.player) return state;
-    const updatedPlayer = { ...state.player, ...updates };
-    savePlayerToStorage(updatedPlayer);
-    return { player: updatedPlayer };
-  }),
-
-  resetPlayer: () => set(() => {
-    const newPlayer = get().generatePlayer();
-    return { player: newPlayer };
-  }),
-
-  // These are placeholders that map to your progression logic
-  applySessionProgress: (sessionInput: SessionProgressInput) => set((state) => {
-    // Add your specific progression rules here if needed
-    return state;
-  }),
-
-  saveGameToHistory: (gameData: Omit<GameSession, 'id' | 'date'>) => set((state) => {
-    if (!state.player) return state;
-    
-    const newSession: GameSession = { 
-        ...gameData, 
-        id: Date.now().toString(), 
-        date: new Date() 
-    };
-    
     const updatedPlayer = {
       ...state.player,
-      gameHistory: trimGameHistory([...(state.player.gameHistory || []), newSession])
+      name,
+      lastActive: new Date(),
     };
 
-    
-    
-    savePlayerToStorage(updatedPlayer);
+    persistPlayer(updatedPlayer);
+    return { player: updatedPlayer };
+  }),
+
+  updatePlayer: (updates: Partial<Player>) => set((state) => {
+    if (!state.player) return {};
+
+    const updatedPlayer = {
+      ...state.player,
+      ...updates,
+      lastActive: new Date(),
+    };
+
+    persistPlayer(updatedPlayer);
     return { player: updatedPlayer };
   }),
 }));

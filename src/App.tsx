@@ -81,12 +81,8 @@ export default function App() {
   }, [bgmEnabled, vol]);
 
   // ── Screen router ────────────────────────────────────────
-  const screen = useGameStore((state) => state.screen);
-  const modalScreen = useGameStore((state) => state.modalScreen);
-  const deferredScreen = useDeferredValue(screen); // small optimization, read concurrently in the bg
-  
-  const initializePlayer = usePlayerStore((state) => state.initialize);
-  const isPlayerLoading = usePlayerStore((state) => state.isLoading);
+  const initializePlayer = usePlayerStore((state: { initialize: () => Promise<void>; isLoading: boolean }) => state.initialize);
+  const isPlayerLoading = usePlayerStore((state: { initialize: () => Promise<void>; isLoading: boolean }) => state.isLoading);
 
   useEffect(() => {
     initializePlayer();

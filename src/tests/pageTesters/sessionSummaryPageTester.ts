@@ -194,7 +194,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }, {} as Record<Category, Record<Mode, Record<Difficulty, PlayData>>>),
       totalTimePlayed: 0,
       averageTimePerQuestion: 0,
-      playData: createEmptyPlayData()
     };
 
     // Save to storage

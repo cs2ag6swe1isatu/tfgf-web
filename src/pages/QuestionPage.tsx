@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { Box, Typography, Button, Card} from "@mui/material";
-import { useTriviaStore, useMultiplayerStore, useGameStore, usePlayerStore } from "../store";
+import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
+import { usePlayerStore } from "../store/playerStore";
 import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";

@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useCallback, useRef } from "react";
 import { Box, Button } from "@mui/material";
-import { Phase, useGameStore, usePlayerStore, useTriviaStore } from "../store";
+import { Phase, useGameStore, useTriviaStore } from "../store";
+import { usePlayerStore } from "../store/playerStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { PlayerList } from "../components/multiplayer/PlayerList";
 import { Globe, Lock } from "pixelarticons/react";
