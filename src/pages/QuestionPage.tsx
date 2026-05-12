@@ -141,7 +141,7 @@ const HudBar = styled(Box)({
 
 const ProgressText = styled(Typography)({
   fontFamily: "'Courier New', 'Lucida Console', monospace",
-  fontSize: "20spx",
+  fontSize: "20px",
   fontWeight: 300,
   color: "#B7B7B7",
   letterSpacing: "1px",
