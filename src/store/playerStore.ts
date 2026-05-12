@@ -259,6 +259,8 @@ const createDefaultPlayer = (): Player => ({
   correctAnswers: 0,
   incorrectAnswers: 0,
   averageTimePerQuestion: 0,
+  rivalDefeats: 0,
+  rivalStats: {},
   individualStats: createInitialIndividualStats(),
 });
 
@@ -301,6 +303,8 @@ const normalizePlayer = (value: unknown): Player | null => {
     correctAnswers: readNumber(value.correctAnswers, 0),
     incorrectAnswers: readNumber(value.incorrectAnswers, 0),
     averageTimePerQuestion: readNumber(value.averageTimePerQuestion, 0),
+    rivalDefeats: readNumber(value.rivalDefeats, 0),
+    rivalStats: isRecord(value.rivalStats) ? Object.fromEntries(Object.entries(value.rivalStats).map(([k, v]) => [k, readNumber(v, 0)])) : {},
     individualStats: normalizeIndividualStats(value.individualStats),
   };
 };

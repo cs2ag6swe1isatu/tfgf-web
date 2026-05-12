@@ -7,6 +7,7 @@ import theme from "./ui/theme";
 import "./index.css";
 import { Cursor } from "./components/ui";
 import { runSessionSummaryPageTester } from "./tests/pageTesters/sessionSummaryPageTester";
+import "./tests/achievementTester";
 
 // Initialize mock multiplayer bridge for Vite dev mode
 import "./multiplayer-mock";

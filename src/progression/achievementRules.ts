@@ -2,6 +2,37 @@ import { SessionProgressInput } from "./progressionRules";
 import { Achievement, Player } from "../types/player";
 import { Category, CATEGORIES, DIFFICULTIES, Difficulty, MODES, Mode } from "../constants";
 
+/**
+ * Achievements list:
+ * first blood
+ * git gud
+ * pogchamp
+ * playing favorites
+ * speedrunner (solo)
+ * smurfing
+ * smooth start (easy solo)
+ * solid performance (medium solo)
+ * true expert (hard solo)
+ * champion (multiplayer)
+ * flawless victory (solo)
+ * point hoarder (solo)
+ * mastermind (solo)
+ * jack of all trades (solo)
+ * lone wolf (solo)
+ * built different (solo)
+ * daily grind (solo)
+ * clutch king (multiplayer)
+ * party up (multiplayer)
+ * crowd controller (multiplayer)
+ * podium finish (multiplayer)
+ * untouchable (multiplayer)
+ * fast hands (multiplayer)
+ * hall of fame (multiplayer)
+ * host with the most (multiplayer)
+ * apex predator (multiplayer)
+ * nemesis (multiplayer)
+ */
+
 export type AchievementScope = "all" | "solo" | "multiplayer";
 
 export type AchievementCategory =
@@ -94,6 +125,102 @@ export interface AchievementRule {
 
 export const ACHIEVEMENT_RULES: AchievementRule[] = [
   {
+    id: "leaderboard_takeover",
+    name: "Apex Predator",
+    description: "Reach #1 on the multiplayer leaderboard 5 times.",
+    icon: achievementIconPath("Apex Predator.png"),
+    category: "Multiplayer",
+    scope: "multiplayer",
+    check: (player) => {
+      const multiplayerWins = countWins(player, { mode: "multiplayer" });
+      return multiplayerWins >= 5;
+    },
+    progress: (player) => {
+      const multiplayerWins = countWins(player, { mode: "multiplayer" });
+      const percent = (multiplayerWins / 5) * 100;
+      return Math.min(100, Math.max(0, Math.round(percent)));
+    },
+  },
+  {
+    id: "hardmode_winner",
+    name: "Built Different",
+    description: "Win 10 games in hard mode.",
+    icon: achievementIconPath("Built Different.png"),
+    category: "Skill",
+    scope: "solo",
+    check: (player) => {
+      const hardModeWins = countWins(player, { mode: "solo", difficulty: "hard" });
+      return hardModeWins >= 10;
+    },
+    progress: (player) => {
+      const hardModeWins = countWins(player, { mode: "solo", difficulty: "hard" });
+      const percent = (hardModeWins / 10) * 100;
+      return Math.min(100, Math.max(0, Math.round(percent)));
+    },
+  },
+  {
+    id: "top_one_leaderboard",
+    name: "Champion",
+    description: "Finish a multiplayer game placing top 1 in ranking.",
+    icon: achievementIconPath("Champion.png"),
+    category: "Multiplayer",
+    scope: "multiplayer",
+    check: (player, sessionInput) => sessionInput.mode === "multiplayer" && sessionInput.won === true,
+  },
+  {
+    id: "comeback_win",
+    name: "Clutch King",
+    description: "Win a game after being behind in score.",
+    icon: achievementIconPath("Clutch King.png"),
+    category: "Skill",
+    scope: "multiplayer",
+    // Raw comeback detection is computed in QuestionPage and stored on session input.
+    // It already includes anti-noise guards (minimum rounds, minimum leader score, and minimum gap).
+    check: (_player, sessionInput) =>
+      sessionInput.mode === "multiplayer" &&
+      sessionInput.won &&
+      sessionInput.fellBehindByHalfAndWon === true,
+  },
+  {
+    id: "multiplayer_master",
+    name: "Crowd Controller",
+    description: "Win 10 multiplayer games.",
+    icon: achievementIconPath("Crowd Controller.png"),
+    category: "Multiplayer",
+    scope: "multiplayer",
+    check: (player) => {
+      const multiplayerWins = countWins(player, { mode: "multiplayer" });
+      return multiplayerWins >= 10;
+    },
+    progress: (player) => {
+      const multiplayerWins = countWins(player, { mode: "multiplayer" });
+      const percent = (multiplayerWins / 10) * 100;
+      return Math.min(100, Math.max(0, Math.round(percent)));
+    },
+  },
+  {
+    id: "daily_player",
+    name: "Daily Grind",
+    description: "Play the game 7 days in a row.",
+    icon: achievementIconPath("Daily Grind.png"),
+    category: "Grind",
+    scope: "solo",
+    check: (player) => player.currentPlayStreak >= 7,
+    progress: (player) => {
+      const percent = (player.currentPlayStreak / 7) * 100;
+      return Math.min(100, Math.max(0, Math.round(percent)));
+    },
+  },
+  {
+    id: "multiplayer_speedrun",
+    name: "Fast Hands",
+    description: "Finish a multiplayer game in under 20 seconds.",
+    icon: achievementIconPath("Fast Hands.png"),
+    category: "Skill",
+    scope: "multiplayer",
+    check: (player, sessionInput) => sessionInput.mode === "multiplayer" && sessionInput.timeTaken < 20,
+  },
+  {
     id: "first_game",
     name: "First Blood!",
     description: "Play your first game.",
@@ -103,6 +230,15 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     check: (player) => player.soloGamesPlayed >= 1 || player.multiplayerGamesPlayed >= 1,
   },
   {
+    id: "no_mistakes",
+    name: "Flawless Victory",
+    description: "Finish a game without answering incorrectly.",
+    icon: achievementIconPath("Flawless Victory.png"),
+    category: "Perfect Scores",
+    scope: "solo",
+    check: (player, sessionInput) => sessionInput.mode === "solo" && sessionInput.correctAnswers === sessionInput.totalQuestions,
+  },
+  {
     id: "first_win",
     name: "Git Gud",
     description: "Win your first game.",
@@ -110,6 +246,97 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     category: "Getting Started",
     scope: "all",
     check: (player, sessionInput) => sessionInput.won,
+  },
+  {
+    id: "leaderboard_regular",
+    name: "Hall of Fame",
+    description: "Reach the leaderboard 10 times.",
+    icon: achievementIconPath("Hall of Fame.png"),
+    category: "Multiplayer",
+    scope: "multiplayer",
+    check: (player) => player.leaderboardAppearances >= 10,
+    progress: (player) => {
+      const percent = (player.leaderboardAppearances / 10) * 100;
+      return Math.min(100, Math.max(0, Math.round(percent)));
+    },
+  },
+  {
+    id: "lobby_creator",
+    name: "Host with the Most",
+    description: "Create your first multiplayer lobby.",
+    icon: achievementIconPath("Host With The Most.png"),
+    category: "Multiplayer",
+    scope: "multiplayer",
+    check: (player) => player.lobbiesCreated >= 1,
+  },
+  {
+    id: "category_explorer",
+    name: "Jack of All Trades",
+    description: "Play at least one game in every category.",
+    icon: achievementIconPath("Jack of All Trades.png"),
+    category: "Grind",
+    scope: "solo",
+    check: (player) => {
+      const categoriesWithGames = countCategoriesWithGames(player, { mode: "solo" });
+      return categoriesWithGames === CATEGORIES.length;
+    },
+    progress: (player) => {
+      const categoriesWithGames = countCategoriesWithGames(player, { mode: "solo" });
+      const percent = (categoriesWithGames / CATEGORIES.length) * 100;
+      return Math.min(100, Math.max(0, Math.round(percent)));
+    },
+  },
+  {
+    id: "solo_master",
+    name: "Lone Wolf",
+    description: "Play 25 solo games.",
+    icon: achievementIconPath("Lone Wolf.png"),
+    category: "Grind",
+    scope: "solo",
+    check: (player) => player.soloGamesPlayed >= 25,
+    progress: (player) => {
+      const percent = (player.soloGamesPlayed / 25) * 100;
+      return Math.min(100, Math.max(0, Math.round(percent)));
+    },
+  },
+  {
+    id: "category_master",
+    name: "Mastermind",
+    description: "Get a perfect score in 5 different categories.",
+    icon: achievementIconPath("Mastermind.png"),
+    category: "Skill",
+    scope: "solo",
+    check: (player) => {
+      const categoriesWithMastery = countUniqueCategoriesWithMastery(player, { mode: "solo" });
+      return categoriesWithMastery >= 5;
+    },
+    progress: (player) => {
+      const categoriesWithMastery = countUniqueCategoriesWithMastery(player, { mode: "solo" });
+      const percent = (categoriesWithMastery / 5) * 100;
+      return Math.min(100, Math.max(0, Math.round(percent)));
+    },
+  },
+  {
+    id: "rival_crusher",
+    name: "Nemesis",
+    description: "Defeat the same player 5 times.",
+    icon: achievementIconPath("Nemesis.png"),
+    category: "Multiplayer",
+    scope: "multiplayer",
+    check: (player) => player.rivalDefeats >= 5,
+    progress: (player) => {
+      const percent = (player.rivalDefeats / 5) * 100;
+      return Math.min(100, Math.max(0, Math.round(percent)));
+    },
+  },
+  {
+    id: "multiplayer_rookie",
+    name: "Party Up",
+    description: "Play your first multiplayer game.",
+    icon: achievementIconPath("Party Up.png"),
+    category: "Multiplayer",
+    scope: "multiplayer",
+    check: (player) => player.multiplayerGamesPlayed >= 1,
   },
   {
     id: "perfect_score",
@@ -124,7 +351,7 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     id: "10_games_category",
     name: "Playing Favorites",
     description: "Play 10 games in the same category.",
-    icon: achievementIconPath("Playing Fav.png"),
+    icon: achievementIconPath("Playing Favorites.png"),
     category: "Grind",
     scope: "all",
     check: (player, sessionInput) => {
@@ -137,13 +364,26 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     },
   },
   {
-    id: "fast_game_solo",
-    name: "Speedrunner",
-    description: "Finish a solo game in under 25 seconds.",
-    icon: achievementIconPath("SpeedRunner.png"),
-    category: "Skill",
+    id: "thousand_points",
+    name: "Point Hoarder",
+    description: "Earn a total of 1,000 points.",
+    icon: achievementIconPath("Point Hoarder.png"),
+    category: "Grind",
     scope: "solo",
-    check: (player, sessionInput) => sessionInput.mode === "solo" && sessionInput.timeTaken <= 25,
+    check: (player) => player.totalScore >= 1000,
+    progress: (player) => {
+      const percent = (player.totalScore / 1000) * 100;
+      return Math.min(100, Math.max(0, Math.round(percent)));
+    },
+  },
+  {
+    id: "top_three_finish",
+    name: "Podium Finish",
+    description: "Finish in the top 3 in a multiplayer match.",
+    icon: achievementIconPath("Podium Finish.png"),
+    category: "Multiplayer",
+    scope: "multiplayer",
+    check: (player, sessionInput) => sessionInput.mode === "multiplayer" && sessionInput.topThreeFinish === true,
   },
   {
     id: "first_time_category_perfect",
@@ -176,6 +416,15 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     check: (player, sessionInput) => sessionInput.difficulty === "medium" && sessionInput.mastered && sessionInput.mode === "solo" && countGames(player, { mode: "solo", difficulty: "medium" }) === 1,
   },
   {
+    id: "fast_game_solo",
+    name: "Speedrunner",
+    description: "Finish a solo game in under 25 seconds.",
+    icon: achievementIconPath("SpeedRunner.png"),
+    category: "Skill",
+    scope: "solo",
+    check: (player, sessionInput) => sessionInput.mode === "solo" && sessionInput.timeTaken <= 25,
+  },
+  {
     id: "first_hard_perfect",
     name: "True Expert",
     description: "Get a perfect score the first time you play in hard mode solo.",
@@ -185,167 +434,6 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     check: (player, sessionInput) => sessionInput.difficulty === "hard" && sessionInput.mastered && sessionInput.mode === "solo" && countGames(player, { mode: "solo", difficulty: "hard" }) === 1,
   },
   {
-    id: "top_one_leaderboard",
-    name: "Champion",
-    description: "Finish a multiplayer game placing top 1 in ranking.",
-    icon: achievementIconPath("Champion.png"),
-    category: "Multiplayer",
-    scope: "multiplayer",
-    check: (player, sessionInput) => sessionInput.mode === "multiplayer" && sessionInput.won === true,
-  },
-
-  // NEW SOLO ACHIEVEMENTS
-  {
-    id: "no_mistakes",
-    name: "Flawless Victory",
-    description: "Finish a game without answering incorrectly.",
-    icon: lockedAchievementIconPath,
-    category: "Perfect Scores",
-    scope: "solo",
-    check: (player, sessionInput) => sessionInput.mode === "solo" && sessionInput.correctAnswers === sessionInput.totalQuestions,
-  },
-  {
-    id: "thousand_points",
-    name: "Point Hoarder",
-    description: "Earn a total of 1,000 points.",
-    icon: lockedAchievementIconPath,
-    category: "Grind",
-    scope: "solo",
-    check: (player) => player.totalScore >= 1000,
-    progress: (player) => {
-      const percent = (player.totalScore / 1000) * 100;
-      return Math.min(100, Math.max(0, Math.round(percent)));
-    },
-  },
-  {
-    id: "category_master",
-    name: "Mastermind",
-    description: "Get a perfect score in 5 different categories.",
-    icon: lockedAchievementIconPath,
-    category: "Skill",
-    scope: "solo",
-    check: (player) => {
-      const categoriesWithMastery = countUniqueCategoriesWithMastery(player, { mode: "solo" });
-      return categoriesWithMastery >= 5;
-    },
-    progress: (player) => {
-      const categoriesWithMastery = countUniqueCategoriesWithMastery(player, { mode: "solo" });
-      const percent = (categoriesWithMastery / 5) * 100;
-      return Math.min(100, Math.max(0, Math.round(percent)));
-    },
-  },
-  {
-    id: "category_explorer",
-    name: "Jack of All Trades",
-    description: "Play at least one game in every category.",
-    icon: lockedAchievementIconPath,
-    category: "Grind",
-    scope: "solo",
-    check: (player) => {
-      const categoriesWithGames = countCategoriesWithGames(player, { mode: "solo" });
-      return categoriesWithGames === CATEGORIES.length;
-    },
-    progress: (player) => {
-      const categoriesWithGames = countCategoriesWithGames(player, { mode: "solo" });
-      const percent = (categoriesWithGames / CATEGORIES.length) * 100;
-      return Math.min(100, Math.max(0, Math.round(percent)));
-    },
-  },
-  {
-    id: "solo_master",
-    name: "Lone Wolf",
-    description: "Play 25 solo games.",
-    icon: lockedAchievementIconPath,
-    category: "Grind",
-    scope: "solo",
-    check: (player) => player.soloGamesPlayed >= 25,
-    progress: (player) => {
-      const percent = (player.soloGamesPlayed / 25) * 100;
-      return Math.min(100, Math.max(0, Math.round(percent)));
-    },
-  },
-  {
-    id: "hardmode_winner",
-    name: "Built Different",
-    description: "Win 10 games in hard mode.",
-    icon: lockedAchievementIconPath,
-    category: "Skill",
-    scope: "solo",
-    check: (player) => {
-      const hardModeWins = countWins(player, { mode: "solo", difficulty: "hard" });
-      return hardModeWins >= 10;
-    },
-    progress: (player) => {
-      const hardModeWins = countWins(player, { mode: "solo", difficulty: "hard" });
-      const percent = (hardModeWins / 10) * 100;
-      return Math.min(100, Math.max(0, Math.round(percent)));
-    },
-  },
-  {
-    id: "daily_player",
-    name: "Daily Grind",
-    description: "Play the game 7 days in a row.",
-    icon: achievementIconPath("Daily Grind.png"),
-    category: "Grind",
-    scope: "solo",
-    check: (player) => player.currentPlayStreak >= 7,
-    progress: (player) => {
-      const percent = (player.currentPlayStreak / 7) * 100;
-      return Math.min(100, Math.max(0, Math.round(percent)));
-    },
-  },
-  {
-    id: "comeback_win",
-    name: "Clutch King",
-    description: "Win a game after being behind in score.",
-    icon: lockedAchievementIconPath,
-    category: "Skill",
-    scope: "multiplayer",
-    // Raw comeback detection is computed in QuestionPage and stored on session input.
-    // It already includes anti-noise guards (minimum rounds, minimum leader score, and minimum gap).
-    check: (_player, sessionInput) =>
-      sessionInput.mode === "multiplayer" &&
-      sessionInput.won &&
-      sessionInput.fellBehindByHalfAndWon === true,
-  },
-
-  // NEW MULTIPLAYER ACHIEVEMENTS
-  {
-    id: "multiplayer_rookie",
-    name: "Party Up",
-    description: "Play your first multiplayer game.",
-    icon: achievementIconPath("Party Up.png"),
-    category: "Multiplayer",
-    scope: "multiplayer",
-    check: (player) => player.multiplayerGamesPlayed >= 1,
-  },
-  {
-    id: "multiplayer_master",
-    name: "Crowd Controller",
-    description: "Win 10 multiplayer games.",
-    icon: lockedAchievementIconPath,
-    category: "Multiplayer",
-    scope: "multiplayer",
-    check: (player) => {
-      const multiplayerWins = countWins(player, { mode: "multiplayer" });
-      return multiplayerWins >= 10;
-    },
-    progress: (player) => {
-      const multiplayerWins = countWins(player, { mode: "multiplayer" });
-      const percent = (multiplayerWins / 10) * 100;
-      return Math.min(100, Math.max(0, Math.round(percent)));
-    },
-  },
-  {
-    id: "top_three_finish",
-    name: "Podium Finish",
-    description: "Finish in the top 3 in a multiplayer match.",
-    icon: lockedAchievementIconPath,
-    category: "Multiplayer",
-    scope: "multiplayer",
-    check: (player, sessionInput) => sessionInput.mode === "multiplayer" && sessionInput.topThreeFinish === true,
-  },
-  {
     id: "undefeated_lobby",
     name: "Untouchable",
     description: "Win a multiplayer game without making a mistake.",
@@ -353,54 +441,6 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     category: "Multiplayer",
     scope: "multiplayer",
     check: (player, sessionInput) => sessionInput.mode === "multiplayer" && sessionInput.won === true && sessionInput.correctAnswers === sessionInput.totalQuestions,
-  },
-  {
-    id: "multiplayer_speedrun",
-    name: "Fast Hands",
-    description: "Finish a multiplayer game in under 20 seconds.",
-    icon: achievementIconPath("Fast Hands.png"),
-    category: "Skill",
-    scope: "multiplayer",
-    check: (player, sessionInput) => sessionInput.mode === "multiplayer" && sessionInput.timeTaken < 20,
-  },
-  {
-    id: "leaderboard_regular",
-    name: "Hall of Fame",
-    description: "Reach the leaderboard 10 times.",
-    icon: lockedAchievementIconPath,
-    category: "Multiplayer",
-    scope: "multiplayer",
-    check: (player) => player.leaderboardAppearances >= 10,
-    progress: (player) => {
-      const percent = (player.leaderboardAppearances / 10) * 100;
-      return Math.min(100, Math.max(0, Math.round(percent)));
-    },
-  },
-  {
-    id: "lobby_creator",
-    name: "Host with the Most",
-    description: "Create your first multiplayer lobby.",
-    icon: achievementIconPath("Host With The Most.png"),
-    category: "Multiplayer",
-    scope: "multiplayer",
-    check: (player) => player.lobbiesCreated >= 1,
-  },
-  {
-    id: "leaderboard_takeover",
-    name: "Apex Predator",
-    description: "Reach #1 on the multiplayer leaderboard 5 times.",
-    icon: achievementIconPath("Apex Predator.png"),
-    category: "Multiplayer",
-    scope: "multiplayer",
-    check: (player) => {
-      const multiplayerWins = countWins(player, { mode: "multiplayer" });
-      return multiplayerWins >= 5;
-    },
-    progress: (player) => {
-      const multiplayerWins = countWins(player, { mode: "multiplayer" });
-      const percent = (multiplayerWins / 5) * 100;
-      return Math.min(100, Math.max(0, Math.round(percent)));
-    },
   },
 ];
 
