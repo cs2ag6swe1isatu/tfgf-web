@@ -33,8 +33,8 @@ export interface GameConfig {
 }
 
 export interface Settings {
-  sfxEnabled: any;
   bgmEnabled: boolean;
+  sfxEnabled: boolean;
   volume: number;
   useCase: boolean;
   useScanlines: boolean;
