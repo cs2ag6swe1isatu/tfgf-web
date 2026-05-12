@@ -599,9 +599,10 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       playerId: string;
       questionIndex: number;
       answer: string;
+      remainingTime?: number;
     }) => {
       if (payload.questionIndex !== currentIndex) return;
-      receiveRemoteAnswer(payload.playerId, payload.questionIndex, payload.answer);
+      receiveRemoteAnswer(payload.playerId, payload.questionIndex, payload.answer, payload.remainingTime);
     };
 
     multiplayerBridge.onAnswerSubmission?.("QuestionPage", handleAnswerSubmission);
@@ -756,6 +757,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       totalQuestions: questionsState.length,
       correctAnswers: correctAnswersCount,
       score: currentPlayerScore,
+      maxStreak: triviaState.maxStreak,
       questions: questionsState,
       userAnswers,
       timeTaken: 0,

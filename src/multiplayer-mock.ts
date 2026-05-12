@@ -39,13 +39,13 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   private channel: BroadcastChannel;
 
   private onHostFoundCbs = new Map<string, (payload: MultiplayerDiscoveredPayload) => void>();
-  private onDiscoveryResponseCbs = new Set<(payload: MultiplayerDiscoveredPayload) => void>();
+  private onDiscoveryResponseCbs = new Map<string, (payload: MultiplayerDiscoveredPayload) => void>();
   private onPlayerJoinedCbs = new Map<string, (player: LobbyMember) => void>();
   private onPlayerReadyChangedCbs = new Map<string, (playerId: string, ready: boolean) => void>();
   private onPlayerLeftCbs = new Map<string, (playerId: string) => void>();
   private onHostExitCbs = new Map<string, (payload: MultiplayerHostExitPayload) => void>();
   private onGameStateSyncCbs = new Map<string, (payload: MultiplayerGameState) => void>();
-  private onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void>();
+  private onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void>();
 
   private activeSnapshot: MultiplayerLobbySnapshot | null = null;
   private activeMode: "host" | "client" | null = null;
@@ -374,18 +374,18 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     this.channel.postMessage(packet);
   }
 
-  sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }): void {
+  sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }): void {
     const packet: MultiplayerPacket = { type: "answer-submission", payload };
     this.channel.postMessage(packet);
   }
 
   // ------- Callbacks --------
 
-  onDiscoveryResponse(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
-    this.onDiscoveryResponseCbs.add(cb);
+  onDiscoveryResponse(id: string, cb: (payload: MultiplayerDiscoveredPayload) => void): void {
+    this.onDiscoveryResponseCbs.set(id, cb);
   }
-  offDiscoveryResponse(cb: (payload: MultiplayerDiscoveredPayload) => void): void {
-    this.onDiscoveryResponseCbs.delete(cb);
+  offDiscoveryResponse(id: string, cb: (payload: MultiplayerDiscoveredPayload) => void): void {
+    this.onDiscoveryResponseCbs.delete(id);
   }
   onHostFound(id: string, cb: (payload: MultiplayerDiscoveredPayload) => void): void {
     this.onHostFoundCbs.set(id, cb);
@@ -423,7 +423,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   offGameStateSync(id: string): void {
     this.onGameStateSyncCbs.delete(id);
   }
-  onAnswerSubmission(id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void): void {
+  onAnswerSubmission(id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void): void {
     this.onAnswerSubmissionCbs.set(id, cb);
   }
   offAnswerSubmission(id: string): void {

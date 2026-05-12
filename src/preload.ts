@@ -40,7 +40,7 @@ const onPlayerReadyChangedCbs = new Map<string, (playerId: string, ready: boolea
 const onPlayerLeftCbs = new Map<string, (playerId: string) => void>();
 const onHostExitCbs = new Map<string, (payload: MultiplayerHostExitPayload) => void>();
 const onGameStateSyncCbs = new Map<string, (payload: MultiplayerGameState) => void>();
-const onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void>();
+const onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void>();
 
 let activeSnapshot: MultiplayerLobbySnapshot | null = null;
 let activeMode: "host" | "client" | null = null;
@@ -232,7 +232,7 @@ function broadcastGameState(gameState: MultiplayerGameState) {
   });
 }
 
-function sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) {
+function sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) {
   const s = createSocket();
   const packet: MultiplayerPacket = { type: "answer-submission", payload };
   const data = Buffer.from(JSON.stringify(packet));
@@ -520,7 +520,7 @@ contextBridge.exposeInMainWorld("multiplayer", {
   onGameStateSync: (id: string, cb: (payload: MultiplayerGameState) => void) => { onGameStateSyncCbs.set(id, cb); },
   offGameStateSync: (id: string) => { onGameStateSyncCbs.delete(id); },
   
-  onAnswerSubmission: (id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void) => { onAnswerSubmissionCbs.set(id, cb); },
+  onAnswerSubmission: (id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void) => { onAnswerSubmissionCbs.set(id, cb); },
   offAnswerSubmission: (id: string) => { onAnswerSubmissionCbs.delete(id); },
   sendAnswerSubmission,
   requestJoin,

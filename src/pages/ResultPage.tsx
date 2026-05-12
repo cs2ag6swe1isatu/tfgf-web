@@ -4,6 +4,7 @@ import StarIcon from '@mui/icons-material/Star';
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { usePlayerStore } from '../store/playerStore';
+import { calculateXP, getLevelProgressPercent } from '../utils/progression';
 import { keyframes, styled } from '@mui/material/styles';
 
 // ─── Keyframes ───────────────────────────────────────────────────────────────
@@ -112,9 +113,11 @@ const ScaleRoot = styled(Box)({
 
 const ResultPage: React.FC = () => {
   const setScreen   = useGameStore((s) => s.setScreen);
-  const score       = useTriviaStore((s) => (s as any).score ?? 0);
+  const score       = useTriviaStore((s) => s.score ?? 0);
+  const maxStreak   = useTriviaStore((s) => s.maxStreak ?? 0);
   const questions   = useTriviaStore((s) => s.questions);
-  const userAnswers = useTriviaStore((s) => (s as any).userAnswers ?? {});
+  const userAnswers = useTriviaStore((s) => s.userAnswers ?? {});
+  const playerTotalXp = usePlayerStore((s) => s.getPlayer().totalXp);
 
   // Pull rank title from player store if available, else default
   let playerRankTitle = 'STUDENT';
@@ -131,8 +134,8 @@ const ResultPage: React.FC = () => {
     0
   );
   const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
-  const rankProg  = accuracy;
-  const xpGained  = score;
+  const xpGained  = calculateXP(score, maxStreak);
+  const rankProg  = getLevelProgressPercent(playerTotalXp + xpGained);
 
   return (
     <ScaleRoot>

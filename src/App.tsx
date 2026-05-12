@@ -46,7 +46,7 @@ export default function App() {
 
   // Create the audio element once
   useEffect(() => {
-    const audio = new Audio("/sounds/bgm.mp3");
+    const audio = new Audio("sounds/bgm.mp3/Eric Skiff - A Night Of Dizzy Spells ♫ NO COPYRIGHT 8-bit Music + Background.mp3");
     audio.loop = true;
     audio.volume = 0;
     bgmRef.current = audio;

@@ -5,40 +5,41 @@ import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { useResponsiveScale } from '../hooks/useResponsiveScale';
 import { usePlayerStore } from '../store/playerStore';
-
+import { calculateXP, getLevelProgressPercent } from '../utils/progression';
 import { keyframes, styled } from '@mui/material/styles';
 
-// ─── Keyframes (Keep these as you had them) ──────────────────────────────────
+// ─── Keyframes ────────────────────────────────────────────────────────────────
+
 const scanline = keyframes`
   0%   { transform: translateY(-100%); }
   100% { transform: translateY(100%); }
 `;
 
 const flickerRed = keyframes`
-  0%, 100% { text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 16px rgba(227,50,50,0.55); }
-  8%  { text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 6px rgba(227,50,50,0.2); }
-  9%  { text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 24px rgba(255,101,64,0.9); }
-  41% { text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 4px rgba(227,50,50,0.15); }
-  42% { text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 28px rgba(255,101,64,1); }
+  0%, 100% { text-shadow: 2px 2px 0 #FF6540, 4px 4px 0 #2B0909, 0 0 20px rgba(227,50,50,0.7); }
+  8%  { text-shadow: 2px 2px 0 #FF6540, 4px 4px 0 #2B0909, 0 0 8px rgba(227,50,50,0.2); }
+  9%  { text-shadow: 2px 2px 0 #FF6540, 4px 4px 0 #2B0909, 0 0 32px rgba(255,101,64,1); }
+  41% { text-shadow: 2px 2px 0 #FF6540, 4px 4px 0 #2B0909, 0 0 5px rgba(227,50,50,0.15); }
+  42% { text-shadow: 2px 2px 0 #FF6540, 4px 4px 0 #2B0909, 0 0 36px rgba(255,101,64,1); }
 `;
 
 const cyanPulse = keyframes`
-  0%, 100% { box-shadow: 0 0 14px rgba(0,223,255,0.45), 0 0 28px rgba(0,223,255,0.2); }
-  50%       { box-shadow: 0 0 24px rgba(0,223,255,0.7), 0 0 48px rgba(0,223,255,0.3); }
+  0%, 100% { box-shadow: 0 0 0 2px #00DFFF, 0 0 18px rgba(0,223,255,0.35), inset 0 0 24px rgba(0,223,255,0.06); }
+  50%       { box-shadow: 0 0 0 2px #00DFFF, 0 0 36px rgba(0,223,255,0.6), inset 0 0 40px rgba(0,223,255,0.1); }
 `;
 
 const statGlow = keyframes`
-  0%, 100% { box-shadow: 0 0 10px rgba(0,229,255,0.3); }
-  50%       { box-shadow: 0 0 20px rgba(0,229,255,0.6); }
+  0%, 100% { box-shadow: 0 0 0 1.5px #00E5FF, 0 0 10px rgba(0,229,255,0.2), inset 0 0 16px rgba(0,229,255,0.04); }
+  50%       { box-shadow: 0 0 0 1.5px #00E5FF, 0 0 22px rgba(0,229,255,0.5), inset 0 0 28px rgba(0,229,255,0.08); }
 `;
 
 const slideDown = keyframes`
-  from { opacity: 0; transform: translateY(-36px); }
+  from { opacity: 0; transform: translateY(-40px); }
   to   { opacity: 1; transform: translateY(0); }
 `;
 
 const slideUp = keyframes`
-  from { opacity: 0; transform: translateY(28px); }
+  from { opacity: 0; transform: translateY(32px); }
   to   { opacity: 1; transform: translateY(0); }
 `;
 
@@ -55,23 +56,114 @@ const starSpin = keyframes`
 
 const rankPop = keyframes`
   0%   { opacity: 0; transform: scale(0.65) translateY(10px); }
-  70%  { transform: scale(1.1) translateY(-4px); }
+  70%  { transform: scale(1.12) translateY(-4px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 `;
 
 const btnHover = keyframes`
-  0%, 100% { box-shadow: 0 0 12px rgba(0,223,255,0.4), 0 0 0 2px #00DFFF; }
-  50%       { box-shadow: 0 0 24px rgba(0,223,255,0.75), 0 0 0 2px #00DFFF, 0 0 48px rgba(0,223,255,0.2); }
+  0%, 100% { box-shadow: 0 0 0 2px #00DFFF, 0 0 16px rgba(0,223,255,0.45); }
+  50%       { box-shadow: 0 0 0 2px #00DFFF, 0 0 32px rgba(0,223,255,0.8), 0 0 60px rgba(0,223,255,0.25); }
+`;
+
+const progressReveal = keyframes`
+  from { opacity: 0; transform: scaleX(0); transform-origin: left; }
+  to   { opacity: 1; transform: scaleX(1); transform-origin: left; }
+`;
+
+const achievePop = keyframes`
+  0%   { opacity: 0; transform: scale(0.88) translateY(8px); }
+  60%  { transform: scale(1.04) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+`;
+
+const greenPulse = keyframes`
+  0%, 100% { text-shadow: 0 0 8px rgba(53,229,43,0.4), 0 0 16px rgba(53,229,43,0.2); }
+  50%       { text-shadow: 0 0 16px rgba(53,229,43,0.8), 0 0 32px rgba(53,229,43,0.4); }
 `;
 
 // ─── Layout config ────────────────────────────────────────────────────────────
 
 const LAYOUTS = {
-  '1280x720': { w: 1280, h: 720,  header: 62, stat: 62, label: 15, btn: 18, pad: '34px 52px', statMinH: 168, gap: 22, rankTitle: 32 },
-  '1152x768': { w: 1152, h: 768,  header: 60, stat: 60, label: 15, btn: 17, pad: '38px 48px', statMinH: 180, gap: 24, rankTitle: 30 },
-  '1024x768': { w: 1024, h: 768,  header: 56, stat: 56, label: 14, btn: 16, pad: '36px 44px', statMinH: 170, gap: 22, rankTitle: 28 },
-  '1024x600': { w: 1024, h: 600,  header: 42, stat: 44, label: 11, btn: 13, pad: '22px 40px', statMinH: 128, gap: 16, rankTitle: 22 },
-  '600x600':  { w: 600,  h: 600,  header: 32, stat: 36, label: 10, btn: 11, pad: '20px 26px', statMinH: 108, gap: 14, rankTitle: 18 },
+  '1280x720': {
+    w: 1280,
+    h: 720,
+
+    // Header
+    header: 58,
+
+    // Numbers
+    stat: 54,
+
+    // Labels
+    label: 14,
+
+    // Buttons
+    btn: 18,
+
+    // OUTER SCREEN PADDING
+    // gives breathing room left/right
+    pad: '30px 58px',
+
+    // stat cards height
+    statMinH: 150,
+
+    // global spacing between sections
+    gap: 24,
+
+    rankTitle: 30,
+  },
+
+  '1152x768': {
+    w: 1152,
+    h: 768,
+    header: 54,
+    stat: 50,
+    label: 13,
+    btn: 17,
+    pad: '28px 52px',
+    statMinH: 145,
+    gap: 22,
+    rankTitle: 28,
+  },
+
+  '1024x768': {
+    w: 1024,
+    h: 768,
+    header: 50,
+    stat: 46,
+    label: 12,
+    btn: 16,
+    pad: '24px 46px',
+    statMinH: 138,
+    gap: 20,
+    rankTitle: 26,
+  },
+
+  '1024x600': {
+    w: 1024,
+    h: 600,
+    header: 40,
+    stat: 38,
+    label: 10,
+    btn: 13,
+    pad: '18px 34px',
+    statMinH: 118,
+    gap: 16,
+    rankTitle: 20,
+  },
+
+  '600x600': {
+    w: 600,
+    h: 600,
+    header: 28,
+    stat: 30,
+    label: 9,
+    btn: 11,
+    pad: '16px 18px',
+    statMinH: 95,
+    gap: 12,
+    rankTitle: 16,
+  },
 } as const;
 
 type RatioKey = keyof typeof LAYOUTS;
@@ -80,6 +172,7 @@ function detectRatio(): RatioKey {
   if (typeof window === 'undefined') return '1024x768';
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+
   if (vw <= 600) return '600x600';
   if (vw <= 1024 && vh <= 600) return '1024x600';
   if (vw <= 1024) return '1024x768';
@@ -93,133 +186,314 @@ const ScaleRoot = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  overflow: 'hidden',
-  background: '#010707', // Darker black for the letterboxing
+  overflow: 'auto',
+  background: '#010707',
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const SessionSummaryPage: React.FC = () => {
-  const setScreen   = useGameStore((s) => s.setScreen);
-  const score       = useTriviaStore((s) => (s as any).score ?? 0);
-  const questions   = useTriviaStore((s) => s.questions);
-  const userAnswers = useTriviaStore((s) => (s as any).userAnswers ?? {});
-  
-  // ─── ADDED THE SCALE HOOK ───
-  const scale = useResponsiveScale(); // Base design is for 1280x720
+  const setScreen = useGameStore((s) => s.setScreen);
+  const score = useTriviaStore((s) => s.score ?? 0);
+  const maxStreak = useTriviaStore((s) => s.maxStreak ?? 0);
+  const questions = useTriviaStore((s) => s.questions);
+  const userAnswers = useTriviaStore((s) => s.userAnswers ?? {});
+  const scale = useResponsiveScale();
+  const playerTotalXp = usePlayerStore((s) => s.getPlayer().totalXp);
 
   let playerRankTitle = 'STUDENT';
   try {
-    playerRankTitle = usePlayerStore((s: any) => s?.getPlayer?.()?.rankTitle) ?? 'STUDENT';
-  } catch (_) { }
+    playerRankTitle =
+      usePlayerStore((s: any) => s?.getPlayer?.()?.rankTitle) ?? 'STUDENT';
+  } catch (_) {}
 
   const L = LAYOUTS[detectRatio()];
 
-  const totalQ    = questions.length;
-  const correct   = questions.reduce(
-    (acc: number, q: any, i: number) => acc + (userAnswers[i] === q.correctAnswer ? 1 : 0), 0
+  const totalQ = questions.length;
+  const correct = questions.reduce(
+    (acc: number, q: any, i: number) =>
+      acc + (userAnswers[i] === q.correctAnswer ? 1 : 0),
+    0
   );
-  const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
-  const rankProg  = accuracy;
-  const xpGained  = score;
+
+  const accuracy = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
+  const xpGained = calculateXP(score, maxStreak);
+  const rankProg = getLevelProgressPercent(playerTotalXp + xpGained);
+  const timeSpent = totalQ * 10;
+
+  const gridPad = Math.round(L.gap * 1.35);
 
   return (
     <ScaleRoot>
-      {/* ─── NEW SCALING WRAPPER BOX ─── */}
-      <Box sx={{
-        transform: `scale(${scale})`,
-        transformOrigin: 'center center',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}>
+      <Box
+        sx={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'center top',
+          display: 'flex',
+          justifyContent: 'center',
+          flexShrink: 0,
+          width: `${L.w}px`,
+        }}
+      >
         <Box
           sx={{
-            width:      `${L.w}px`,
-            height:     `${L.h}px`,
-            position:   'relative',
-            flexShrink: 0,
-            overflow:   'hidden',
+            width: `${L.w}px`,
+            height: `${L.h}px`,
+            position: 'relative',
+            overflowY: 'auto',
+            overflowX: 'hidden',
             fontFamily: `'Press Start 2P', monospace`,
             background: `
               radial-gradient(ellipse at 50% 0%,
-                #08235A 0%,
-                #041D49 40%,
-                #031533 75%,
-                #062B2B 100%
+                #0A2A6E 0%,
+                #061B52 30%,
+                #041440 60%,
+                #020D2E 80%,
+                #030F1A 100%
               )
             `,
-            display:        'flex',
-            flexDirection:  'column',
-            alignItems:     'center',
-            justifyContent: 'space-between',
-            padding:         L.pad,
-            boxSizing:      'border-box',
-
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              inset: 0,
-              background: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.09) 2px, rgba(0,0,0,0.09) 4px)`,
-              pointerEvents: 'none',
-              zIndex: 20,
-            },
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              left: 0, right: 0,
-              height: '100px',
-              background: 'linear-gradient(transparent, rgba(0,160,255,0.025) 50%, transparent)',
-              animation: `${scanline} 7s linear infinite`,
-              pointerEvents: 'none',
-              zIndex: 21,
-            },
+            display: 'flex',
+            flexDirection: 'column',
+            padding: L.pad,
+            boxSizing: 'border-box',
+            gap: `${L.gap}px`,
           }}
         >
-          {/* Vignette */}
-          <Box sx={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.7) 100%)', pointerEvents: 'none', zIndex: 19 }} />
-
           {/* HEADER */}
-          <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', zIndex: 5, animation: `${slideDown} 0.55s cubic-bezier(0.22,1,0.36,1) both` }}>
-            <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, fontSize: `${L.header}px`, color: '#E33232', letterSpacing: '4px', textAlign: 'center', WebkitTextStroke: '1px #2B0909', textShadow: `1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 16px rgba(227,50,50,0.55)`, animation: `${flickerRed} 5s ease-in-out 1.2s infinite`, userSelect: 'none' }}>
-              GAME OVER !
+          <Typography
+            sx={{
+              fontSize: `${L.header}px`,
+              textAlign: 'center',
+              color: '#E33232',
+              letterSpacing: '5px',
+              lineHeight: 1.1,
+              animation: `${flickerRed} 5s ease-in-out infinite`,
+            }}
+          >
+            GAME OVER!
+          </Typography>
+
+          {/* STATS */}
+          <Box
+            sx={{
+              width: '100%',
+              border: '2px solid #00DFFF',
+              borderRadius: '14px',
+              padding: `${gridPad}px`,
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: `${L.gap}px`,
+              animation: `${cyanPulse} 3s ease-in-out infinite`,
+              boxSizing: 'border-box',
+            }}
+          >
+            {[
+              ['YOUR SCORE', score],
+              ['XP GAINED', xpGained],
+              ['ACCURACY', `${accuracy}%`],
+              [
+                'TIME',
+                `${Math.floor(timeSpent / 60)}:${(timeSpent % 60)
+                  .toString()
+                  .padStart(2, '0')}`,
+              ],
+            ].map(([label, value], i) => (
+              <Box
+                key={label}
+                sx={{
+                  minHeight: `${L.statMinH}px`,
+                  border: '1.5px dashed rgba(0,229,255,0.6)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '14px',
+                  animation: `${statGlow} 3s ease-in-out ${i * 0.2}s infinite`,
+                }}
+              >
+                <Typography sx={{ fontSize: `${L.label}px`, color: '#8ECFFF' }}>
+                  {label}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: `${L.stat}px`,
+                    color: '#fff',
+                    lineHeight: 1,
+                  }}
+                >
+                  {value}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+
+          {/* RANK */}
+          <Box
+            sx={{
+              width: '100%',
+              background: '#353A33',
+              borderRadius: '12px',
+              padding: `${L.gap}px`,
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: `${L.label}px`,
+                color: '#ddd',
+                textAlign: 'center',
+                mb: 1.2,
+              }}
+            >
+              RANK PROGRESS
+            </Typography>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <StarIcon
+                sx={{
+                  color: '#FFD42A',
+                  fontSize: `${Math.round(L.header * 0.5)}px`,
+                }}
+              />
+
+              <LinearProgress
+                variant="determinate"
+                value={rankProg}
+                sx={{
+                  flex: 1,
+                  height: '14px',
+                  borderRadius: '99px',
+                  backgroundColor: '#1c1c1c',
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: '#D9E600',
+                    animation: `${progressReveal} 1s ease`,
+                  },
+                }}
+              />
+
+              <Typography
+                sx={{
+                  fontSize: `${Math.round(L.label * 0.85)}px`,
+                  color: '#D9E600',
+                  minWidth: '52px',
+                  textAlign: 'right',
+                }}
+              >
+                {rankProg}%
+              </Typography>
+            </Box>
+
+            <Typography
+              sx={{
+                mt: 1.5,
+                textAlign: 'center',
+                fontSize: `${L.rankTitle}px`,
+                color: '#D9E600',
+                animation: `${rankPop} .6s ease`,
+              }}
+            >
+              {playerRankTitle}
             </Typography>
           </Box>
 
-          {/* STATS */}
-          <Box sx={{ width: '100%', border: '2.5px solid #00DFFF', borderRadius: '20px', background: '#072454', padding: `${L.gap}px`, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: `${L.gap}px`, position: 'relative', zIndex: 5, animation: `${cyanPulse} 3.5s ease-in-out infinite, ${fadeIn} 0.5s ease 0.3s both` }}>
-            <Box sx={{ border: '2.5px dashed #00E5FF', borderRadius: '14px', background: '#0A3766', minHeight: `${L.statMinH}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '18px 14px', animation: `${statGlow} 3s ease-in-out infinite, ${fadeIn} 0.5s ease 0.4s both` }}>
-              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#DADADA', fontSize: `${L.label}px`, mb: 2.5, textAlign: 'center' }}>YOUR SCORE</Typography>
-              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#F0F0F0', fontSize: `${L.stat}px`, textShadow: '0 0 12px rgba(240,240,240,0.3)' }}>{score}</Typography>
-            </Box>
+          {/* ACHIEVEMENT */}
+          <Box
+            sx={{
+              width: '100%',
+              background: '#0D3B3B',
+              borderRadius: '12px',
+              padding: `${L.gap}px`,
+              display: 'flex',
+              gap: '14px',
+              alignItems: 'center',
+            }}
+          >
+            <StarIcon
+              sx={{
+                color: '#35E52B',
+                fontSize: `${Math.round(L.header * 0.5)}px`,
+              }}
+            />
 
-            <Box sx={{ border: '2.5px dashed #00E5FF', borderRadius: '14px', background: '#0A3766', minHeight: `${L.statMinH}px`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '18px 14px', animation: `${statGlow} 3s ease-in-out 0.4s infinite, ${fadeIn} 0.5s ease 0.5s both` }}>
-              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#DADADA', fontSize: `${L.label}px`, mb: 2.5, textAlign: 'center' }}>XP GAINED</Typography>
-              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#F0F0F0', fontSize: `${L.stat}px`, textShadow: '0 0 12px rgba(240,240,240,0.3)' }}>{xpGained}</Typography>
+            <Box sx={{ flex: 1 }}>
+              <Typography
+                sx={{
+                  fontSize: `${L.label}px`,
+                  color: '#00DFFF',
+                }}
+              >
+                ACHIEVEMENT UNLOCKED
+              </Typography>
+
+              <Typography
+                sx={{
+                  mt: 1,
+                  fontSize: `${Math.round(L.stat * 0.55)}px`,
+                  color: '#35E52B',
+                  animation: `${greenPulse} 2.5s infinite`,
+                }}
+              >
+                PARTY UP
+              </Typography>
+
+              <Typography
+                sx={{
+                  mt: 1,
+                  fontSize: `${Math.round(L.label * 0.75)}px`,
+                  color: '#8ECFFF',
+                }}
+              >
+                Played your first multiplayer game!
+              </Typography>
             </Box>
           </Box>
 
-          {/* RANK PROGRESS */}
-          <Box sx={{ width: '100%', background: '#4B5248', borderRadius: '16px', padding: `${L.gap}px ${L.gap + 6}px`, boxShadow: '0 6px 0 #2E332E', display: 'flex', flexDirection: 'column', gap: `${Math.round(L.gap * 0.55)}px`, position: 'relative', zIndex: 5, animation: `${slideUp} 0.55s cubic-bezier(0.22,1,0.36,1) 0.55s both` }}>
-            <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#E5E5E5', fontSize: `${L.label}px`, textAlign: 'center' }}>RANK PROGRESS</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: `${Math.round(L.gap * 0.55)}px` }}>
-              <StarIcon sx={{ color: '#FFD42A', fontSize: `${Math.round(L.header * 0.58)}px`, animation: `${starSpin} 0.7s cubic-bezier(0.22,1,0.36,1) 0.75s both` }} />
-              <Box sx={{ flex: 1 }}>
-                <LinearProgress variant="determinate" value={rankProg} sx={{ height: `${Math.round(L.gap * 0.85)}px`, borderRadius: '99px', backgroundColor: '#3E443D', '& .MuiLinearProgress-bar': { backgroundColor: '#D9E600', borderRadius: '99px' } }} />
-              </Box>
-              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#E5E5E5', fontSize: `${Math.round(L.label * 0.85)}px`, minWidth: '52px', textAlign: 'right' }}>{rankProg}%</Typography>
-            </Box>
-            <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#D9E600', fontSize: `${L.rankTitle}px`, textAlign: 'center', animation: `${rankPop} 0.65s cubic-bezier(0.22,1,0.36,1) 1s both` }}>{playerRankTitle}</Typography>
-          </Box>
-
-          {/* NAV BUTTONS */}
-          <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', gap: `${L.gap}px`, position: 'relative', zIndex: 5, animation: `${slideUp} 0.5s ease 0.8s both` }}>
-            <Button onClick={() => setScreen('home')} sx={{ flex: 1, height: `${Math.round(L.gap * 3.3)}px`, borderRadius: '16px', background: '#0D4D73', border: '2px solid #00DFFF', boxShadow: '0 0 12px rgba(0,223,255,0.4)', transition: 'all 0.15s ease', '&:hover': { background: '#125C8A', animation: `${btnHover} 1s ease-in-out infinite` } }}>
-              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#35E52B', fontSize: `${L.btn}px` }}>MAIN MENU</Typography>
+          {/* BUTTONS */}
+          <Box
+            sx={{
+              width: '100%',
+              display: 'flex',
+              gap: `${L.gap}px`,
+              mt: 'auto',
+            }}
+          >
+            <Button
+              onClick={() => setScreen('home')}
+              sx={{
+                flex: 1,
+                height: `${Math.round(L.gap * 3.1)}px`,
+                border: '2px solid #00DFFF',
+                background: '#0D4D73',
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: `${L.btn}px`,
+                  color: '#35E52B',
+                }}
+              >
+                MAIN MENU
+              </Typography>
             </Button>
-            <Button onClick={() => setScreen('profile')} sx={{ flex: 1, height: `${Math.round(L.gap * 3.3)}px`, borderRadius: '16px', background: '#0D4D73', border: '2px solid #00DFFF', boxShadow: '0 0 12px rgba(0,223,255,0.4)', transition: 'all 0.15s ease', '&:hover': { background: '#125C8A', animation: `${btnHover} 1s ease-in-out infinite` } }}>
-              <Typography sx={{ fontFamily: `'Press Start 2P', monospace`, color: '#35E52B', fontSize: `${L.btn}px` }}>VIEW PROFILE</Typography>
+
+            <Button
+              onClick={() => setScreen('profile')}
+              sx={{
+                flex: 1,
+                height: `${Math.round(L.gap * 3.1)}px`,
+                border: '2px solid #00DFFF',
+                background: '#0D4D73',
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: `${L.btn}px`,
+                  color: '#35E52B',
+                }}
+              >
+                VIEW PROFILE
+              </Typography>
             </Button>
           </Box>
         </Box>

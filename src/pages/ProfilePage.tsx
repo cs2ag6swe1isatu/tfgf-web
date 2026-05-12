@@ -9,6 +9,7 @@ import {
 import { DIFFICULTIES, type Difficulty, type Mode } from "../constants";
 import { useGameStore } from "../store/gameStore";
 import { usePlayerStore } from "../store/playerStore";
+import { getLevelProgressPercent } from '../utils/progression';
 import type { GameSession, Player, PlayData } from "../types/player";
 import { User } from "pixelarticons/react"; // Assuming you have this
 import { ACHIEVEMENT_RULES, type AchievementCategory, type AchievementScope } from "../progression/achievementRules";
@@ -349,7 +350,7 @@ const ProfilePage = () => {
               <Box sx={{ flex: 1, border: "1px solid white", p: "2px" }}>
                 <LinearProgress
                   variant="determinate"
-                  value={xpToNextLevel > 0 ? (xp / (xp + xpToNextLevel)) * 100 : 0}
+                  value={getLevelProgressPercent(xp)}
                   sx={{
                     height: "8px",
                     backgroundColor: "transparent",
