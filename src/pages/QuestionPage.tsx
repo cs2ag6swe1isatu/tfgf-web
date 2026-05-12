@@ -9,9 +9,11 @@ import type { TriviaState } from "../store";
 import { scoreForCorrectAnswers } from "../rules";
 import { defaultGameConfig } from "../config/gameConfig";
 import { styled, keyframes } from "@mui/material/styles";
+import { useSoundContext } from "../context/SoundContext";
+
+
 
 // ─── Keyframe Animations ────────────────────────────────────────────────────
-
 
 
 const neonFlicker = keyframes`
@@ -227,7 +229,7 @@ const QuestionText = styled(Typography)({
 // ─── Answer Grid ──────────────────────────────────────────────────────────────
 
 const AnswerGrid = styled(Box)({
-  marginTop: "20px",
+  marginTop: "50px",
   width: "calc(100% - 75px)",
   maxWidth: "1000px",
   display: "grid",
@@ -237,8 +239,8 @@ const AnswerGrid = styled(Box)({
   zIndex: 5,
   animation: `${fadeSlideUp} 0.5s ease 0.2s both`,
   flex: "none",        // Stop it from stretching automatically
-  height: "72px",      // Let it only be as tall as the buttons
-  marginBottom: "25px" // Add some breathing room before the bottom text
+  height: "250px",      // Let it only be as tall as the buttons
+  marginBottom: "300px" // Add some breathing room before the bottom text
 });
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
@@ -343,7 +345,7 @@ const AnswerLabel = styled(Box, {
 })<{ correct?: boolean; incorrect?: boolean }>(
   ({ correct, incorrect }) => ({
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "15px",
+    fontSize: "20px",
     color: correct ? "#35E52B" : incorrect ? "#E33232" : "#00E5FF",
     textShadow: correct
       ? "0 0 8px #35E52B"
@@ -354,6 +356,7 @@ const AnswerLabel = styled(Box, {
     flexShrink: 0,
   })
 );
+
 
 // ─── Ranking Overlay (scoring phase) ─────────────────────────────────────────
 
@@ -503,6 +506,8 @@ function useResponsiveScale(): string {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const QuestionPage = () => {
+
+  const { playSound } = useSoundContext();
   const {
     questions,
     currentIndex,
@@ -763,8 +768,14 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       won: mode === "multiplayer" ? playerRank === 1 : false,
       topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
       hostedLobby: mode === "multiplayer" && lobbyRole === "host",
-      fellBehindByHalfAndWon:
-        mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
+      fellBehindByHalfAndWon: mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
+      scoreEarned: undefined,
+      xpEarned: undefined,
+      isWin: undefined,
+      isMastery: undefined,
+      isTopThree: undefined,
+      questionsAnswered: undefined,
+      incorrectAnswers: undefined
     };
 
     applySessionProgress(progressionInput);
@@ -839,7 +850,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
             <Typography
               sx={{
                 fontFamily: "'Press Start 2P', monospace",
-                fontSize: "15px",
+                fontSize: "20px",
                 color: "#35E52B",
                 textShadow: "0 0 8px #42FF5C",
                 letterSpacing: "3px",
@@ -1096,7 +1107,8 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
             return (
               <AnswerButton
                 key={answer}
-                onClick={() => handleAnswerClick(answer)}
+                onClick={() => { handleAnswerClick(answer); playSound("select"); }}
+                onMouseEnter={() => playSound("hover")}
                 disabled={isAnswered}
                 selected={isSelected && !isRevealed}
                 correct={isCorrect}

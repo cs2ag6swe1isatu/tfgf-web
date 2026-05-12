@@ -3,7 +3,7 @@ export const defaultGameConfig = {
   mode: null,
   category: null,
   difficulty: null,
-  questionLimit: 15,     // default number of questions
+  questionLimit: 5,     // default number of questions
   questionTimer: 25,      // seconds per question
   answerTimer: 15,        // seconds to answer
 
@@ -32,7 +32,7 @@ export const defaultGameConfig = {
 // Solo defaults used when launching directly from difficulty selection. 
 // Temp var for testing only; Use defaultGameConfig later. 
 export const soloDifficultyStartConfig = {
-  questionLimit: 15,
+  questionLimit: 5,
   questionTimer: 1000, // no question phase in solo mode
   answerTimer: 15,
 };
