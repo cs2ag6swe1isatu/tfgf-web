@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Category, Difficulty, Mode } from "../constants";
 import { usePlayerStore } from "./playerStore";
-import { Player } from "../types/player";
+import { Player, Achievement } from "../types/player";
 import { defaultGameConfig } from "../config/gameConfig";
 
 type Screen =
@@ -12,6 +12,7 @@ type Screen =
   | "difficulty"
   | "question"
   | "result"
+  | "achievement-unlock"
   | "profile"
   | "settings"
   | "standing"
@@ -47,6 +48,8 @@ interface GameState {
   resolution: { width: number; height: number; label: string };
   settings: Settings;
   gameConfig: GameConfig;
+  achievementUnlockQueue: Achievement[];
+  postUnlockScreen: Screen | null;
 
   getPlayer: () => Player;
 
@@ -56,6 +59,9 @@ interface GameState {
   toggleSetting: (key: keyof Settings) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   setGameConfig: (config: Partial<GameConfig>) => void;
+  queueAchievementUnlocks: (achievements: Achievement[], postUnlockScreen: Screen) => void;
+  dismissCurrentAchievementUnlock: () => void;
+  clearAchievementUnlocks: () => void;
 
   setMode: (mode: Mode) => void;
   setCategory: (category: Category) => void;
@@ -71,6 +77,8 @@ export const useGameStore = create<GameState>()(
     (set, get) => ({
       screen: "home",
       modalScreen: null,
+      achievementUnlockQueue: [],
+      postUnlockScreen: null,
 
       resolution: { width: 1024, height: 768, label: "XGA" },
 
@@ -98,13 +106,13 @@ export const useGameStore = create<GameState>()(
         set({ resolution: { width, height, label } }),
 
       toggleSetting: (key) =>
-        set((state: { settings: { [x: string]: any; }; }) => ({
+        set((state: Pick<GameState, "settings">) => ({
           settings: { ...state.settings, [key]: !state.settings[key] },
         })),
 
       // Merge a partial settings patch — used by the Save button
       updateSettings: (patch) =>
-        set((state: { settings: any; }) => ({
+        set((state: Pick<GameState, "settings">) => ({
           settings: { ...state.settings, ...patch },
         })),
 
@@ -112,6 +120,24 @@ export const useGameStore = create<GameState>()(
         set((state: { gameConfig: any; }) => ({
           gameConfig: { ...state.gameConfig, ...config },
         })),
+
+      queueAchievementUnlocks: (achievements, postUnlockScreen) =>
+        set((state: Pick<GameState, "achievementUnlockQueue" | "postUnlockScreen">) => ({
+          achievementUnlockQueue: [...state.achievementUnlockQueue, ...achievements],
+          postUnlockScreen,
+        })),
+
+      dismissCurrentAchievementUnlock: () =>
+        set((state: Pick<GameState, "achievementUnlockQueue" | "postUnlockScreen">) => {
+          const remainingQueue = state.achievementUnlockQueue.slice(1);
+          return {
+            achievementUnlockQueue: remainingQueue,
+            postUnlockScreen: remainingQueue.length > 0 ? state.postUnlockScreen : null,
+          };
+        }),
+
+      clearAchievementUnlocks: () =>
+        set({ achievementUnlockQueue: [], postUnlockScreen: null }),
 
       setMode:          (mode)       => set((s: { gameConfig: any; }) => ({ gameConfig: { ...s.gameConfig, mode } })),
       setCategory:      (category)   => set((s: { gameConfig: any; }) => ({ gameConfig: { ...s.gameConfig, category } })),

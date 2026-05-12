@@ -673,12 +673,10 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
   // ── Phase transitions ───────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (phase === "end") {
-      setScreen("result");
-    } else if (phase === "ranking") {
+    if (phase === "ranking") {
       nextPhase();
     }
-  }, [phase, setScreen, nextPhase]);
+  }, [phase, nextPhase]);
 
   // ── Apply session progress at end ──────────────────────────────────────────
 
@@ -767,8 +765,18 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
         mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
     };
 
-    applySessionProgress(progressionInput);
-  }, [phase, applySessionProgress, localPlayerId]);
+    const newlyUnlockedAchievements = applySessionProgress(progressionInput);
+    const postUnlockScreen = "result" as const;
+
+    if (newlyUnlockedAchievements.length > 0) {
+      const gameState = useGameStore.getState();
+      gameState.queueAchievementUnlocks(newlyUnlockedAchievements, postUnlockScreen);
+      gameState.setScreen("achievement-unlock");
+      return;
+    }
+
+    setScreen(postUnlockScreen);
+  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen]);
 
   // ── Derived state ───────────────────────────────────────────────────────────
 

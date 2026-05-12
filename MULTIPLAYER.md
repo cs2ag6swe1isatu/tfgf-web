@@ -232,7 +232,7 @@ Any player/config/privacy change triggers `updateLobbySnapshot()` so broadcasted
 
 ## Question render
 - Source: `triviaStore.phase/timer/currentIndex/questions/answers/scores/rankings`
-- View: HUD + phase-dependent content
+- View: HUD + phase-dependent content, then end-of-game achievement unlock overlay before final summary
 - Re-render trigger:
   - host timer ticks
   - incoming `game-state` on client
@@ -266,6 +266,10 @@ Any player/config/privacy change triggers `updateLobbySnapshot()` so broadcasted
 
 2. Client applies host `game-state` during question flow by direct trivia state set.
 	- host remains authority for phase/timer/index.
+
+3. End-of-game achievement unlocks are evaluated at session completion and shown in a dedicated page.
+	- the unlock queue is dismissed one achievement at a time by click/tap.
+	- after the queue is empty, the app routes to the final summary screen.
 
 3. Lobby and question phases both rely on periodic host broadcast.
 	- network jitter/drop can cause visible timer jumps client-side.
