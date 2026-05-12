@@ -782,7 +782,7 @@ export default function RankingPage() {
           </span>
           <button
             className="back-btn"
-            onClick={handleBack}
+            onClick={() => setScreen("home")}
             style={styles.backBtn}
           >
             BACK
