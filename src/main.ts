@@ -2,6 +2,12 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import * as fs from 'node:fs';
 import started from 'electron-squirrel-startup';
+import { protocol } from 'electron';
+
+// Register the file protocol as secure (helps with local resource loading)
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { secure: true, standard: true, allowServiceWorkers: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
+]);
 
 // having trouble on linux; disable HW acceleration there or when explicitly requested via env
 if (process.platform === 'linux' || process.env.ELECTRON_DISABLE_HARDWARE_ACCELERATION === '1') {
@@ -68,32 +74,29 @@ ipcMain.handle('player-storage:delete', async () => {
 });
 
 const createWindow = () => {
-  // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
-      backgroundThrottling: false
+      backgroundThrottling: false,
     },
   });
 
-  // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    const pageTester = process.env.PAGE_TESTER;
     const queryPrefix = MAIN_WINDOW_VITE_DEV_SERVER_URL.includes('?') ? '&' : '?';
-    const targetUrl = pageTester
-      ? `${MAIN_WINDOW_VITE_DEV_SERVER_URL}${queryPrefix}tester=${encodeURIComponent(pageTester)}`
+    const targetUrl = process.env.PAGE_TESTER
+      ? `${MAIN_WINDOW_VITE_DEV_SERVER_URL}${queryPrefix}tester=${encodeURIComponent(process.env.PAGE_TESTER)}`
       : MAIN_WINDOW_VITE_DEV_SERVER_URL;
     mainWindow.loadURL(targetUrl);
   } else {
-    mainWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-    );
+    const indexFile = path.join(__dirname, '..', 'renderer', MAIN_WINDOW_VITE_NAME, 'index.html');
+    mainWindow.loadFile(indexFile).catch((err) => {
+      console.error('Failed to load:', indexFile, err);
+    });
   }
 
-  // Open the DevTools. remove later
   mainWindow.webContents.openDevTools();
 };
 

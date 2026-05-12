@@ -15,10 +15,8 @@
     "dev": "vite --config vite.renderer.config.mts --host"
   },
   "keywords": [],
-  "author": {
-    "name": "",
-    "email": ""
-  },
+    "author": "G6 <colettenikiforov@gmail.com>",
+
   "license": "",
   "devDependencies": {
     "@electron-forge/cli": "^7.11.1",

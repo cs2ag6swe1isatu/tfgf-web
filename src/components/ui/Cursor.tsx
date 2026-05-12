@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
+import handImg from '../../public/img/hand.png';
+import pointerImg from '../../public/img/pointer.png';
 
 const CursorWrapper = styled('div')({
   position: 'fixed',
@@ -18,16 +20,13 @@ export const Cursor: React.FC = () => {
   useEffect(() => {
     const updatePosition = (e: MouseEvent) => {
       setPosition({ x: e.clientX, y: e.clientY });
-
       const target = e.target as HTMLElement;
-
       if (target && target.closest('button, a, [role="button"]')) {
         setIsHovering(true);
       } else {
         setIsHovering(false);
       }
     };
-
     window.addEventListener('mousemove', updatePosition);
     return () => window.removeEventListener('mousemove', updatePosition);
   }, []);
@@ -39,7 +38,7 @@ export const Cursor: React.FC = () => {
       }}
     >
       <img
-        src={isHovering ? "/img/hand.png" : "/img/pointer.png"}
+        src={isHovering ? handImg : pointerImg}
         alt="cursor"
         style={{ width: '100%', height: '100%' }}
       />

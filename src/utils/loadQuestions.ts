@@ -30,7 +30,7 @@ export async function loadQuestions(
   seed?: number
 ): Promise<Question[]> {
   try {
-    const data = await fetch('/data/Questions.json');
+    const data = await fetch('./data/Questions.json');
     const json: JSONQuestion[] = await data.json();
     
     /* ---------- Validation ---------- */
