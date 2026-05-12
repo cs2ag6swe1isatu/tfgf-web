@@ -1,7 +1,6 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { Box, Typography, Button, Card} from "@mui/material";
-import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
-import { usePlayerStore } from "../store/playerStore";
+import { useTriviaStore, useMultiplayerStore, useGameStore, usePlayerStore } from "../store";
 import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
@@ -141,7 +140,7 @@ const HudBar = styled(Box)({
 
 const ProgressText = styled(Typography)({
   fontFamily: "'Courier New', 'Lucida Console', monospace",
-  fontSize: "20px",
+  fontSize: "25px",
   fontWeight: 300,
   color: "#B7B7B7",
   letterSpacing: "1px",
@@ -282,8 +281,8 @@ const AnswerButton = styled(Button, {
   return {
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
     /* --- MATCHING THE SCREENSHOT --- */
-    fontSize: "20px",           // The text in the pic is small/clean
-    minHeight: "12px",          // The perfect "rectangle" height
+    fontSize: "25px",           // The text in the pic is small/clean
+    minHeight: "100px",          // The perfect "rectangle" height
     padding: "0 25px",          // Side breathing room
     letterSpacing: "1px",
     /* ------------------------------ */
@@ -343,7 +342,7 @@ const AnswerLabel = styled(Box, {
 })<{ correct?: boolean; incorrect?: boolean }>(
   ({ correct, incorrect }) => ({
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "15px",
+    fontSize: "20px",
     color: correct ? "#35E52B" : incorrect ? "#E33232" : "#00E5FF",
     textShadow: correct
       ? "0 0 8px #35E52B"
@@ -443,7 +442,7 @@ const PhaseBar = styled(Box)({
 
 const PhaseHint = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "20px",
+  fontSize: "25px",
   color: "#35E52B66",
   letterSpacing: "3px",
   textAlign: "center",
@@ -839,7 +838,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
             <Typography
               sx={{
                 fontFamily: "'Press Start 2P', monospace",
-                fontSize: "15px",
+                fontSize: "18px",
                 color: "#35E52B",
                 textShadow: "0 0 8px #42FF5C",
                 letterSpacing: "3px",

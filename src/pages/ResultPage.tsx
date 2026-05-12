@@ -3,7 +3,7 @@ import { Box, Typography, Button, LinearProgress } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
-import { usePlayerStore } from '../store/playerStore';
+import { usePlayerStore } from '../store';
 import { keyframes, styled } from '@mui/material/styles';
 
 // ─── Keyframes ───────────────────────────────────────────────────────────────

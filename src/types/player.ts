@@ -1,5 +1,56 @@
 import { Category, Difficulty, Mode, Rank } from "../constants";
-import type { Question } from "./question";
+import { Question } from "./question";
+
+export interface Player {
+  // Basic Profile
+  id: string;
+  name: string;
+  avatar: string;
+  lastActive: Date;
+  gameHistory: GameSession[];
+
+  // Progress
+  totalXp: number;
+  xpToNextLevel: number;
+  level: number;
+  rank: Rank;
+  achievements: Achievement[];
+
+  // Total Stats
+  totalScore: number;
+  soloTopScore: number;
+  multiplayerTopScore: number;
+  totalTimePlayed?: number; // in seconds
+
+  soloGamesPlayed: number;
+  multiplayerGamesPlayed: number;
+  gamesMastered: number; // perfect games
+  gamesWon: number; // multiplayer wins
+  topThreeFinishes: number; // multiplayer top 3 finishes
+  leaderboardAppearances: number; // multiplayer top 3 finishes used as leaderboard entries
+  lobbiesCreated: number; // hosted multiplayer games that were completed and saved
+  lastPlayedDate?: Date;
+  currentPlayStreak: number;
+
+  totalQuestionsAnswered: number;
+  correctAnswers: number;
+  incorrectAnswers: number;
+  averageTimePerQuestion?: number; // in seconds
+
+  // Specific stats
+  individualStats: Record<Category, Record<Mode, Record<Difficulty, PlayData>>>;
+}
+
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  unlockedAt: Date;
+  progress: number;
+}
+
 
 export interface PlayData {
   xpGained: number;
@@ -11,18 +62,11 @@ export interface PlayData {
   totalQuestionsAnswered: number;
   correctAnswers: number;
   incorrectAnswers: number;
-  averageTimePerQuestion: number;
+  averageTimePerQuestion?: number; // in seconds
 }
 
-export interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  unlockedAt: Date;
-  progress: number;
-}
-
+// A limited stack of recent game sessions for quick access and display.
+// The cap is enforced per mode from config.
 export interface GameSession {
   id: string;
   date: Date;
@@ -31,49 +75,16 @@ export interface GameSession {
   difficulty: Difficulty;
   totalQuestions: number;
   correctAnswers: number;
-  questionsAnswered: number;
   score: number;
-  questions: Question[];
+  
+  questions: Question[]; 
   userAnswers: string[];
-  timeTaken: number;
+  timeTaken: number; // in seconds
   timePerQuestion?: number[];
-  mastered: boolean;
-  won: boolean;
-  topThreeFinish: boolean;
-  incorrectAnswers: number;
-}
 
-export interface Player {
-  id: string;
-  name: string;
-  avatar: string;
-  lastActive: Date;
-  lastPlayedDate?: Date;
-  gameHistory: GameSession[];
-
-  totalXp: number;
-  xpToNextLevel: number;
-  level: number;
-  rank: Rank;
-  achievements: Achievement[];
-
-  totalScore: number;
-  topScore: number;
-  soloTopScore: number;
-  multiplayerTopScore: number;
-  totalTimePlayed: number;
-  soloGamesPlayed: number;
-  multiplayerGamesPlayed: number;
-  gamesMastered: number;
-  gamesWon: number;
-  topThreeFinishes: number;
-  leaderboardAppearances: number;
-  lobbiesCreated: number;
-  currentPlayStreak: number;
-  totalQuestionsAnswered: number;
-  correctAnswers: number;
-  incorrectAnswers: number;
-  averageTimePerQuestion: number;
-
-  individualStats: Record<Category, Record<Mode, Record<Difficulty, PlayData>>>;
+  mastered: boolean; // perfect score
+  won: boolean; // for multiplayer
+  topThreeFinish: boolean; // for multiplayer
+  hostedLobby?: boolean;
+  fellBehindByHalfAndWon?: boolean;
 }

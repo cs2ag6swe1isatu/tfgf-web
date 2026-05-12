@@ -3,7 +3,7 @@ import { Question } from '../types/question';
 import { Mode, Difficulty, Category } from '../constants';
 import type { GameConfig } from './gameStore';
 import { loadQuestions } from '../utils/loadQuestions';
-import { usePlayerStore } from "./playerStore";
+import { usePlayerStore } from './playerStore';
 import { useMultiplayerStore } from './multiplayerStore';
 import type { MultiplayerBridge } from '../types/multiplayer';
 import { defaultGameConfig } from '../config/gameConfig';
