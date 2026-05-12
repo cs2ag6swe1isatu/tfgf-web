@@ -108,7 +108,7 @@ const MultiplayerDiscovery = () => {
   // STYLES 
   const styles = {
     root: {
-      width: "100vw", height: "100vh",
+      width: "100%", height: "100%",
       bgcolor: COLORS.bg, display: "flex",
       justifyContent: "center", alignItems: "center",
       fontFamily: "'VT323', monospace", overflow: "hidden"

@@ -77,17 +77,8 @@ const sweepLine = keyframes`
   100% { transform: rotate(360deg); opacity: 0.6; }
 `;
 
-// ─── Layout config ────────────────────────────────────────────────────────────
-
-const LAYOUTS = {
-  "1280x720": { w: 1280, h: 720,  titlePx: 50, iconPx: 130, btnLabelPx: 20, backPx: 14, panelGap: 32, panelPad: "36px 28px", backW: "220px", backH: "62px" },
-  "1152x768": { w: 1152, h: 768,  titlePx: 50, iconPx: 128, btnLabelPx: 19, backPx: 13, panelGap: 30, panelPad: "36px 28px", backW: "210px", backH: "60px" },
-  "1024x768": { w: 1024, h: 768,  titlePx: 45, iconPx: 120, btnLabelPx: 18, backPx: 12, panelGap: 28, panelPad: "32px 24px", backW: "200px", backH: "58px" },
-  "1024x600": { w: 1024, h: 600,  titlePx: 40, iconPx: 96,  btnLabelPx: 15, backPx: 11, panelGap: 22, panelPad: "24px 20px", backW: "180px", backH: "52px" },
-  "600x600":  { w: 600,  h: 600,  titlePx: 45, iconPx: 80,  btnLabelPx: 12, backPx: 10, panelGap: 16, panelPad: "20px 16px", backW: "150px", backH: "48px" },
-} as const;
-
-type RatioKey = keyof typeof LAYOUTS;
+// Layout is derived from the user's stored resolution so pages use the
+// actual selected resolution in the `gameStore` rather than an inline table.
 
 
 
@@ -280,8 +271,31 @@ const MultiplayerMenuPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
   const setLobbyRole = useMultiplayerStore((state) => state.setLobbyRole);
 
-  // 1. Hook up the layout config
-  const layout = LAYOUTS["1024x768"]; 
+  // 1. Hook up the layout from the stored resolution (do not duplicate a
+  //    per-page config) — compute scaled values based on the stored
+  //    `resolution` in the global game store.
+  const storedRes = useGameStore((s) => s.resolution);
+
+  const base = {
+    w: 1280, h: 720,
+    titlePx: 50, iconPx: 130, btnLabelPx: 20, backPx: 14, panelGap: 32,
+    panelPadV: 36, panelPadH: 28, backW: 220, backH: 62,
+  };
+
+  const scale = Math.min(storedRes.width / base.w, storedRes.height / base.h);
+
+  const layout = {
+    w: storedRes.width,
+    h: storedRes.height,
+    titlePx: Math.max(12, Math.round(base.titlePx * scale)),
+    iconPx: Math.max(40, Math.round(base.iconPx * scale)),
+    btnLabelPx: Math.max(10, Math.round(base.btnLabelPx * scale)),
+    backPx: Math.max(8, Math.round(base.backPx * scale)),
+    panelGap: Math.max(8, Math.round(base.panelGap * scale)),
+    panelPad: `${Math.max(8, Math.round(base.panelPadV * scale))}px ${Math.max(8, Math.round(base.panelPadH * scale))}px`,
+    backW: `${Math.max(120, Math.round(base.backW * scale))}px`,
+    backH: `${Math.max(36, Math.round(base.backH * scale))}px`,
+  } as const;
 
   const handleHostGame = () => {
     setLobbyRole("host");
