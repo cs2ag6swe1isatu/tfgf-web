@@ -150,6 +150,35 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
+function SaveBar({ onSave, saved }: { onSave: () => void; saved: boolean }) {
+  const font = "'Press Start 2P', monospace";
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "flex-end",
+      gap: 14, paddingTop: 20, borderTop: `1px solid rgba(0,223,255,0.2)`, marginTop: 20,
+    }}>
+      {saved && (
+        <span style={{ fontFamily: font, fontSize: 8, color: NEON, letterSpacing: 1, opacity: 0.8 }}>
+          ✓ SAVED
+        </span>
+      )}
+      <button
+        onClick={onSave}
+        style={{
+          background: NEON, border: "none", color: BG,
+          fontFamily: font, fontSize: 9, letterSpacing: 1,
+          padding: "12px 24px", cursor: "pointer",
+          transition: "transform 0.1s, opacity 0.1s",
+        }}
+        onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
+        onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+      >
+        SAVE SETTINGS
+      </button>
+    </div>
+  );
+}
+
 // ─── AUDIO ENGINE ─────────────────────────────────────────
 
 type SoundType = "hover" | "select" | "tab" | "back" | "error";
@@ -240,6 +269,8 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
 export default function SettingsPage() {
   const font = "'Press Start 2P', monospace";
   const [tab,   setTab]   = useState<SettingsTab>("PROFILE");
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Store ──────────────────────────────────────────────
   const setScreen      = useGameStore((s) => s.setScreen);
@@ -290,6 +321,13 @@ export default function SettingsPage() {
     setGameConfig({ autoJoinLan: enabled });
   }
 
+  function handleSave() {
+    playSound("select");
+    setSaved(true);
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSaved(false), 2000);
+  }
+
   // ── Tab content ────────────────────────────────────────
   const renderContent = () => {
     switch (tab) {
@@ -321,6 +359,7 @@ export default function SettingsPage() {
                 />
               ))}
             </div>
+            <SaveBar onSave={handleSave} saved={saved} />
           </div>
         );
 
@@ -334,6 +373,7 @@ export default function SettingsPage() {
               onHover={() => playSound("hover")}
               onToggle={() => { playSound("select"); updateAutoJoinLan(!autoJoinLan); }}
             />
+            <SaveBar onSave={handleSave} saved={saved} />
           </div>
         );
 
@@ -364,6 +404,7 @@ export default function SettingsPage() {
             <PixelToggle value={useCase}   label="CASEMODE"  onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useCase", !useCase); }} />
             <PixelToggle value={useFlicker}   label="FLICKER"   onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useFlicker", !useFlicker); }} />
             <PixelToggle value={useScanlines} label="SCANLINES" onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useScanlines", !useScanlines); }} />
+            <SaveBar onSave={handleSave} saved={saved} />
           </div>
         );
 
@@ -390,6 +431,7 @@ export default function SettingsPage() {
               onHover={() => playSound("hover")}
               onToggle={() => { playSound("select"); updateSetting("bgmEnabled", !bgmEnabled); }}
             />
+            <SaveBar onSave={handleSave} saved={saved} />
           </div>
         );
 
