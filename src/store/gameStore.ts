@@ -84,7 +84,7 @@ export const useGameStore = create<GameState>()(
 
       // ── Proper defaults so nothing is ever undefined ──
       settings: {
-        bgmEnabled:  false,
+        bgmEnabled:  true,
         sfxEnabled:  true,
         volume:      5,
         useCase:     false,
