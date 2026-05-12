@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef} from "react";
 import { Box, Typography, Paper } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
@@ -60,16 +60,28 @@ const MultiplayerDiscovery = () => {
   };
 
   // 1. AUTO-JOIN LOGIC [cite: 975, 976]
-  useEffect(() => {
-    if (autoJoinLan && discoveredHosts.length > 0) {
-      // Find the first public, joinable lobby
-      const autoTarget = discoveredHosts.find(h => !h.isPrivate && !h.isGameActive);
-      if (autoTarget) {
-        setStatus("AUTO-JOINING LAN HOST...");
-        handleJoinLobby(autoTarget.lobbyId);
-      }
+// Add a ref to track if we've already attempted an auto-join
+// to prevent the hook from firing repeatedly if the host list updates.
+const autoJoinAttempted = useRef(false);
+
+useEffect(() => {
+  // 1. Guard Clause: If auto-join is OFF, do nothing. 
+  // This forces the user to use the manual ID input UI.
+  if (!autoJoinLan) return;
+
+  // 2. Only attempt auto-join if we haven't tried yet in this session
+  if (discoveredHosts.length > 0 && !autoJoinAttempted.current) {
+    
+    // Find the first valid public host
+    const autoTarget = discoveredHosts.find(h => !h.isPrivate && !h.isGameActive);
+
+    if (autoTarget) {
+      autoJoinAttempted.current = true; // Mark as attempted
+      setStatus("AUTO-JOINING LAN HOST...");
+      handleJoinLobby(autoTarget.lobbyId);
     }
-  }, [discoveredHosts, autoJoinLan]);
+  }
+}, [discoveredHosts, autoJoinLan, handleJoinLobby]);
 
   // 2. DISCOVERY LIFECYCLE [cite: 1017, 1020]
   useEffect(() => {
