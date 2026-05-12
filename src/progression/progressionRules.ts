@@ -16,13 +16,6 @@ import { Question } from '../types/question';
  **/
 
 export interface SessionProgressInput {
-    scoreEarned: any;
-    xpEarned: any;
-    isWin: any;
-    isMastery: any;
-    isTopThree: any;
-    questionsAnswered: any;
-    incorrectAnswers: any;
     mode: Mode;
     category: Category;
     difficulty: Difficulty;
