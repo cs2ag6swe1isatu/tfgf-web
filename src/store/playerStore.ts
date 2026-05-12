@@ -37,6 +37,47 @@ export interface PlayerState {
 }
 
 export const PLAYER_STORAGE_KEY = "tfgf-player";
+const MULTIPLAYER_INSTANCE_STORAGE_KEY = "tfgf-multiplayer-instance-id";
+
+let cachedMultiplayerInstanceId: string | null = null;
+
+const getSessionStorage = (): Storage | null => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+};
+
+export const getMultiplayerInstanceId = (): string => {
+  if (cachedMultiplayerInstanceId) return cachedMultiplayerInstanceId;
+
+  const storage = getSessionStorage();
+  if (storage) {
+    const existing = storage.getItem(MULTIPLAYER_INSTANCE_STORAGE_KEY);
+    if (existing) {
+      cachedMultiplayerInstanceId = existing;
+      return existing;
+    }
+
+    const generated = createId();
+    storage.setItem(MULTIPLAYER_INSTANCE_STORAGE_KEY, generated);
+    cachedMultiplayerInstanceId = generated;
+    return generated;
+  }
+
+  cachedMultiplayerInstanceId = createId();
+  return cachedMultiplayerInstanceId;
+};
+
+export const getMultiplayerPlayerId = (playerId: string): string => `${playerId}::${getMultiplayerInstanceId()}`;
+
+export const getMultiplayerPlayer = (player: Player): Player => ({
+  ...player,
+  id: getMultiplayerPlayerId(player.id),
+});
 
 export const createEmptyPlayData = (): PlayData => ({
   xpGained: 0,

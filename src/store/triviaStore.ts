@@ -3,7 +3,7 @@ import { Question } from '../types/question';
 import { Mode, Difficulty, Category } from '../constants';
 import type { GameConfig } from './gameStore';
 import { loadQuestions } from '../utils/loadQuestions';
-import { usePlayerStore } from "./playerStore";
+import { getMultiplayerPlayer, getMultiplayerPlayerId, usePlayerStore } from "./playerStore";
 import { useMultiplayerStore } from './multiplayerStore';
 import type { MultiplayerBridge } from '../types/multiplayer';
 import { defaultGameConfig } from '../config/gameConfig';
@@ -377,7 +377,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       const bridge: MultiplayerBridge | undefined = window.multiplayer;
       const lobbyId = useMultiplayerStore.getState().lobbyId;
       const hostAddress = useMultiplayerStore.getState().hostAddress;
-      const playerId = usePlayerStore.getState().getPlayer().id;
+      const playerId = getMultiplayerPlayerId(usePlayerStore.getState().getPlayer().id);
       if (!bridge || !lobbyId || !hostAddress) {
         console.warn("Missing multiplayer routing data for answer submission", { lobbyId, hostAddress });
         return;
@@ -402,7 +402,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     const state = get();
     const question = state.questions[state.currentIndex];
     if(!question) return;
-    const hostId = usePlayerStore.getState().getPlayer().id;
+    const hostId = getMultiplayerPlayerId(usePlayerStore.getState().getPlayer().id);
 
     const nextScores = applyRoundScores({
       currentScores: state.playerScores,
@@ -416,7 +416,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   },
   finalizeRankings: () => {
     const players = useMultiplayerStore.getState().players;
-    const hostPlayer = usePlayerStore.getState().getPlayer();
+    const hostPlayer = getMultiplayerPlayer(usePlayerStore.getState().getPlayer());
     const scors = get().playerScores;
 
     // Use a Map for better unique player management by ID
