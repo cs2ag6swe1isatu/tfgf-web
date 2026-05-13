@@ -1,5 +1,6 @@
 import { Mode, Category, Difficulty, RANKS } from "../constants";
 import { Question } from '../types/question';
+import { applyXpMultiplier } from "../tests/xpMultiplierTester";
 
 /** Progression Rules - Game Progression and Player Advancement Logic
   * 
@@ -49,6 +50,14 @@ export interface SessionDelta {
 
 const DIFFICULTY_XP = { easy: 10, medium: 20, hard: 30 } as const;
 
+/** Stores the last computed XP gain for display on result/summary pages */
+let _lastXpGained = 0;
+
+/** Returns the XP gained from the most recently built session delta */
+export function getLastXpGained(): number {
+  return _lastXpGained;
+}
+
 export function buildSessionDelta(input: SessionProgressInput): SessionDelta {
     // const accuracy = input.totalQuestions > 0 ? input.correctAnswers / input.totalQuestions : 0;
     const baseXp = input.correctAnswers * DIFFICULTY_XP[input.difficulty];
@@ -56,8 +65,11 @@ export function buildSessionDelta(input: SessionProgressInput): SessionDelta {
     const winBonus = input.won ? 30 : 0;
     const masteryBonus = input.mastered ? 20 : 0;
     
+    const rawXp = baseXp + winBonus + masteryBonus;
+    const finalXp = applyXpMultiplier(rawXp);
+    _lastXpGained = finalXp;
     return {
-        xpGained: baseXp + winBonus + masteryBonus,
+        xpGained: finalXp,
         scoreGained: input.score,
         gamesPlayed: 1,
         gamesMastered: input.mastered ? 1 : 0,

@@ -571,7 +571,6 @@ const QuestionPage = () => {
     if (
       phase !== "readying" &&
       phase !== "answering" &&
-      phase !== "asking" &&
       phase !== "scoring"
     )
       return;
@@ -1017,7 +1016,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
               </Typography>
             </Card>
 
-            {phase !== 'asking' && currentQuestion && (
+            {currentQuestion && (
               <Box
                 sx={{
                   display: 'grid',
