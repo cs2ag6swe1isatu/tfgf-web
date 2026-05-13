@@ -377,7 +377,7 @@ export const LevelUpModal: React.FC<{
     if (!visible) return;
     const t = setTimeout(onDone, 2400);
     return () => clearTimeout(t);
-  }, [visible, onDone]);
+  }, [visible]);
 
   if (!visible) return null;
 
@@ -477,6 +477,10 @@ export function useRewardSystem() {
     timerRefs.current = [];
   }, []);
 
+  const handleLevelUpDone = useCallback(() => {
+    setState(DEFAULT_STATE);
+  }, []);
+
   const trigger = useCallback((data: RewardData) => {
     clearTimers();
     setState(DEFAULT_STATE);
@@ -513,7 +517,7 @@ export function useRewardSystem() {
 
   useEffect(() => () => clearTimers(), [clearTimers]);
 
-  return { state, trigger };
+  return { state, trigger, handleLevelUpDone };
 }
 
 export const RewardOverlay: React.FC<{

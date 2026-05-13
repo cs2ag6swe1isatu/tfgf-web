@@ -1,28 +1,40 @@
 import { useState, useEffect } from "react";
 import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
 import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
-import type { Player } from "../types/player";
 
 // ─── SCORING ────────────────────────────────────────────────────────────────────
 const DMULT: Record<string, number> = { Easy: 1.0, Medium: 1.5, Hard: 2.0 };
-const RANKS: { name: string; min: number; max: number }[] = [
-  { name: "ROOKIE",    min: 0,    max: 300  },
-  { name: "STUDENT",   min: 300,  max: 600  },
-  { name: "HACKER",    min: 600,  max: 1000 },
-  { name: "CYBERPUNK", min: 1000, max: 1500 },
-  { name: "LEGEND",    min: 1500, max: 2000 },
-];
 
-interface RankInfo {
+interface RankTier {
+  rank: number;
   name: string;
-  min: number;
-  max: number;
+  minXp: number;
+  maxXp: number;
+  minLevel: number;
+  maxLevel: number;
 }
 
-function getRankInfo(xp: number): { rank: RankInfo; pct: number } {
-  const r = [...RANKS].reverse().find((rk) => xp >= rk.min) || RANKS[0];
-  const pct = Math.min(Math.round(((xp - r.min) / (r.max - r.min)) * 100), 100);
-  return { rank: r, pct };
+const RANK_TIERS: RankTier[] = [
+  { rank: 1,  name: "Novice",     minXp: 0,      maxXp: 10000,  minLevel: 1,  maxLevel: 10  },
+  { rank: 2,  name: "Student",    minXp: 10001,  maxXp: 20000,  minLevel: 11, maxLevel: 20  },
+  { rank: 3,  name: "Scholar",    minXp: 20001,  maxXp: 30000,  minLevel: 21, maxLevel: 30  },
+  { rank: 4,  name: "Professor",  minXp: 30001,  maxXp: 40000,  minLevel: 31, maxLevel: 40  },
+  { rank: 5,  name: "Expert",     minXp: 40001,  maxXp: 50000,  minLevel: 41, maxLevel: 50  },
+  { rank: 6,  name: "Specialist", minXp: 50001,  maxXp: 60000,  minLevel: 51, maxLevel: 60  },
+  { rank: 7,  name: "Genius",     minXp: 60001,  maxXp: 70000,  minLevel: 61, maxLevel: 70  },
+  { rank: 8,  name: "Brainiac",   minXp: 70001,  maxXp: 80000,  minLevel: 71, maxLevel: 80  },
+  { rank: 9,  name: "Sage",       minXp: 80001,  maxXp: 90000,  minLevel: 81, maxLevel: 90  },
+  { rank: 10, name: "Oracle",     minXp: 90001,  maxXp: 100000, minLevel: 91, maxLevel: 100 },
+];
+
+function getRankTier(xp: number): { tier: RankTier; pct: number } {
+  const tier =
+    [...RANK_TIERS].reverse().find((t) => xp >= t.minXp) ?? RANK_TIERS[0];
+  const range = tier.maxXp - tier.minXp;
+  const pct = range > 0
+    ? Math.min(Math.round(((xp - tier.minXp) / range) * 100), 100)
+    : 100;
+  return { tier, pct };
 }
 
 // ─── COUNT-UP HOOK ──────────────────────────────────────────────────────────────
@@ -82,11 +94,9 @@ function buildPlayerResults(
   const m = DMULT[difficulty] ?? 1.0;
 
   const playerMap = new Map<string, { name: string; avatar: string; isHost: boolean }>();
-
   lobbyMembers.forEach((p) => {
     playerMap.set(p.id, { name: p.name, avatar: p.avatar ?? "👤", isHost: p.isHost });
   });
-
   if (!playerMap.has(localPlayerId)) {
     playerMap.set(localPlayerId, { name: "You", avatar: "👤", isHost: false });
   }
@@ -119,13 +129,6 @@ function buildPlayerResults(
     .sort((a, b) => a.rank - b.rank);
 }
 
-// ─── ACHIEVEMENT TYPE ───────────────────────────────────────────────────────────
-interface AchievementDisplay {
-  i: string;
-  n: string;
-  d: string;
-}
-
 // ─── SUB-COMPONENTS ─────────────────────────────────────────────────────────────
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -151,6 +154,7 @@ function PlayerRow({ player, isYou, medals, delay, ready }: {
 }) {
   const [visible, setVisible] = useState(false);
   const isFirst = player.rank === 1;
+
   useEffect(() => {
     if (!ready) return;
     const t = setTimeout(() => setVisible(true), delay);
@@ -268,10 +272,8 @@ export default function MultiplayerResults() {
   const [ready, setReady] = useState(false);
   const [progWidth, setProgWidth] = useState(0);
 
-  // --- Read from stores ---
   const triviaRankings = useTriviaStore((s) => s.rankings);
   const triviaQuestions = useTriviaStore((s) => s.questions);
-  const triviaPlayerScores = useTriviaStore((s) => s.playerScores);
 
   const gameConfig = useGameStore((s) => s.gameConfig);
   const localPlayer = usePlayerStore((s) => s.getPlayer());
@@ -281,15 +283,12 @@ export default function MultiplayerResults() {
   const resetTrivia = useTriviaStore((s) => s.resetGame);
   const resetMultiplayer = useMultiplayerStore((s) => s.resetMultiplayer);
 
-  // Determine local multiplayer player ID
   const localMpId = getMultiplayerPlayerId(localPlayer.id);
 
-  // Compute match info
   const category = gameConfig?.category ?? "TRIVIA";
   const difficulty = gameConfig?.difficulty ?? "medium";
   const totalQuestions = triviaQuestions.length || gameConfig?.questionLimit || 15;
 
-  // Build player results from rankings
   const players = buildPlayerResults(
     triviaRankings,
     lobbyPlayers,
@@ -297,23 +296,13 @@ export default function MultiplayerResults() {
     difficulty,
   );
 
-  // Find "you" in the list
   const you = players.find((p) => p.id === localMpId);
 
-  // Fetch local XP from player store for rank progress
   const localXp = localPlayer?.totalXp ?? 0;
-  const { rank: rankInfo, pct: rankPct } = getRankInfo(localXp);
-
-  // Compute achievements for the local player
-  const achievements: AchievementDisplay[] = [];
-  if (you?.rank === 1) achievements.push({ i: "🏆", n: "CHAMPION CIRCUIT", d: "Reached 1st place in multiplayer" });
-  if (you?.acc === 100) achievements.push({ i: "🎯", n: "PERFECT SCORE", d: "100% accuracy — flawless round!" });
-  if (you?.correctCount === totalQuestions) achievements.push({ i: "🧠", n: "TRIVIA MASTER", d: "Answered every question correctly" });
-  const topAch: AchievementDisplay = achievements.length > 0 ? achievements[0] : { i: "🎮", n: "PARTY UP", d: "Completed a multiplayer match session" };
+  const { tier, pct: rankPct } = getRankTier(localXp);
 
   const medals = ["🥇", "🥈", "🥉"];
 
-  // Count-up displays
   const scoreDisplay = useCountUp(you?.score || 0, 1800, ready);
   const xpDisplay = useCountUp(you?.xp || 0, 2000, ready);
   const accDisplay = useCountUp(you?.acc || 0, 1400, ready);
@@ -326,7 +315,6 @@ export default function MultiplayerResults() {
     return () => clearTimeout(t);
   }, [rankPct]);
 
-  // Navigation handlers
   const handleBackToLobby = () => {
     resetTrivia();
     setScreen("multiplayer-lobby");
@@ -341,7 +329,12 @@ export default function MultiplayerResults() {
   return (
     <div style={s.root}>
       <div style={s.scanlines} />
-      {[{top:12,left:12},{top:12,right:12,transform:"scaleX(-1)"},{bottom:12,left:12,transform:"scaleY(-1)"},{bottom:12,right:12,transform:"scale(-1,-1)"}].map((c, i) => (
+      {[
+        { top: 12, left: 12 },
+        { top: 12, right: 12, transform: "scaleX(-1)" },
+        { bottom: 12, left: 12, transform: "scaleY(-1)" },
+        { bottom: 12, right: 12, transform: "scale(-1,-1)" },
+      ].map((c, i) => (
         <div key={i} style={{ ...s.corner, ...c }} />
       ))}
 
@@ -413,9 +406,9 @@ export default function MultiplayerResults() {
           <SectionTitle>▶ YOUR PERFORMANCE</SectionTitle>
           <div style={s.statsGrid}>
             <StatCard label="YOUR SCORE" value={ready ? scoreDisplay : 0} unit="pts" accent="#00DFFF" />
-            <StatCard label="XP GAINED" value={ready ? xpDisplay : 0} unit="xp" accent="#35E52B" />
-            <StatCard label="ACCURACY" value={ready ? accDisplay : 0} unit="%" accent="#D9E600" />
-            <StatCard label="CORRECT" value={ready ? (you?.correctCount ?? 0) : 0} unit={`/${totalQuestions}`} accent="#C9562E" />
+            <StatCard label="XP GAINED"  value={ready ? xpDisplay   : 0} unit="xp"  accent="#35E52B" />
+            <StatCard label="ACCURACY"   value={ready ? accDisplay   : 0} unit="%"   accent="#D9E600" />
+            <StatCard label="CORRECT"    value={ready ? (you?.correctCount ?? 0) : 0} unit={`/${totalQuestions}`} accent="#C9562E" />
           </div>
         </div>
 
@@ -423,39 +416,34 @@ export default function MultiplayerResults() {
         <div>
           <SectionTitle>▶ RANK PROGRESS</SectionTitle>
           <div style={s.rankPanel}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-              <span style={s.rankName}>{rankInfo.name}</span>
+            {/* Tier badge row */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={s.rankTierBadge}>RANK {tier.rank}</span>
+                <span style={s.rankName}>{tier.name.toUpperCase()}</span>
+              </div>
               <span style={s.rankPct}>{rankPct}%</span>
             </div>
+            {/* Level range */}
+            <div style={{ marginBottom: 10 }}>
+              <span style={s.rankSub}>
+                LEVELS {tier.minLevel}–{tier.maxLevel} &nbsp;·&nbsp; {tier.minXp.toLocaleString()}–{tier.maxXp.toLocaleString()} XP
+              </span>
+            </div>
+            {/* Progress bar */}
             <div style={s.progTrack}>
               <div style={{ ...s.progBar, width: `${progWidth}%` }} />
               <div style={{ ...s.progGem, left: `calc(${progWidth}% - 7px)` }}>⬟</div>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={s.rankSub}>XP: {localXp}</span>
-              <span style={s.rankSub}>NEXT: {rankInfo.max} XP</span>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+              <span style={s.rankSub}>XP: {localXp.toLocaleString()}</span>
+              <span style={s.rankSub}>NEXT RANK: {tier.maxXp.toLocaleString()} XP</span>
             </div>
-          </div>
-        </div>
-
-        {/* ACHIEVEMENT */}
-        <div>
-          <SectionTitle>▶ ACHIEVEMENTS</SectionTitle>
-          <div style={s.achCard}>
-            <div style={{ fontSize: 32, filter: "drop-shadow(0 0 7px #D9E600)" }}>{topAch.i}</div>
-            <div style={{ flex: 1 }}>
-              <div style={s.achTitle}>ACHIEVEMENT UNLOCKED</div>
-              <div style={s.achName}>{topAch.n}</div>
-              <div style={s.achDesc}>{topAch.d}</div>
-            </div>
-            {achievements.length > 1 && (
-              <div style={s.achMore}>+{achievements.length - 1} MORE</div>
-            )}
           </div>
         </div>
 
         {/* BUTTONS */}
-        <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", paddingTop: 4 }}>
+        <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", paddingTop: 4, paddingBottom: 20 }}>
           <CyberButton label="◀ BACK TO LOBBY" onClick={handleBackToLobby} />
           <CyberButton label="EXIT LOBBY ✕" onClick={handleExitLobby} red />
         </div>
@@ -548,30 +536,26 @@ const s: Record<string, React.CSSProperties> = {
     gap: 13,
   },
   rankPanel: { background: "#10363A3a", border: "1px solid #00DFFF2a", padding: "14px 16px" },
+  rankTierBadge: {
+    fontSize: "5.5px",
+    color: "#031533",
+    background: "#D9E600",
+    padding: "3px 7px",
+    letterSpacing: ".1em",
+    fontFamily: "'Press Start 2P', monospace",
+  },
   rankName: { fontSize: "clamp(7px,1.4vw,10px)", color: "#D9E600", textShadow: "0 0 8px #D9E600", fontFamily: "'Press Start 2P', monospace" },
   rankPct: { fontSize: "clamp(7px,1.4vw,10px)", color: "#35E52B", fontFamily: "'Press Start 2P', monospace" },
   progTrack: { height: 16, background: "#041D4955", border: "1px solid #D9E60033", position: "relative", overflow: "visible", marginBottom: 8 },
   progBar: { height: "100%", width: 0, background: "linear-gradient(90deg,#D9E600aa,#D9E600)", boxShadow: "0 0 10px #D9E600", transition: "width 1.5s cubic-bezier(.4,0,.2,1)" },
   progGem: { position: "absolute", top: -5, color: "#D9E600", fontSize: 16, textShadow: "0 0 7px #D9E600", lineHeight: 1, transition: "left 1.5s cubic-bezier(.4,0,.2,1)" },
   rankSub: { fontSize: "5.5px", color: "#8ecfda", letterSpacing: ".08em", fontFamily: "'Press Start 2P', monospace" },
-  achCard: {
-    display: "flex", alignItems: "center", gap: 14,
-    background: "linear-gradient(90deg,#35E52B0e,#D9E6000e)",
-    border: "1px solid #35E52B77",
-    boxShadow: "0 0 14px #35E52B2a",
-    padding: "13px 16px",
-    animation: "apulse 3s ease-in-out infinite",
-    position: "relative",
-  },
-  achTitle: { fontSize: "5.5px", color: "#35E52B", letterSpacing: ".16em", marginBottom: 5, fontFamily: "'Press Start 2P', monospace" },
-  achName: { fontSize: "clamp(7px,1.4vw,10px)", color: "#D9E600", textShadow: "0 0 7px #D9E600", marginBottom: 4, fontFamily: "'Press Start 2P', monospace" },
-  achDesc: { fontSize: "5.5px", color: "#8ecfda", letterSpacing: ".08em", fontFamily: "'Press Start 2P', monospace" },
-  achMore: { fontSize: "5.5px", color: "#35E52B", border: "1px solid #35E52B", padding: "3px 7px", animation: "pgreen 1.6s ease-in-out infinite", whiteSpace: "nowrap", fontFamily: "'Press Start 2P', monospace" },
 };
 
 const globalCSS = `
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: auto !important; min-height: 100%; overflow: 'hidden', !important; overflow-x: hidden; }
 @keyframes pred {
   0%,100% { text-shadow: 0 0 8px #E33232, 0 0 24px #E33232, 3px 3px 0 #7a0000; }
   50% { text-shadow: 0 0 18px #E33232, 0 0 50px #E33232, 0 0 80px #E3323277, 3px 3px 0 #7a0000; }
@@ -579,14 +563,6 @@ const globalCSS = `
 @keyframes wglow {
   0%,100% { box-shadow: 0 0 14px #C9562E2a; }
   50% { box-shadow: 0 0 26px #C9562E66, 0 0 4px #C9562E inset; }
-}
-@keyframes apulse {
-  0%,100% { box-shadow: 0 0 14px #35E52B2a; }
-  50% { box-shadow: 0 0 28px #35E52B55; }
-}
-@keyframes pgreen {
-  0%,100% { opacity: 1; }
-  50% { opacity: .45; }
 }
 .lb-hover-row:hover {
   background: linear-gradient(90deg, #00DFFF1f, #00DFFF0d 60%, transparent) !important;

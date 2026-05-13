@@ -63,6 +63,10 @@ const CLUTCH_MIN_ROUNDS = 3;
 const CLUTCH_MIN_LEADER_CORRECT_ANSWERS = 4;
 const CLUTCH_MIN_SCORE_GAP_CORRECT_ANSWERS = 2;
 
+// ─── XP per level constant ────────────────────────────────────────────────────
+
+const XP_PER_LEVEL = 1000;
+
 // ─── Responsive Scale Wrapper ─────────────────────────────────────────────────
 
 const ScaleWrapper = styled(Box)({
@@ -343,79 +347,6 @@ const AnswerLabel = styled(Box, {
   })
 );
 
-// ─── Ranking Overlay (scoring phase) ─────────────────────────────────────────
-
-const RankingOverlay = styled(Box)({
-  position: "absolute",
-  inset: 0,
-  zIndex: 30,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "rgba(1,7,7,0.92)",
-  animation: `${fadeIn} 0.3s ease both`,
-});
-
-const RankingPanel = styled(Box)({
-  width: "560px",
-  border: "1.5px solid #00DFFF",
-  borderRadius: "12px",
-  background: "rgba(0,5,20,0.95)",
-  boxShadow: "0 0 24px #00DFFF44, 0 0 48px #00DFFF22",
-  padding: "28px 32px",
-  display: "flex",
-  flexDirection: "column",
-  gap: "10px",
-});
-
-const RankingTitle = styled(Typography)({
-  fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "25px",
-  color: "#35E52B",
-  textShadow: "0 0 8px #42FF5C",
-  textAlign: "center",
-  marginBottom: "8px",
-  letterSpacing: "3px",
-});
-
-const RankingRow = styled(Box)<{ isLocal?: boolean }>(({ isLocal }) => ({
-  display: "flex",
-  alignItems: "center",
-  gap: "14px",
-  padding: "10px 14px",
-  borderRadius: "6px",
-  background: isLocal ? "rgba(0,229,255,0.08)" : "transparent",
-  border: isLocal ? "1px solid #00E5FF44" : "1px solid transparent",
-}));
-
-const RankNumber = styled(Typography)({
-  fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "25px",
-  color: "#00E5FF",
-  textShadow: "0 0 6px #00E5FF",
-  minWidth: "24px",
-  textAlign: "center",
-});
-
-const RankName = styled(Typography)({
-  fontFamily: "'Courier New', monospace",
-  fontSize: "25px",
-  color: "#DADADA",
-  flex: 1,
-  letterSpacing: "1px",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-});
-
-const RankScore = styled(Typography)({
-  fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "25px",
-  color: "#35E52B",
-  textShadow: "0 0 6px #35E52B",
-});
-
 // ─── Bottom Spacer / Phase Hint ───────────────────────────────────────────────
 
 const PhaseBar = styled(Box)({
@@ -511,18 +442,23 @@ const QuestionPage = () => {
   const scale = useResponsiveScale();
 
   // ── Reward System hooks ────────────────────────────────────────────────────
-  const { state: rewardState, trigger: triggerReward } = useRewardSystem();
+  // FIX 1: Destructure handleLevelUpDone from the hook — do NOT redeclare it below.
+  const {
+    state: rewardState,
+    trigger: triggerReward,
+    handleLevelUpDone,
+  } = useRewardSystem();
   const answerButtonRef = useRef<HTMLElement>(null);
 
-  // ── Level-up tracking refs (FIX B) ─────────────────────────────────────────
+  // ── Level-up tracking refs ──────────────────────────────────────────────────
   const didLevelUpThisSessionRef = useRef<boolean>(false);
   const levelAfterSessionRef     = useRef<number>(0);
 
-  // ── End-game deferred data (level-up before achievements - FIX D) ─────────
+  // ── End-game deferred data (level-up before achievements) ─────────────────
   const endDataRef = useRef<{
-    achievements: Achievement[];
-    postUnlockScreen: "result";
-  } | null>(null);
+  achievements: Achievement[];
+  postUnlockScreen: "result" | "multiplayer-results";
+} | null>(null);
 
   // ── Game timer tracking ─────────────────────────────────────────────────────
   const gameStartTimeRef = useRef<number | null>(null);
@@ -586,20 +522,20 @@ const QuestionPage = () => {
       const currentOldLevel = localPlayer.level;
       const currentNewLevel = getLevel(newXP);
 
-      // ── FIX A: Suppress level-up modal during gameplay by passing same level ──
+      // Suppress level-up modal during gameplay by passing the same level for both
       triggerReward({
         score: finalScore,
         xp: xpEarned,
         streak: useTriviaStore.getState().currentStreak + 1,
         oldXP,
         newXP,
-        oldLevel: currentNewLevel,  // Pass newLevel as oldLevel to suppress level-up trigger
-        newLevel: currentNewLevel,  // Both same = no level-up visual during gameplay
-        xpPerLevel: 1000,
+        oldLevel: currentNewLevel,
+        newLevel: currentNewLevel,
+        xpPerLevel: XP_PER_LEVEL,
         buttonRef: answerButtonRef,
       });
 
-      // ── FIX B: Track actual level-up in refs ──────────────────────────────
+      // Track actual level-up in refs for end-of-game handling
       if (currentNewLevel > currentOldLevel) {
         didLevelUpThisSessionRef.current = true;
         levelAfterSessionRef.current     = currentNewLevel;
@@ -618,11 +554,11 @@ const QuestionPage = () => {
     )
       return;
 
-      if (phase === "answering" && selectedAnswer && mode === "solo") return;
+    if (phase === "answering" && selectedAnswer && mode === "solo") return;
 
     let timerInterval: number;
     
-const timerTickIntervalMs = 1000;
+    const timerTickIntervalMs = 1000;
 
     if (mode === "solo" || lobbyRole === "host") {
       timerInterval = window.setInterval(() => {
@@ -739,7 +675,6 @@ const timerTickIntervalMs = 1000;
       fellBehindByHalfRef.current = false;
       totalSessionTimeRef.current = 0;
       totalAnsweredRef.current = 0;
-      // ── FIX B: Reset level-up refs at game start ─────────────────────────
       didLevelUpThisSessionRef.current = false;
       levelAfterSessionRef.current     = 0;
     }
@@ -772,18 +707,21 @@ const timerTickIntervalMs = 1000;
   }, [mode, playerScores, localPlayerId, currentIndex]);
 
   // ── Step 1: Process game end data (XP, achievements) ───────────────────────
-  useEffect(() => {
-    if (phase !== "end" || endProgressAppliedRef.current) return;
-    endProgressAppliedRef.current = true;
+ useEffect(() => {
+   if (phase !== "end" || endProgressAppliedRef.current) return;
+endProgressAppliedRef.current = true;
 
-    const gameConfig = useGameStore.getState().gameConfig;
-    const { mode, category, difficulty } = gameConfig || {};
-    if (!mode || !category || !difficulty) return;
+const gameConfig = useGameStore.getState().gameConfig;
+const { mode, category, difficulty } = gameConfig || {};
+if (!mode || !category || !difficulty) return;
 
-    const triviaState = useTriviaStore.getState();
-    const userAnswers = triviaState.userAnswers;
-    const questionsState = triviaState.questions;
+if (mode === "multiplayer") {
+  finalizeRankings(); // ensures clients have rankings before reading them below
+}
 
+const triviaState = useTriviaStore.getState();
+const userAnswers = triviaState.userAnswers;
+const questionsState = triviaState.questions;
     const correctAnswersCount = questionsState.filter(
       (q, index) => q.correctAnswer === userAnswers[index]
     ).length;
@@ -819,7 +757,7 @@ const timerTickIntervalMs = 1000;
         : 0.0;
     useTriviaStore.setState({ avgTime });
 
-    const postUnlockScreen = mode === "multiplayer" ? "multiplayer-results" as const : "result" as const;
+    const postUnlockScreen: "result" | "multiplayer-results" = mode === "multiplayer" ? "multiplayer-results" : "result";
 
     const progressionInput: SessionProgressInput = {
       mode,
@@ -841,17 +779,13 @@ const timerTickIntervalMs = 1000;
 
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);
 
-    // ── FIX C + FIX D: Show level-up first, then achievements ──────────────
     if (didLevelUpThisSessionRef.current) {
-      // Level-up happened this session — show it first
-      // Store achievements data for after level-up popup dismisses
+      // Level-up happened — show it first, queue achievements for after
       endDataRef.current = {
         achievements: newlyUnlockedAchievements,
         postUnlockScreen,
       };
 
-      // Trigger level-up reward popup (only level data, score/XP/streak will
-      // also trigger but at game end these are harmless flash effects)
       triggerReward({
         score: 0,
         xp: 0,
@@ -860,39 +794,17 @@ const timerTickIntervalMs = 1000;
         newXP: 0,
         oldLevel: levelAfterSessionRef.current - 1,
         newLevel: levelAfterSessionRef.current,
-        xpPerLevel: 1000,
+        xpPerLevel: XP_PER_LEVEL,
       });
-      // The onDone callback on RewardOverlay handles the post-level-up flow
+      // handleLevelUpDone (from the hook) handles the post-level-up flow
     } else if (newlyUnlockedAchievements.length > 0) {
-      // No level-up, but achievements — go directly to achievement screen
       const gameState = useGameStore.getState();
       gameState.queueAchievementUnlocks(newlyUnlockedAchievements, postUnlockScreen);
       gameState.setScreen("achievement-unlock");
     } else {
-      // No level-up, no achievements — go directly to result
       setScreen(postUnlockScreen);
     }
-  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen, triggerReward]);
-
-  // ── Step 2: Handle level-up onDone callback → trigger achievements ─────────
-  const handleLevelUpDone = useCallback(() => {
-    const data = endDataRef.current;
-    if (!data) {
-      // No pending data — just go to result
-      setScreen("result");
-      return;
-    }
-
-    endDataRef.current = null;
-
-    if (data.achievements.length > 0) {
-      const gameState = useGameStore.getState();
-      gameState.queueAchievementUnlocks(data.achievements, "result");
-      gameState.setScreen("achievement-unlock");
-    } else {
-      setScreen("result" as const);
-    }
-  }, [setScreen]);
+  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen, triggerReward, finalizeRankings]);
 
   // ── Derived state ───────────────────────────────────────────────────────────
 
@@ -901,6 +813,8 @@ const timerTickIntervalMs = 1000;
   const xpEarned = rewardState.data?.xp ?? 0;
   const currentLevel = localPlayer.level;
 
+  // NOTE: displayedRankings is kept for potential future use but the overlay
+  // has been removed per requirements (no ranking shown after each question).
   const displayedRankings = useMemo(() => {
     const byPlayerId = new Map<string, { playerId: string; name: string; score: number }>();
 
@@ -1008,10 +922,10 @@ const timerTickIntervalMs = 1000;
               }}
             />
             <TimerText urgent={isUrgent}>
-  {phase === 'asking' || phase === 'readying' 
-    ? "--" 
-    : timer !== undefined ? `${Math.ceil(timer)}s` : "--"}
-</TimerText>
+              {phase === 'asking' || phase === 'readying' 
+                ? "--" 
+                : timer !== undefined ? `${Math.ceil(timer)}s` : "--"}
+            </TimerText>
           </TimerBox>
         </HudBar>
 
@@ -1020,7 +934,7 @@ const timerTickIntervalMs = 1000;
           <XPBarAnimate
             oldXP={previousXP}
             newXP={previousXP + xpEarned}
-            xpPerLevel={1000}
+            xpPerLevel={XP_PER_LEVEL}
             level={currentLevel}
             animate={rewardState.showXPBar}
           />
@@ -1035,35 +949,35 @@ const timerTickIntervalMs = 1000;
         </QuestionPanel>
 
         {phase === 'readying' && (
-  <Box sx={{
-    position: 'absolute',
-    inset: 0,
-    zIndex: 40,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'rgba(0,0,0,0.85)',
-  }}>
-    <Typography sx={{
-      fontFamily: "'Press Start 2P', monospace",
-      fontSize: '40px',
-      color: '#35E52B',
-      textShadow: '0 0 16px #42FF5C',
-      marginBottom: '24px',
-    }}>
-      GET READY
-    </Typography>
-    <Typography sx={{
-      fontFamily: "'Press Start 2P', monospace",
-      fontSize: '80px',
-      color: '#00E5FF',
-      textShadow: '0 0 24px #00E5FF',
-    }}>
-      {Math.ceil(timer)}
-    </Typography>
-  </Box>
-)}
+          <Box sx={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 40,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.85)',
+          }}>
+            <Typography sx={{
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: '40px',
+              color: '#35E52B',
+              textShadow: '0 0 16px #42FF5C',
+              marginBottom: '24px',
+            }}>
+              GET READY
+            </Typography>
+            <Typography sx={{
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: '80px',
+              color: '#00E5FF',
+              textShadow: '0 0 24px #00E5FF',
+            }}>
+              {Math.ceil(timer)}
+            </Typography>
+          </Box>
+        )}
 
         {/* ── ANSWER GRID ───────────────────────────────────────────────────── */}
         <AnswerGrid>
@@ -1090,34 +1004,19 @@ const timerTickIntervalMs = 1000;
           })}
         </AnswerGrid>
 
-       <PhaseBar>
-      {currentHint && <PhaseHint>{currentHint}</PhaseHint>}
-    </PhaseBar>
+        <PhaseBar>
+          {currentHint && <PhaseHint>{currentHint}</PhaseHint>}
+        </PhaseBar>
 
-        {/* ── RANKING OVERLAY (multiplayer scoring phase) ───────────────────── */}
-        {phase === "scoring" && mode === "multiplayer" && displayedRankings.length > 0 && (
-          <RankingOverlay>
-            <RankingPanel>
-              <RankingTitle>— RANKINGS —</RankingTitle>
-              {displayedRankings.slice(0, 8).map((entry) => (
-                <RankingRow key={entry.playerId} isLocal={entry.playerId === localPlayer.id}>
-                  <RankNumber>#{entry.rank}</RankNumber>
-                  <RankName>
-                    {entry.name}
-                    {entry.playerId === localPlayer.id ? " ◀" : ""}
-                  </RankName>
-                  <RankScore>{entry.score}</RankScore>
-                </RankingRow>
-              ))}
-            </RankingPanel>
-          </RankingOverlay>
-        )}
+        {/* ── RANKING OVERLAY removed (no longer shown after each question) ── */}
 
         {/* ── REWARD OVERLAY ───────────────────────────────────────────────── */}
+        {/* FIX 1: Use `rewardState` (not `state`) and XP_PER_LEVEL constant   */}
+        {/* FIX 2: Use handleLevelUpDone from useRewardSystem hook              */}
         <RewardOverlay
           rewardState={rewardState}
           onLevelUpDone={handleLevelUpDone}
-          xpPerLevel={1000}
+          xpPerLevel={XP_PER_LEVEL}
         />
       </GameScreen>
     </ScaleWrapper>
