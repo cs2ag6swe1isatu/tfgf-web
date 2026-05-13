@@ -45,9 +45,16 @@ export function lockAchievement(achievementId: string): void {
   console.log(`✗ Locked achievement: ${rule.name}`);
 }
 
+export function unlockAchievements(ids: string[]): void {
+  ids.forEach(unlockAchievement);
+}
+
+export function lockAchievements(ids: string[]): void {
+  ids.forEach(lockAchievement);
+}
+
 export function unlockAllAchievements(): void {
   const store = usePlayerStore.getState();
-  const player = store.getPlayer();
   
   const unlockedAll = ACHIEVEMENT_RULES.map(rule => ({
     id: rule.id,
@@ -93,11 +100,12 @@ export function getAchievementStatus(): void {
 }
 
 export function setRivalDefeats(count: number): void {
+  // If called from console as a direct global, 'count' might be the event/window if invoked weirdly
+  // but usually it's just the first arg.
   const store = usePlayerStore.getState();
   const player = store.getPlayer();
   const rivalStats = { ...player.rivalStats };
   
-  // Create a mock rival if we need to increment defeats
   const rivalId = "rival-1";
   rivalStats[rivalId] = count;
   
@@ -114,7 +122,7 @@ export function addRivalWin(opponentId: string, incrementCount: number = 1): voi
   const player = store.getPlayer();
   
   const newCount = (player.rivalStats[opponentId] || 0) + incrementCount;
-  const totalDefeats = Object.values(player.rivalStats).reduce((a, b) => a + b, 0) + incrementCount;
+  const totalDefeats = Object.values(player.rivalStats).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0) + incrementCount;
   
   store.updatePlayer({
     rivalDefeats: totalDefeats,
@@ -129,9 +137,11 @@ export function addRivalWin(opponentId: string, incrementCount: number = 1): voi
 
 // Expose to window for console access
 if (typeof window !== "undefined") {
-  (window as any).achievementTester = {
+  const tester = {
     unlock: unlockAchievement,
     lock: lockAchievement,
+    unlockAchievements: unlockAchievements,
+    lockAchievements: lockAchievements,
     unlockAll: unlockAllAchievements,
     lockAll: lockAllAchievements,
     list: listAchievements,
@@ -139,4 +149,21 @@ if (typeof window !== "undefined") {
     setRivalDefeats,
     addRivalWin
   };
+
+  (window as any).achievementTester = tester;
+
+  // Also expose flat versions for convenience
+  (window as any).unlockAchievement = unlockAchievement;
+  (window as any).lockAchievement = lockAchievement;
+  (window as any).unlockAchievements = unlockAchievements;
+  (window as any).lockAchievements = lockAchievements;
+  (window as any).unlockAllAchievements = unlockAllAchievements;
+  (window as any).lockAllAchievements = lockAllAchievements;
+  (window as any).listAchievements = listAchievements;
+  (window as any).getAchievementStatus = getAchievementStatus;
+  (window as any).setRivalDefeats = setRivalDefeats;
+  (window as any).addRivalWin = addRivalWin;
+
+  console.log("%c ACHIEVEMENT TESTER LOADED ", "background: #111; color: #35E52B; font-weight: bold; border: 1px solid #35E52B;");
+  console.log("Usage: achievementTester.unlock('id'), unlockAllAchievements(), listAchievements()");
 }
