@@ -146,6 +146,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         selectedAnswer: "",
         score: 0,
         userAnswers: [],
+        questionLimit,
         playerScores: {},
         playerAnswers: {},
         rankings: [],
@@ -201,13 +202,11 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         userAnswers: newUserAnswers,
       });
     } else if (mode === 'multiplayer') {
-      set({
-        selectedAnswer: answer,
-        phase: 'scoring',
-        timer: answerTimer,
-        userAnswers: newUserAnswers,
-      });
-    }
+  set({
+    selectedAnswer: answer,
+    userAnswers: newUserAnswers,
+  });
+} 
   },
 
   /* ---------- Timer ---------- */
@@ -235,20 +234,29 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     }
 
     if (phase === 'answering') {
-      if (selectedAnswer) {
-        set({ timer: 0 });
-        get().selectAnswer(selectedAnswer);
-        return;
-      }
-
-      const scoringDelay = mode === 'solo' ? soloScoringDelay : get().answerTimer;
+  if (selectedAnswer) {
+    if (mode === 'solo') {
+      set({ timer: 0 });
+      get().selectAnswer(selectedAnswer);
+      return;
+    }
+    // In multiplayer, host still needs to advance phase when timer expires
+    if (mode === 'multiplayer') {
       set({
-        // Always enter scoring first so host can compute and broadcast final multiplayer rankings.
         phase: 'scoring',
-        timer: scoringDelay,
+        timer: soloScoringDelay,
       });
       return;
     }
+  }
+
+  const scoringDelay = mode === 'solo' ? soloScoringDelay : get().answerTimer;
+  set({
+    phase: 'scoring',
+    timer: scoringDelay,
+  });
+  return;
+}
 
     if (currentIndex + 1 < questions.length) {
       if (mode === 'multiplayer') {
@@ -370,8 +378,12 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     }
 
     const nextAnswers = [...userAnswers];
-    nextAnswers[currentIndex] = answer;
-    set({ selectedAnswer: answer, userAnswers: nextAnswers });
+nextAnswers[currentIndex] = answer;
+set({ 
+  selectedAnswer: answer, 
+  userAnswers: nextAnswers,
+  // No phase change — timer controls when scoring starts
+});
     
     if (mode === "multiplayer" && useMultiplayerStore.getState().lobbyRole === "client") {
       const bridge: MultiplayerBridge | undefined = window.multiplayer;

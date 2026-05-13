@@ -516,6 +516,7 @@ const QuestionPage = () => {
     timer,
     playerScores,
     rankings,
+    questionLimit,
     submitAnswer,
     receiveRemoteAnswer,
     scoreCurrentQuestion,
@@ -574,6 +575,8 @@ const QuestionPage = () => {
       phase !== "scoring"
     )
       return;
+
+      if (phase === "answering" && selectedAnswer) return;
 
     let timerInterval: number;
     
@@ -767,13 +770,6 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
       hostedLobby: mode === "multiplayer" && lobbyRole === "host",
       fellBehindByHalfAndWon: mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
-      scoreEarned: undefined,
-      xpEarned: undefined,
-      isWin: undefined,
-      isMastery: undefined,
-      isTopThree: undefined,
-      questionsAnswered: undefined,
-      incorrectAnswers: undefined
     };
 
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);
@@ -1076,7 +1072,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
         <HudBar>
           {/* Progress: 1/15 */}
           <ProgressText>
-            {currentIndex + 1}/{questions.length}
+            {currentIndex + 1}/{questionLimit}
           </ProgressText>
 
           {/* Category */}
@@ -1095,8 +1091,10 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
               }}
             />
             <TimerText urgent={isUrgent}>
-              {timer !== undefined ? `${timer}s` : "--"}
-            </TimerText>
+  {phase === 'asking' || phase === 'readying' 
+    ? "--" 
+    : timer !== undefined ? `${Math.ceil(timer)}s` : "--"}
+</TimerText>
           </TimerBox>
         </HudBar>
 
@@ -1108,6 +1106,37 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
           <QuestionText>{currentQuestion.text}</QuestionText>
         </QuestionPanel>
 
+        {phase === 'readying' && (
+  <Box sx={{
+    position: 'absolute',
+    inset: 0,
+    zIndex: 40,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,0,0,0.85)',
+  }}>
+    <Typography sx={{
+      fontFamily: "'Press Start 2P', monospace",
+      fontSize: '40px',
+      color: '#35E52B',
+      textShadow: '0 0 16px #42FF5C',
+      marginBottom: '24px',
+    }}>
+      GET READY
+    </Typography>
+    <Typography sx={{
+      fontFamily: "'Press Start 2P', monospace",
+      fontSize: '80px',
+      color: '#00E5FF',
+      textShadow: '0 0 24px #00E5FF',
+    }}>
+      {Math.ceil(timer)}
+    </Typography>
+  </Box>
+)}
+
         {/* ── ANSWER GRID ───────────────────────────────────────────────────── */}
         <AnswerGrid>
           {currentQuestion.allAnswers.map((answer: string, idx: number) => {
@@ -1115,8 +1144,8 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
             return (
               <AnswerButton
                 key={answer}
-                onClick={() => { handleAnswerClick(answer); playSound("select"); }}
-                onMouseEnter={() => playSound("hover")}
+                onClick={() => { if (!isAnswered) { handleAnswerClick(answer); playSound("select"); } }}
+                onMouseEnter={() => { if (!isAnswered) playSound("hover"); }}
                 disabled={isAnswered}
                 selected={isSelected && !isRevealed}
                 correct={isCorrect}
