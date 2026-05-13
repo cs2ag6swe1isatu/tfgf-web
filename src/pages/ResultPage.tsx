@@ -4,6 +4,7 @@ import StarIcon from '@mui/icons-material/Star';
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { usePlayerStore } from '../store/playerStore';
+import { getLastXpGained } from '../progression/progressionRules';
 import { keyframes, styled } from '@mui/material/styles';
 
 // ─── Keyframes ───────────────────────────────────────────────────────────────
@@ -133,7 +134,7 @@ const ResultPage: React.FC = () => {
   );
   const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
   const rankProg  = accuracy;
-  const xpGained  = score;
+  const xpGained  = getLastXpGained() || score;
 
   return (
     <ScaleRoot>

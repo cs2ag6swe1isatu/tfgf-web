@@ -223,12 +223,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
     // Timer expired, advance phase
     if (phase === 'readying') {
-      const questionTimer = get().questionTimer;
-      set({ phase: 'asking', timer: questionTimer });
-      return;
-    }
-
-    if (phase === 'asking') {
       const answerTimer = get().answerTimer;
       set({ phase: 'answering', timer: answerTimer });
       return;
@@ -251,23 +245,13 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     }
 
     if (currentIndex + 1 < questions.length) {
-      if (mode === 'multiplayer') {
-        const questionTimer = get().questionTimer;
-        set({
-          phase: 'asking',
-          currentIndex: currentIndex + 1,
-          selectedAnswer: '',
-          timer: questionTimer,
-        });
-      } else {
-        const answerTimer = get().answerTimer;
-        set({
-          phase: 'answering',
-          currentIndex: currentIndex + 1,
-          selectedAnswer: '',
-          timer: answerTimer,
-        });
-      }
+      const answerTimer = get().answerTimer;
+      set({
+        phase: 'answering',
+        currentIndex: currentIndex + 1,
+        selectedAnswer: '',
+        timer: answerTimer,
+      });
       return;
     }
 
@@ -293,14 +277,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         break;
 
       case 'readying':
-        set({ phase: 'asking', timer: get().questionTimer });
-        break;
-
-      case 'asking':
-        {
-          const answerTimer = get().answerTimer;
-          set({ phase: 'answering', timer: answerTimer });
-        }
+        set({ phase: 'answering', timer: get().answerTimer });
         break;
 
       case 'answering':
@@ -323,24 +300,13 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       case 'scoring':
         // After scoring delay, move to next question or end
         if (currentIndex + 1 < questions.length) {
-          const mode = get().mode;
-          if (mode === 'multiplayer') {
-            const questionTimer = get().questionTimer;
-            set({
-              phase: 'asking',
-              currentIndex: currentIndex + 1,
-              selectedAnswer: '',
-              timer: questionTimer,
-            });
-          } else {
-            const answerTimer = get().answerTimer;
-            set({
-              phase: 'answering',
-              currentIndex: currentIndex + 1,
-              selectedAnswer: '',
-              timer: answerTimer,
-            });
-          }
+          const answerTimer = get().answerTimer;
+          set({
+            phase: 'answering',
+            currentIndex: currentIndex + 1,
+            selectedAnswer: '',
+            timer: answerTimer,
+          });
         } else {
           set({ phase: 'ranking' });
         }

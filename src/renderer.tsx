@@ -8,6 +8,7 @@ import "./index.css";
 import { Cursor } from "./components/ui";
 import { runSessionSummaryPageTester } from "./tests/pageTesters/sessionSummaryPageTester";
 import "./tests/achievementTester";
+import "./tests/xpMultiplierTester";
 
 // Initialize mock multiplayer bridge for Vite dev mode
 import "./multiplayer-mock";

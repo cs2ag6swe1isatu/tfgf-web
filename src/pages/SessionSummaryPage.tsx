@@ -5,6 +5,7 @@ import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { useResponsiveScale } from '../hooks/useResponsiveScale';
 import { usePlayerStore } from '../store/playerStore';
+import { getLastXpGained } from '../progression/progressionRules';
 
 import { keyframes, styled } from '@mui/material/styles';
 
@@ -117,7 +118,7 @@ const SessionSummaryPage: React.FC = () => {
       ? (player.totalXp / (player.totalXp + player.xpToNextLevel)) * 100
       : 0
   );
-  const xpGained  = score;
+  const xpGained  = getLastXpGained() || score;
 
   return (
     <ScaleRoot>
