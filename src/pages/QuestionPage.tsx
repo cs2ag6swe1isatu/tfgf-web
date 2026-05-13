@@ -16,6 +16,7 @@ import {
   XPBarAnimate,
 } from '../components/rewards/RewardSystem';
 import { calculateXP, getLevel } from "../utils/progression";
+import type { Achievement } from "../types/player";
 
 // ─── Keyframe Animations ────────────────────────────────────────────────────
 
@@ -513,6 +514,16 @@ const QuestionPage = () => {
   const { state: rewardState, trigger: triggerReward } = useRewardSystem();
   const answerButtonRef = useRef<HTMLElement>(null);
 
+  // ── Level-up tracking refs (FIX B) ─────────────────────────────────────────
+  const didLevelUpThisSessionRef = useRef<boolean>(false);
+  const levelAfterSessionRef     = useRef<number>(0);
+
+  // ── End-game deferred data (level-up before achievements - FIX D) ─────────
+  const endDataRef = useRef<{
+    achievements: Achievement[];
+    postUnlockScreen: "result";
+  } | null>(null);
+
   // ── Game timer tracking ─────────────────────────────────────────────────────
   const gameStartTimeRef = useRef<number | null>(null);
   const gameElapsedTimeRef = useRef<number>(0);
@@ -572,20 +583,27 @@ const QuestionPage = () => {
       const xpEarned = calculateXP(finalScore, currentQuestion ? useTriviaStore.getState().currentStreak + 1 : 1);
       const oldXP = localPlayer.totalXp;
       const newXP = oldXP + xpEarned;
-      const oldLevel = localPlayer.level;
-      const newLevel = getLevel(newXP);
+      const currentOldLevel = localPlayer.level;
+      const currentNewLevel = getLevel(newXP);
 
+      // ── FIX A: Suppress level-up modal during gameplay by passing same level ──
       triggerReward({
         score: finalScore,
         xp: xpEarned,
         streak: useTriviaStore.getState().currentStreak + 1,
         oldXP,
         newXP,
-        oldLevel,
-        newLevel,
+        oldLevel: currentNewLevel,  // Pass newLevel as oldLevel to suppress level-up trigger
+        newLevel: currentNewLevel,  // Both same = no level-up visual during gameplay
         xpPerLevel: 1000,
         buttonRef: answerButtonRef,
       });
+
+      // ── FIX B: Track actual level-up in refs ──────────────────────────────
+      if (currentNewLevel > currentOldLevel) {
+        didLevelUpThisSessionRef.current = true;
+        levelAfterSessionRef.current     = currentNewLevel;
+      }
     },
     [submitAnswer, questions, currentIndex, timer, answerTimer, localPlayer, triggerReward]
   );
@@ -721,6 +739,9 @@ const timerTickIntervalMs = 1000;
       fellBehindByHalfRef.current = false;
       totalSessionTimeRef.current = 0;
       totalAnsweredRef.current = 0;
+      // ── FIX B: Reset level-up refs at game start ─────────────────────────
+      didLevelUpThisSessionRef.current = false;
+      levelAfterSessionRef.current     = 0;
     }
   }, [phase, currentIndex]);
 
@@ -750,6 +771,7 @@ const timerTickIntervalMs = 1000;
     }
   }, [mode, playerScores, localPlayerId, currentIndex]);
 
+  // ── Step 1: Process game end data (XP, achievements) ───────────────────────
   useEffect(() => {
     if (phase !== "end" || endProgressAppliedRef.current) return;
     endProgressAppliedRef.current = true;
@@ -819,15 +841,58 @@ const timerTickIntervalMs = 1000;
 
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);
 
-    if (newlyUnlockedAchievements.length > 0) {
+    // ── FIX C + FIX D: Show level-up first, then achievements ──────────────
+    if (didLevelUpThisSessionRef.current) {
+      // Level-up happened this session — show it first
+      // Store achievements data for after level-up popup dismisses
+      endDataRef.current = {
+        achievements: newlyUnlockedAchievements,
+        postUnlockScreen,
+      };
+
+      // Trigger level-up reward popup (only level data, score/XP/streak will
+      // also trigger but at game end these are harmless flash effects)
+      triggerReward({
+        score: 0,
+        xp: 0,
+        streak: 0,
+        oldXP: 0,
+        newXP: 0,
+        oldLevel: levelAfterSessionRef.current - 1,
+        newLevel: levelAfterSessionRef.current,
+        xpPerLevel: 1000,
+      });
+      // The onDone callback on RewardOverlay handles the post-level-up flow
+    } else if (newlyUnlockedAchievements.length > 0) {
+      // No level-up, but achievements — go directly to achievement screen
       const gameState = useGameStore.getState();
       gameState.queueAchievementUnlocks(newlyUnlockedAchievements, postUnlockScreen);
       gameState.setScreen("achievement-unlock");
+    } else {
+      // No level-up, no achievements — go directly to result
+      setScreen(postUnlockScreen);
+    }
+  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen, triggerReward]);
+
+  // ── Step 2: Handle level-up onDone callback → trigger achievements ─────────
+  const handleLevelUpDone = useCallback(() => {
+    const data = endDataRef.current;
+    if (!data) {
+      // No pending data — just go to result
+      setScreen("result");
       return;
     }
 
-    setScreen(postUnlockScreen);
-  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen]);
+    endDataRef.current = null;
+
+    if (data.achievements.length > 0) {
+      const gameState = useGameStore.getState();
+      gameState.queueAchievementUnlocks(data.achievements, "result");
+      gameState.setScreen("achievement-unlock");
+    } else {
+      setScreen("result" as const);
+    }
+  }, [setScreen]);
 
   // ── Derived state ───────────────────────────────────────────────────────────
 
@@ -1051,7 +1116,7 @@ const timerTickIntervalMs = 1000;
         {/* ── REWARD OVERLAY ───────────────────────────────────────────────── */}
         <RewardOverlay
           rewardState={rewardState}
-          onLevelUpDone={() => {}}
+          onLevelUpDone={handleLevelUpDone}
           xpPerLevel={1000}
         />
       </GameScreen>
