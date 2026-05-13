@@ -112,6 +112,10 @@ const AchievementUnlockPage = () => {
     state.dismissCurrentAchievementUnlock();
   };
 
+  if (!activeAchievement) {
+    return null; 
+  }
+
   return (
     <Box
       onClick={handleDismiss}
@@ -191,8 +195,8 @@ const AchievementUnlockPage = () => {
 
         <Box
           component="img"
-          src={activeAchievement?.icon}
-          alt={activeAchievement?.name ?? "Achievement icon"}
+          src={activeAchievement.icon}
+          alt={activeAchievement.name}
           sx={{
             width: { xs: 120, sm: 150 },
             height: { xs: 120, sm: 150 },
@@ -217,7 +221,7 @@ const AchievementUnlockPage = () => {
             textTransform: "uppercase",
           }}
         >
-          {activeAchievement?.name ?? "Achievement"}
+          {activeAchievement.name}
         </Typography>
 
         <Typography
@@ -231,7 +235,7 @@ const AchievementUnlockPage = () => {
             textShadow: "0 0 8px rgba(49, 213, 194, 0.38)",
           }}
         >
-          {activeAchievement?.description ?? "You unlocked a new milestone."}
+          {activeAchievement.description}
         </Typography>
 
         <Typography
