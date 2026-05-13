@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Button, LinearProgress } from '@mui/material';
+import { Box, Typography, Button, LinearProgress, GlobalStyles } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
@@ -7,6 +7,7 @@ import { useResponsiveScale } from '../hooks/useResponsiveScale';
 import { usePlayerStore } from '../store/playerStore';
 import { calculateXP, getLevelProgressPercent } from '../utils/progression';
 import { getLastXpGained } from '../progression/progressionRules';
+import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from '../components/ui/RankIcon';
 
 import { keyframes, styled } from '@mui/material/styles';
 
@@ -169,6 +170,7 @@ const SessionSummaryPage: React.FC = () => {
           width: `${L.w}px`,
         }}
       >
+        <GlobalStyles styles={{ [RANK_ICON_KEYFRAMES]: {} }} />
         <Box
           sx={{
             width: `${L.w}px`,
@@ -392,17 +394,34 @@ const SessionSummaryPage: React.FC = () => {
               </Typography>
             </Box>
 
-            <Typography
+            <Box
               sx={{
                 mt: 1.5,
-                textAlign: 'center',
-                fontSize: `${L.rankTitle}px`,
-                color: '#D9E600',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
                 animation: `${rankPop} .6s ease`,
               }}
             >
-              {playerRankTitle}
-            </Typography>
+              <RankIcon
+                type={getRankSymbolType(player.rank.name)}
+                color={RANK_COLORS[getRankSymbolType(player.rank.name)].primary}
+                glow={RANK_COLORS[getRankSymbolType(player.rank.name)].glow}
+                size={Math.max(28, Math.round(L.rankTitle * 1.2))}
+                style={{ flexShrink: 0 }}
+              />
+              <Typography
+                sx={{
+                  fontSize: `${L.rankTitle}px`,
+                  color: RANK_COLORS[getRankSymbolType(player.rank.name)].primary,
+                  textShadow: `0 0 8px ${RANK_COLORS[getRankSymbolType(player.rank.name)].glow}, 0 0 16px ${RANK_COLORS[getRankSymbolType(player.rank.name)].glow}`,
+                  textAlign: 'center',
+                }}
+              >
+                {playerRankTitle}
+              </Typography>
+            </Box>
           </Box>
 
           {/* BUTTONS */}
