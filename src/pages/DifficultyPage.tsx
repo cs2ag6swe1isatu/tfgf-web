@@ -154,18 +154,7 @@ export default function DifficultyPage() {
     setScreen("question");
 
   } else if (mode === "multiplayer") {
-    resetGame();
-
-    startGame({
-      category,
-      difficulty,
-      mode: "multiplayer",
-      ...multiplayerDifficultyStartConfig,
-      ...sessionHistoryRuntimeLimits,
-      autoJoinLan: true
-    });
-
-    setScreen("question");
+    setScreenModal(null);
   } else {
     setScreenModal(null);
   }
