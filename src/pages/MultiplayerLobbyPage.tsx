@@ -5,6 +5,7 @@ import { getMultiplayerPlayer, usePlayerStore } from "../store/playerStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { Globe, Lock } from "pixelarticons/react";
 import { getAvatarSrc } from "../utils/avatar";
+import { useSoundContext } from "../context/SoundContext";
 
 import type {
   MultiplayerBridge,
@@ -16,6 +17,7 @@ import type {
 import { defaultGameConfig } from "../config/gameConfig";
 
 const MultiplayerLobby = () => {
+  const { playSound } = useSoundContext();
   const setScreen = useGameStore((s) => s.setScreen);
   const setModalScreen = useGameStore((s) => s.setModalScreen);
   const gameConfig = useGameStore((s) => s.gameConfig);
@@ -573,8 +575,9 @@ const MultiplayerLobby = () => {
           <Box sx={{ minWidth: "120px" }}>
             {lobbyRole === "host" && (
               <button
-                style={styles.visibilityBtn(isPrivate)}
-                onClick={() => setPrivate(!isPrivate)}
+  style={styles.visibilityBtn(isPrivate)}
+  onClick={() => { setPrivate(!isPrivate); playSound("select"); }}
+  onMouseEnter={() => playSound("hover")}
               >
                 {isPrivate ? (
                   <Lock width={14} height={14} />
@@ -593,7 +596,7 @@ const MultiplayerLobby = () => {
           </Box>
 
           {/* Right: exit button */}
-          <button style={styles.exitBtn} onClick={handleLeaveLobby}>
+          <button style={styles.exitBtn} onClick={() => { handleLeaveLobby(); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
             {lobbyRole === "client" ? "EXIT LOBBY" : "BACK"}
           </button>
         </Box>
@@ -624,7 +627,7 @@ const MultiplayerLobby = () => {
               </Box>
               {/* Kick button (host only, not on self) */}
               {lobbyRole === "host" && !p.isHost && (
-                <button style={styles.kickBtn} onClick={() => handleKick(p.id)}>
+                <button style={styles.kickBtn} onClick={() => { handleKick(p.id); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
                   KICK
                 </button>
               )}
@@ -653,44 +656,48 @@ const MultiplayerLobby = () => {
         <Box sx={styles.bottomRow}>
           {/* Category */}
           <button
-            style={{
-              ...styles.sideBtn,
-              ...(lobbyRole === "client" ? styles.sideBtnDisabled : {}),
-            }}
-            onClick={() => lobbyRole === "host" && setModalScreen("category")}
-            disabled={lobbyRole === "client"}
-          >
+  style={{
+    ...styles.sideBtn,
+    ...(lobbyRole === "client" ? styles.sideBtnDisabled : {}),
+  }}
+  onClick={() => { if (lobbyRole === "host") { setModalScreen("category"); playSound("select"); } }}
+  onMouseEnter={() => { if (lobbyRole !== "client") playSound("hover"); }}
+  disabled={lobbyRole === "client"}
+>
             {gameConfig.category ? gameConfig.category.toUpperCase() : "CATEGORY"}
           </button>
 
           {/* Play / Ready */}
           {lobbyRole === "host" ? (
             <button
-              style={styles.primaryBtn(!canStart)}
-              onClick={canStart ? handleStartGame : undefined}
-              disabled={!canStart}
-            >
+  style={styles.primaryBtn(!canStart)}
+  onClick={canStart ? () => { handleStartGame(); playSound("select"); } : undefined}
+  onMouseEnter={() => { if (canStart) playSound("hover"); }}
+  disabled={!canStart}
+>
               PLAY
             </button>
           ) : (
             <button
-              style={styles.primaryBtn(!currentPlayer)}
-              onClick={() => currentPlayer && handleReadyToggle(currentPlayer.id, !isReady)}
-              disabled={!currentPlayer}
-            >
+  style={styles.primaryBtn(!currentPlayer)}
+  onClick={() => { if (currentPlayer) { handleReadyToggle(currentPlayer.id, !isReady); playSound("select"); } }}
+  onMouseEnter={() => { if (currentPlayer) playSound("hover"); }}
+  disabled={!currentPlayer}
+>
               {isReady ? "UNREADY" : "READY"}
             </button>
           )}
 
           {/* Difficulty */}
           <button
-            style={{
-              ...styles.sideBtn,
-              ...(lobbyRole === "client" ? styles.sideBtnDisabled : {}),
-            }}
-            onClick={() => lobbyRole === "host" && setModalScreen("difficulty")}
-            disabled={lobbyRole === "client"}
-          >
+  style={{
+    ...styles.sideBtn,
+    ...(lobbyRole === "client" ? styles.sideBtnDisabled : {}),
+  }}
+  onClick={() => { if (lobbyRole === "host") { setModalScreen("difficulty"); playSound("select"); } }}
+  onMouseEnter={() => { if (lobbyRole !== "client") playSound("hover"); }}
+  disabled={lobbyRole === "client"}
+>
             {gameConfig.difficulty ? gameConfig.difficulty.toUpperCase() : "DIFFICULTY"}
           </button>
         </Box>

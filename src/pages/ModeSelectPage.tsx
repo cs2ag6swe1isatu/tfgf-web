@@ -286,7 +286,7 @@ export default function ModeSelectPage() {
           <ModeCard
             label={<>MULTI-<br />PLAYER</>}
             avatar={<MultiAvatar />}
-            onClick={() => { setMode("multiplayer"); setScreen("multiplayer-menu"); }}
+            onClick={() => { setMode("multiplayer"); setScreen("multiplayer-menu"); playSound("select"); }}
             onMouseEnter={() => { playSound("hover"); }}
             animDelay="0.2s"
           />

@@ -136,7 +136,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
       fontFamily: "'Press Start 2P', monospace",
-      fontSize: "clamp(6px,1.2vw,9px)",
+      fontSize: "clamp(12px,1.2vw,14px)",
       color: "#00DFFF",
       textShadow: "0 0 7px #00DFFF",
       borderBottom: "1px solid #00DFFF44",
@@ -170,7 +170,7 @@ function PlayerRow({ player, isYou, medals, delay, ready }: {
         display: "flex", alignItems: "center", gap: 5,
         padding: "9px 10px",
         fontFamily: "'Press Start 2P', monospace",
-        fontSize: "clamp(6px,.95vw,7.5px)",
+        fontSize: "clamp(10px,.95vw,10px)",
         cursor: "default",
         borderLeft: isYou ? "3px solid #00DFFF" : isFirst ? "3px solid #C9562E" : "3px solid transparent",
         background: isFirst
@@ -195,7 +195,7 @@ function PlayerRow({ player, isYou, medals, delay, ready }: {
       </span>
       <span style={{ width: 52 }}>
         <span style={{
-          fontSize: 5, padding: "2px 5px",
+          fontSize: 10, padding: "7px 10px",
           border: "1px solid",
           borderColor: player.isHost ? "#D9E60055" : "#00DFFF33",
           color: player.isHost ? "#D9E600" : "#00DFFF88",
@@ -231,9 +231,9 @@ function StatCard({ label, value, unit, accent }: {
         fontFamily: "'Press Start 2P', monospace",
       }}
     >
-      <div style={{ fontSize: "5.5px", letterSpacing: ".12em", color: accent, marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: "clamp(15px,2.8vw,24px)", color: "#E5E5E5", textShadow: "0 0 9px #fff3" }}>
-        {value}<span style={{ fontSize: 8, marginLeft: 2, color: accent }}>{unit}</span>
+      <div style={{ fontSize: "10px", letterSpacing: ".12em", color: accent, marginBottom: 8 }}>{label}</div>
+      <div style={{ fontSize: "clamp(20px,2.8vw,28px)", color: "#E5E5E5", textShadow: "0 0 9px #fff3" }}>
+        {value}<span style={{ fontSize: 12, marginLeft: 2, color: accent }}>{unit}</span>
       </div>
     </div>
   );
@@ -254,7 +254,7 @@ function CyberButton({ label, onClick, red }: {
       style={{
         padding: "12px 22px",
         fontFamily: "'Press Start 2P', monospace",
-        fontSize: "clamp(5.5px,1.1vw,8px)",
+        fontSize: "clamp(10px,1.1vw,12px)",
         letterSpacing: ".12em",
         border: `2px solid ${base}`,
         color: hover ? (red ? "#fff" : "#000") : base,
@@ -489,7 +489,7 @@ const s: Record<string, React.CSSProperties> = {
     display: "flex", flexDirection: "column", gap: 22,
   },
   goTxt: {
-    fontSize: "clamp(20px,4.5vw,44px)",
+    fontSize: "clamp(25px,4.5vw,44px)",
     color: "#E33232",
     textShadow: "0 0 8px #E33232,0 0 24px #E33232,3px 3px 0 #7a0000",
     letterSpacing: ".1em",
@@ -497,7 +497,7 @@ const s: Record<string, React.CSSProperties> = {
     display: "inline-block",
   },
   gameSub: {
-    fontSize: "clamp(5px,1.1vw,7px)",
+    fontSize: "clamp(10px,1.1vw,12px)",
     color: "#00DFFF",
     textShadow: "0 0 6px #00DFFF",
     marginTop: 9,
@@ -514,9 +514,9 @@ const s: Record<string, React.CSSProperties> = {
     gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
     gap: 10,
   },
-  miLbl: { fontSize: "5.5px", color: "#00DFFF88", letterSpacing: ".18em" },
-  miVal: { fontSize: "clamp(7px,1.4vw,9px)", color: "#35E52B", textShadow: "0 0 6px #35E52B" },
-  placeLbl: { fontSize: "clamp(7px,1.5vw,10px)", color: "#D9E600", textShadow: "0 0 9px #D9E600", letterSpacing: ".2em" },
+  miLbl: { fontSize: "10px", color: "#00DFFF88", letterSpacing: ".18em" },
+  miVal: { fontSize: "clamp(12px,1.4vw,14px)", color: "#35E52B", textShadow: "0 0 6px #35E52B" },
+  placeLbl: { fontSize: "clamp(12px,1.5vw,14px)", color: "#D9E600", textShadow: "0 0 9px #D9E600", letterSpacing: ".2em" },
   placeBox: {
     border: "2px solid #00DFFF",
     boxShadow: "0 0 18px #00DFFF44,inset 0 0 24px #00DFFF0d",
@@ -524,7 +524,7 @@ const s: Record<string, React.CSSProperties> = {
     padding: "12px 40px",
     display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4,
   },
-  placeTop: { fontSize: "clamp(5.5px,1.1vw,8px)", color: "#00DFFF", letterSpacing: ".28em" },
+  placeTop: { fontSize: "clamp(10px,1.1vw,12px)", color: "#00DFFF", letterSpacing: ".28em" },
   placeNum: {
     fontSize: "clamp(30px,6.5vw,54px)",
     color: "#D9E600",
@@ -533,7 +533,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   lbHdr: {
     display: "flex", alignItems: "center", gap: 5,
-    fontSize: "5.5px", color: "#00DFFF77",
+    fontSize: "10px", color: "#00DFFF77",
     padding: "0 10px 5px",
     borderBottom: "1px solid #00DFFF1a",
     letterSpacing: ".1em",
@@ -546,19 +546,19 @@ const s: Record<string, React.CSSProperties> = {
   },
   rankPanel: { background: "#10363A3a", border: "1px solid #00DFFF2a", padding: "14px 16px" },
   rankTierBadge: {
-    fontSize: "5.5px",
+    fontSize: "10px",
     color: "#031533",
     background: "#D9E600",
     padding: "3px 7px",
     letterSpacing: ".1em",
     fontFamily: "'Press Start 2P', monospace",
   },
-  rankName: { fontSize: "clamp(7px,1.4vw,10px)", color: "#D9E600", textShadow: "0 0 8px #D9E600", fontFamily: "'Press Start 2P', monospace" },
-  rankPct: { fontSize: "clamp(7px,1.4vw,10px)", color: "#35E52B", fontFamily: "'Press Start 2P', monospace" },
+  rankName: { fontSize: "clamp(10px,1.4vw,12px)", color: "#D9E600", textShadow: "0 0 8px #D9E600", fontFamily: "'Press Start 2P', monospace" },
+  rankPct: { fontSize: "clamp(10px,1.4vw,12px)", color: "#35E52B", fontFamily: "'Press Start 2P', monospace" },
   progTrack: { height: 16, background: "#041D4955", border: "1px solid #D9E60033", position: "relative", overflow: "visible", marginBottom: 8 },
   progBar: { height: "100%", width: 0, background: "linear-gradient(90deg,#D9E600aa,#D9E600)", boxShadow: "0 0 10px #D9E600", transition: "width 1.5s cubic-bezier(.4,0,.2,1)" },
   progGem: { position: "absolute", top: -5, color: "#D9E600", fontSize: 16, textShadow: "0 0 7px #D9E600", lineHeight: 1, transition: "left 1.5s cubic-bezier(.4,0,.2,1)" },
-  rankSub: { fontSize: "5.5px", color: "#8ecfda", letterSpacing: ".08em", fontFamily: "'Press Start 2P', monospace" },
+  rankSub: { fontSize: "10px ", color: "#8ecfda", letterSpacing: ".08em", fontFamily: "'Press Start 2P', monospace" },
 };
 
 const globalCSS = `

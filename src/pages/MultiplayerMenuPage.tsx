@@ -3,6 +3,7 @@ import { useGameStore } from "../store/gameStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { Globe, MapPin } from "pixelarticons/react";
 import { keyframes, styled } from "@mui/material/styles";
+import { useSoundContext } from "../context/SoundContext";
 
 // ─── Keyframes ───────────────────────────────────────────────────────────────
 
@@ -270,6 +271,7 @@ const MapPinIcon = ({ size }: { size: number }) => (
 const MultiplayerMenuPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
   const setLobbyRole = useMultiplayerStore((state) => state.setLobbyRole);
+  const { playSound } = useSoundContext();
 
   // 1. Hook up the layout from the stored resolution (do not duplicate a
   //    per-page config) — compute scaled values based on the stored
@@ -375,8 +377,9 @@ const MultiplayerMenuPage = () => {
         }}>
           {/* HOST BUTTON */}
           <Button
-            onClick={handleHostGame}
-            sx={{
+  onClick={() => { handleHostGame(); playSound("select"); }}
+  onMouseEnter={() => playSound("hover")}
+  sx={{
               flex: 1,
               flexDirection: "column",
               gap: "24px",
@@ -399,8 +402,9 @@ const MultiplayerMenuPage = () => {
 
           {/* JOIN BUTTON */}
           <Button
-            onClick={handleJoinGame}
-            sx={{
+  onClick={() => { handleJoinGame(); playSound("select"); }}
+  onMouseEnter={() => playSound("hover")}
+  sx={{
               flex: 1,
               flexDirection: "column",
               gap: "24px",
@@ -425,8 +429,9 @@ const MultiplayerMenuPage = () => {
         {/* --- BACK BUTTON --- */}
         <Box sx={{ position: "relative", zIndex: 10 }}>
           <Button
-            onClick={() => setScreen("mode-select")}
-            sx={{
+  onClick={() => { setScreen("mode-select"); playSound("select"); }}
+  onMouseEnter={() => playSound("hover")}
+  sx={{
               width: layout.backW, // Fixed
               height: layout.backH, // Fixed
               borderRadius: "14px",
