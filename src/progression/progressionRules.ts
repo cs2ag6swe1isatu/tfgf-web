@@ -1,5 +1,6 @@
-import { Mode, Category, Difficulty, RANKS } from "../constants";
+import { Mode, Category, Difficulty, getRankForLevel } from "../constants";
 import { Question } from '../types/question';
+import { calculateXP } from '../utils/progression';
 import { applyXpMultiplier } from "../tests/xpMultiplierTester";
 
 /** Progression Rules - Game Progression and Player Advancement Logic
@@ -23,6 +24,7 @@ export interface SessionProgressInput {
     totalQuestions: number;
     correctAnswers: number;
     score: number;
+    maxStreak?: number;
     questions: Question[];
     userAnswers: string[];
     timeTaken: number; // in seconds
@@ -48,8 +50,6 @@ export interface SessionDelta {
     gamesWon: number;
 }
 
-const DIFFICULTY_XP = { easy: 10, medium: 20, hard: 30 } as const;
-
 /** Stores the last computed XP gain for display on result/summary pages */
 let _lastXpGained = 0;
 
@@ -59,17 +59,13 @@ export function getLastXpGained(): number {
 }
 
 export function buildSessionDelta(input: SessionProgressInput): SessionDelta {
-    // const accuracy = input.totalQuestions > 0 ? input.correctAnswers / input.totalQuestions : 0;
-    const baseXp = input.correctAnswers * DIFFICULTY_XP[input.difficulty];
+    const xpGained = calculateXP(input.score, input.maxStreak ?? 0);
 
-    const winBonus = input.won ? 30 : 0;
-    const masteryBonus = input.mastered ? 20 : 0;
-    
     const rawXp = baseXp + winBonus + masteryBonus;
     const finalXp = applyXpMultiplier(rawXp);
     _lastXpGained = finalXp;
     return {
-        xpGained: finalXp,
+        xpGained,
         scoreGained: input.score,
         gamesPlayed: 1,
         gamesMastered: input.mastered ? 1 : 0,
@@ -83,33 +79,13 @@ export function buildSessionDelta(input: SessionProgressInput): SessionDelta {
 }
 
 export function levelFromXp(totalXp: number): number {
-    let level = 1;
-    let threshold = 100;
-    let remaining = totalXp;
-
-    while (remaining >= threshold) {
-        remaining -= threshold;
-        level++;
-        threshold = Math.floor(threshold * 1.5);
-    }
-
-    return level;
+    return Math.floor(totalXp / 1000) + 1;
 }
 
 export function xpToNextLevel(totalXp: number): number {
-    let threshold = 100;
-    let remaining = totalXp;
-
-    while (remaining >= threshold) {
-        remaining -= threshold;
-        threshold = Math.floor(threshold * 1.5);
-    }
-    
-    return threshold - remaining;
+    return 1000 - (totalXp % 1000);
 }
 
 export function rankFromLevel(level: number) {
-    const bucketSize = 10;
-    const idx = Math.min(RANKS.length - 1, Math.floor((level - 1) / bucketSize));
-    return RANKS[idx];
+    return getRankForLevel(level);
 }
