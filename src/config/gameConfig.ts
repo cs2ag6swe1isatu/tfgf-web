@@ -3,7 +3,7 @@ export const defaultGameConfig = {
   mode: null,
   category: null,
   difficulty: null,
-  questionLimit: 5,     // default number of questions
+  questionLimit: 15,     // default number of questions
   questionTimer: 25,      // seconds per question
   answerTimer: 15,        // seconds to answer
 

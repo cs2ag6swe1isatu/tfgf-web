@@ -549,6 +549,8 @@ const QuestionPage = () => {
   // ── Game timer tracking ─────────────────────────────────────────────────────
   const gameStartTimeRef = useRef<number | null>(null);
   const gameElapsedTimeRef = useRef<number>(0);
+  const totalSessionTimeRef = useRef<number>(0);
+  const totalAnsweredRef = useRef<number>(0);
 
   useEffect(() => {
     if (phase === 'answering' || phase === 'asking') {
@@ -589,6 +591,10 @@ const QuestionPage = () => {
 
       const isCorrect = answer === currentQuestion.correctAnswer;
       if (!isCorrect) return;
+
+      const timeTaken = 15 - (timer ?? 0);
+      totalSessionTimeRef.current += timeTaken;
+      totalAnsweredRef.current += 1;
 
       const finalScore = scoreIncrementForAnswer(
         true,
@@ -744,6 +750,8 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
   useEffect(() => {
     if (phase === "readying" && currentIndex === 0) {
       fellBehindByHalfRef.current = false;
+      totalSessionTimeRef.current = 0;
+      totalAnsweredRef.current = 0;
     }
   }, [phase, currentIndex]);
 
@@ -828,14 +836,16 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
       hostedLobby: mode === "multiplayer" && lobbyRole === "host",
       fellBehindByHalfAndWon: mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
-      scoreEarned: undefined,
-      xpEarned: undefined,
-      isWin: undefined,
-      isMastery: undefined,
-      isTopThree: undefined,
-      questionsAnswered: undefined,
-      incorrectAnswers: undefined
     };
+
+    const avgTime =
+      totalAnsweredRef.current > 0
+        ? Math.round(
+            (totalSessionTimeRef.current /
+             totalAnsweredRef.current) * 10
+          ) / 10
+        : 0.0;
+    useTriviaStore.setState({ avgTime });
 
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);
     const postUnlockScreen = "result" as const;

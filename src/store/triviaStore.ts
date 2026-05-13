@@ -65,6 +65,7 @@ export interface TriviaState {
   currentStreak: number;
   maxStreak: number;
   rankings: PlayerRanking[];
+  avgTime: number;
 }
 
 export interface TriviaActions {
@@ -104,6 +105,7 @@ const initialState: TriviaState = {
   maxStreak: 0,
   selectedAnswerRemainingTime: 0,
   rankings: [],
+  avgTime: 0,
 };
 
 export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => ({

@@ -149,10 +149,11 @@ const SessionSummaryPage: React.FC = () => {
     : null;
   const totalTimeSeconds = mostRecentSession?.timeTaken ?? (totalQ * 10);
   
-  // Calculate average time per question
-  const totalAnswered = totalQ > 0 ? totalQ : 1;
-  const avgTimeSeconds = totalTimeSeconds / totalAnswered;
-  const avgTimeDisplay = avgTimeSeconds.toFixed(1) + 's';
+  const avgTime = useTriviaStore((s) => s.avgTime);
+  const avgTimeDisplay =
+    typeof avgTime === 'number'
+      ? avgTime.toFixed(1) + 's'
+      : '0.0s';
 
   const gridPad = Math.round(L.gap * 1.35);
 
@@ -220,52 +221,120 @@ const SessionSummaryPage: React.FC = () => {
               boxSizing: 'border-box',
             }}
           >
-            {[
-              ['YOUR SCORE', score],
-              ['XP GAINED', xpGained],
-              ['ACCURACY', `${accuracy}%`],
-              [
-                'TIME',
-                `${Math.floor(totalTimeSeconds / 60)}:${(totalTimeSeconds % 60)
-                  .toString()
-                  .padStart(2, '0')}`,
-              ],
-              ['AVG TIME', avgTimeDisplay],
-            ].map(([label, value], i) => (
-              <Box
-                key={label}
+            <Box
+              sx={{
+                minHeight: `${L.statMinH}px`,
+                border: '1.5px dashed rgba(0,229,255,0.6)',
+                borderRadius: '10px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '14px',
+                animation: `${statGlow} 3s ease-in-out 0s infinite`,
+              }}
+            >
+              <Typography sx={{ fontSize: `${L.label}px`, color: '#8ECFFF' }}>
+                YOUR SCORE
+              </Typography>
+              <Typography
                 sx={{
-                  minHeight: `${L.statMinH}px`,
-                  border: '1.5px dashed rgba(0,229,255,0.6)',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '14px',
-                  animation: `${statGlow} 3s ease-in-out ${i * 0.2}s infinite`,
+                  fontSize: `${L.stat}px`,
+                  color: '#fff',
+                  lineHeight: 1,
                 }}
               >
-                <Typography sx={{ fontSize: `${L.label}px`, color: '#8ECFFF' }}>
-                  {label}
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: `${L.stat}px`,
-                    color: '#fff',
-                    lineHeight: 1,
-                  }}
-                >
-                  {value}
-                </Typography>
-                {label === 'AVG TIME' && (
-                  <Typography sx={{ fontSize: `${Math.round(L.label * 0.75)}px`, color: '#8ECFFF' }}>
-                    per question
-                  </Typography>
-                )}
-              </Box>
-            ))}
+                {score}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                minHeight: `${L.statMinH}px`,
+                border: '1.5px dashed rgba(0,229,255,0.6)',
+                borderRadius: '10px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '14px',
+                animation: `${statGlow} 3s ease-in-out 0.2s infinite`,
+              }}
+            >
+              <Typography sx={{ fontSize: `${L.label}px`, color: '#8ECFFF' }}>
+                XP GAINED
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: `${L.stat}px`,
+                  color: '#fff',
+                  lineHeight: 1,
+                }}
+              >
+                {xpGained}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                minHeight: `${L.statMinH}px`,
+                border: '1.5px dashed rgba(0,229,255,0.6)',
+                borderRadius: '10px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '14px',
+                animation: `${statGlow} 3s ease-in-out 0.4s infinite`,
+              }}
+            >
+              <Typography sx={{ fontSize: `${L.label}px`, color: '#8ECFFF' }}>
+                ACCURACY
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: `${L.stat}px`,
+                  color: '#fff',
+                  lineHeight: 1,
+                }}
+              >
+                {accuracy}%
+              </Typography>
+              <Typography sx={{ fontSize: `${Math.round(L.label * 0.75)}px`, color: '#8ECFFF', textAlign: 'center', mt: 1 }}>
+                {correct} / {totalQ} Correct
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                minHeight: `${L.statMinH}px`,
+                border: '1.5px dashed rgba(0,229,255,0.6)',
+                borderRadius: '10px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '14px',
+                animation: `${statGlow} 3s ease-in-out 0.6s infinite`,
+              }}
+            >
+              <Typography sx={{ fontSize: `${L.label}px`, color: '#8ECFFF' }}>
+                AVG TIME
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: `${L.stat}px`,
+                  color: '#fff',
+                  lineHeight: 1,
+                }}
+              >
+                {avgTimeDisplay}
+              </Typography>
+              <Typography sx={{ fontSize: `${Math.round(L.label * 0.75)}px`, color: '#8ECFFF', textAlign: 'center', mt: 1 }}>
+                per question
+              </Typography>
+            </Box>
           </Box>
 
           {/* RANK */}
@@ -334,58 +403,6 @@ const SessionSummaryPage: React.FC = () => {
             >
               {playerRankTitle}
             </Typography>
-          </Box>
-
-          {/* ACHIEVEMENT */}
-          <Box
-            sx={{
-              width: '100%',
-              background: '#0D3B3B',
-              borderRadius: '12px',
-              padding: `${L.gap}px`,
-              display: 'flex',
-              gap: '14px',
-              alignItems: 'center',
-            }}
-          >
-            <StarIcon
-              sx={{
-                color: '#35E52B',
-                fontSize: `${Math.round(L.header * 0.5)}px`,
-              }}
-            />
-
-            <Box sx={{ flex: 1 }}>
-              <Typography
-                sx={{
-                  fontSize: `${L.label}px`,
-                  color: '#00DFFF',
-                }}
-              >
-                ACHIEVEMENT UNLOCKED
-              </Typography>
-
-              <Typography
-                sx={{
-                  mt: 1,
-                  fontSize: `${Math.round(L.stat * 0.55)}px`,
-                  color: '#35E52B',
-                  animation: `${greenPulse} 2.5s infinite`,
-                }}
-              >
-                PARTY UP
-              </Typography>
-
-              <Typography
-                sx={{
-                  mt: 1,
-                  fontSize: `${Math.round(L.label * 0.75)}px`,
-                  color: '#8ECFFF',
-                }}
-              >
-                Played your first multiplayer game!
-              </Typography>
-            </Box>
           </Box>
 
           {/* BUTTONS */}
