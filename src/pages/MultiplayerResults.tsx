@@ -461,14 +461,19 @@ export default function MultiplayerResults() {
 // ─── STYLES ─────────────────────────────────────────────────────────────────────
 const s: Record<string, React.CSSProperties> = {
   root: {
-    minHeight: "100vh",
-    background: "linear-gradient(155deg,#041D49 0%,#031533 35%,#08235A 65%,#062B2B 100%)",
-    fontFamily: "'Press Start 2P', monospace",
-    color: "#E5E5E5",
-    position: "relative",
-    overflowX: "hidden",
-    padding: "24px 14px 52px",
-  },
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  overflowY: 'auto' as const,
+  background: "linear-gradient(155deg,#041D49 0%,#031533 35%,#08235A 65%,#062B2B 100%)",
+  fontFamily: "'Press Start 2P', monospace",
+  color: "#E5E5E5",
+  overflowX: "hidden",
+  padding: "24px 14px 52px",
+  zIndex: 999,
+},
   scanlines: {
     position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
     background: "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.055) 2px,rgba(0,0,0,0.055) 4px)",

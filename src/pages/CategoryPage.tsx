@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGameStore } from "../store/gameStore";
 import { Category, CATEGORIES } from "../constants";
+import { useSoundContext } from "../context/SoundContext";
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -79,10 +80,12 @@ function AmbientPixels() {
 function FolderCard({
   label,
   onClick,
+  onMouseEnter,
   animDelay,
 }: {
   label: string;
   onClick: () => void;
+  onMouseEnter: () => void;
   animDelay: string;
 }) {
   // Split long labels at & or after first word for multi-line
@@ -96,10 +99,15 @@ function FolderCard({
       })()
     : [label];
 
+  function playSound(arg0: string) {
+    throw new Error("Function not implemented.");
+  }
+
   return (
     <div
       className="folder-card"
-      onClick={onClick}
+      onClick={() => { onClick(); playSound("select");}}
+      onMouseEnter={() => { onMouseEnter(); playSound("hover"); }}
       style={{
         position: "relative",
         width: "100%",
@@ -172,14 +180,22 @@ function ArrowBtn({
   direction,
   disabled,
   onClick,
+  onMouseEnter,
 }: {
   direction: "left" | "right";
   disabled: boolean;
   onClick: () => void;
+  onMouseEnter?: () => void;
 }) {
+  function playSound(arg0: string) {
+    throw new Error("Function not implemented.");
+  }
+
   return (
     <button
-      onClick={onClick}
+      onClick={() => { onClick(); playSound("select");}}
+      onMouseEnter={() => { onMouseEnter?.(); playSound("hover"); }}
+
       disabled={disabled}
       className="arrow-btn"
       aria-label={direction === "left" ? "Previous page" : "Next page"}
@@ -220,6 +236,7 @@ function ArrowBtn({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function CategoryPage() {
+  const { playSound } = useSoundContext();
   const [page, setPage] = useState(0);
   const setScreen     = useGameStore((s) => s.setScreen);
   const setCategory   = useGameStore((s) => s.setCategory);
@@ -230,11 +247,13 @@ export default function CategoryPage() {
   const totalPages = PAGES.length;
 
   const handleSelect = (cat: Category) => {
+    playSound("select");
     setCategory(cat);
     mode === "solo" ? setScreen("difficulty") : setScreenModal(null);
   };
 
   const handleBack = () => {
+    playSound("select");
     mode === "solo" ? setScreen("mode-select") : setScreenModal(null);
   };
 
@@ -347,7 +366,9 @@ export default function CategoryPage() {
               <div key={cat} style={styles.gridCell}>
                 <FolderCard
                   label={cat}
-                  onClick={() => handleSelect(cat as Category)}
+                  onClick={() => {  handleSelect(cat as Category);playSound("select"); }}
+                  onMouseEnter={() => { playSound("hover"); }}
+
                   animDelay={`${i * 0.055}s`}
                 />
               </div>
@@ -371,6 +392,7 @@ export default function CategoryPage() {
           <button
             className="back-btn"
             onClick={handleBack}
+            onMouseEnter={() => { playSound("hover"); }}
             style={styles.backBtn}
           >
             BACK

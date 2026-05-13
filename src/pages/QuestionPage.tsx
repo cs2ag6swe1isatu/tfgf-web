@@ -81,7 +81,7 @@ const GameScreen = styled(Box)({
 const HudBar = styled(Box)({
   width: "100%",
   boxSizing: "border-box",
-  padding: "30px 50px 0", 
+  padding: "16px 50px 0", 
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
@@ -99,7 +99,7 @@ const ProgressText = styled(Typography)({
 
 const CategoryLabel = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "25px",
+  fontSize: "25px", 
   color: "#35E52B",
   textShadow: "0 0 8px #3FFF56, 0 0 16px #35E52B66",
   letterSpacing: "2px",
@@ -130,10 +130,10 @@ const TimerText = styled(Typography)<{ urgent?: boolean }>(({ urgent }) => ({
 // ─── Question Panel ───────────────────────────────────────────────────────────
 
 const QuestionPanel = styled(Box)({
-  marginTop: "30px",
+  marginTop: "20px",
   width: "calc(100% - 83px)",
   maxWidth: "875px",
-  minHeight: "170px",
+  minHeight: "100px",
   borderRadius: "15px",
   border: "1.5px solid #00DFFF",
   boxShadow:
@@ -142,7 +142,7 @@ const QuestionPanel = styled(Box)({
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: "28px 40px",
+  padding: "18px 28px",
   position: "relative",
   zIndex: 5,
   animation: `${fadeSlideDown} 0.45s ease 0.1s both, ${pulseGlow} 4s ease-in-out infinite`,
@@ -162,11 +162,11 @@ const QuestionPanel = styled(Box)({
 
 const QuestionText = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "20px",
+  fontSize: "14px", 
   color: "#35E52B",
   textShadow: "0 0 8px #42FF5C, 0 0 20px #35E52B55",
   textAlign: "center",
-  lineHeight: 2,
+  lineHeight: 1.8,
   letterSpacing: "1.5px",
   textTransform: "uppercase",
   wordBreak: "break-word",
@@ -184,9 +184,6 @@ const AnswerGrid = styled(Box)({
   position: "relative",
   zIndex: 5,
   animation: `${fadeSlideUp} 0.5s ease 0.2s both`,
-  flex: "none",
-  height: "250px",
-  marginBottom: "300px"
 });
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
