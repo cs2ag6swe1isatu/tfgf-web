@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useGameStore } from "../store/gameStore";
+import { useSoundContext } from "../context/SoundContext";
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -589,6 +590,8 @@ export default function RankingPage() {
   const totalPages = PAGES.length;
 
   const setScreen      = useGameStore((s) => s.setScreen);
+  const { playSound } = useSoundContext();
+  
 
   return (
     <div style={styles.root}>
@@ -745,7 +748,7 @@ export default function RankingPage() {
           <ArrowBtn
             direction="left"
             disabled={page === 0}
-            onClick={() => setPage(p => p - 1)}
+            onClick={() => { setPage(p => p - 1); playSound("select"); }}
           />
 
           {/* 5-card grid (3 + 2 centered) */}
@@ -771,7 +774,7 @@ export default function RankingPage() {
           <ArrowBtn
             direction="right"
             disabled={page === totalPages - 1}
-            onClick={() => setPage(p => p + 1)}
+            onClick={() => { setPage(p => p + 1); playSound("select"); }}
           />
 
         </div>
@@ -783,7 +786,7 @@ export default function RankingPage() {
           </span>
           <button
             className="back-btn"
-            onClick={() => setScreen("home")}
+            onClick={() => { setScreen("home"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
             style={styles.backBtn}
           >
             BACK

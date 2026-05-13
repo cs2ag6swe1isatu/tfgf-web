@@ -135,7 +135,7 @@ export default function App() {
   const bgmReady = useRef(false);
 
   useEffect(() => {
-    const audio = new Audio("public/sounds/bgm/Eric Skiff - A Night Of Dizzy Spells ♫ NO COPYRIGHT 8-bit Music + Background.mp3");
+    const audio = new Audio("/sounds/bgm/Eric Skiff - A Night Of Dizzy Spells ♫ NO COPYRIGHT 8-bit Music + Background.mp3");
     audio.loop = true;
     audio.volume = 0;
     bgmRef.current = audio;

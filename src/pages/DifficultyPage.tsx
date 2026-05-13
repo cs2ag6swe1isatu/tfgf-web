@@ -103,9 +103,7 @@ function DiffBtn({
   onMouseEnter?: () => void;
   animDelay: string;
 }) {
-  function playSound(arg0: string) {
-    throw new Error("Function not implemented.");
-  }
+  const { playSound } = useSoundContext();
 
   return (
     <button

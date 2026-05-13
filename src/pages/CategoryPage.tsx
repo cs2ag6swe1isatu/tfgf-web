@@ -99,9 +99,7 @@ function FolderCard({
       })()
     : [label];
 
-  function playSound(arg0: string) {
-    throw new Error("Function not implemented.");
-  }
+  const { playSound } = useSoundContext();
 
   return (
     <div
@@ -187,9 +185,7 @@ function ArrowBtn({
   onClick: () => void;
   onMouseEnter?: () => void;
 }) {
-  function playSound(arg0: string) {
-    throw new Error("Function not implemented.");
-  }
+  const { playSound } = useSoundContext();
 
   return (
     <button
