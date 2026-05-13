@@ -774,10 +774,8 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
   }, [mode, playerScores, localPlayerId, currentIndex]);
 
   useEffect(() => {
-    if (phase === "end" || endProgressAppliedRef.current) return;
-    if (phase === "end") {
-      endProgressAppliedRef.current = true;
-    }
+    if (phase !== "end" || endProgressAppliedRef.current) return;
+    endProgressAppliedRef.current = true;
 
     const gameConfig = useGameStore.getState().gameConfig;
     const { mode, category, difficulty } = gameConfig || {};

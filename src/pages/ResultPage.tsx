@@ -4,7 +4,7 @@ import StarIcon from '@mui/icons-material/Star';
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { usePlayerStore } from '../store/playerStore';
-import { calculateXP, getLevelProgressPercent } from '../utils/progression';
+import { getLevelProgressPercent } from '../utils/progression';
 import { getLastXpGained } from '../progression/progressionRules';
 import { keyframes, styled } from '@mui/material/styles';
 
@@ -96,7 +96,6 @@ const ResultPage: React.FC = () => {
   const setScreen   = useGameStore((s) => s.setScreen);
   const storedRes   = useGameStore((s) => s.resolution);
   const score       = useTriviaStore((s) => s.score ?? 0);
-  const maxStreak   = useTriviaStore((s) => s.maxStreak ?? 0);
   const questions   = useTriviaStore((s) => s.questions);
   const userAnswers = useTriviaStore((s) => s.userAnswers ?? {});
   const playerTotalXp = usePlayerStore((s) => s.getPlayer().totalXp);
@@ -136,8 +135,10 @@ const ResultPage: React.FC = () => {
     0
   );
   const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
-  const xpGained  = calculateXP(score, maxStreak);
-  const rankProg  = getLevelProgressPercent(playerTotalXp + xpGained);
+  const xpGained  = getLastXpGained() || score;
+  // Use player's actual XP from the store (already includes multiplied XP from applySessionProgress)
+  // to show accurate level/rank progress after this session
+  const rankProg  = getLevelProgressPercent(playerTotalXp);
 
   return (
     <ScaleRoot>

@@ -50,7 +50,7 @@ export interface SessionDelta {
     gamesWon: number;
 }
 
-/** Stores the last computed XP gain for display on result/summary pages */
+/** Stores the last computed XP gain (after multiplier) for display on result/summary pages */
 let _lastXpGained = 0;
 
 /** Returns the XP gained from the most recently built session delta */
@@ -59,13 +59,12 @@ export function getLastXpGained(): number {
 }
 
 export function buildSessionDelta(input: SessionProgressInput): SessionDelta {
-    const xpGained = calculateXP(input.score, input.maxStreak ?? 0);
-
-    const rawXp = baseXp + winBonus + masteryBonus;
+    const rawXp = calculateXP(input.score, input.maxStreak ?? 0);
     const finalXp = applyXpMultiplier(rawXp);
     _lastXpGained = finalXp;
+
     return {
-        xpGained,
+        xpGained: finalXp,
         scoreGained: input.score,
         gamesPlayed: 1,
         gamesMastered: input.mastered ? 1 : 0,
