@@ -38,83 +38,83 @@ interface RankDef {
     ring: string;
   };
   symbolType: "novice" | "student" | "scholar" | "professor" | "expert" |
-              "specialist" | "genius" | "maniac" | "sage" | "oracle";
-  tier: number;
+              "specialist" | "genius" | "brainiac" | "sage" | "oracle";
+  tier: string;
 }
 
 const PAGE_ONE: RankDef[] = [
   {
     title: "NOVICE",
-    progress: "0 / 1000",
+    progress: "0 / 10,000 XP",
     colorTheme: { primary: C.cyan, glow: C.pixelCyan, secondary: "#003845", ring: "rgba(0,223,255,0.25)" },
     symbolType: "novice",
-    tier: 1,
+    tier: "1–10",
   },
   {
     title: "STUDENT",
-    progress: "1000 / 2000",
+    progress: "10,001 / 20,000 XP",
     colorTheme: { primary: C.green, glow: C.greenGlow, secondary: "#0A2A0A", ring: "rgba(63,255,86,0.25)" },
     symbolType: "student",
-    tier: 2,
+    tier: "11–20",
   },
   {
     title: "SCHOLAR",
-    progress: "2000 / 3000",
+    progress: "20,001 / 30,000 XP",
     colorTheme: { primary: C.teal, glow: C.tealGlow, secondary: "#003530", ring: "rgba(0,229,204,0.25)" },
     symbolType: "scholar",
-    tier: 3,
+    tier: "21–30",
   },
   {
     title: "PROFESSOR",
-    progress: "3000 / 4000",
+    progress: "30,001 / 40,000 XP",
     colorTheme: { primary: C.purple, glow: C.purpleGlow, secondary: "#1A0A2A", ring: "rgba(191,95,255,0.25)" },
     symbolType: "professor",
-    tier: 4,
+    tier: "31–40",
   },
   {
     title: "EXPERT",
-    progress: "4000 / 5000",
+    progress: "40,001 / 50,000 XP",
     colorTheme: { primary: C.orange, glow: C.orangeGlow, secondary: "#2A1500", ring: "rgba(255,140,0,0.25)" },
     symbolType: "expert",
-    tier: 5,
+    tier: "41–50",
   },
 ];
 
 const PAGE_TWO: RankDef[] = [
   {
     title: "SPECIALIST",
-    progress: "5000 / 6000",
+    progress: "50,001 / 60,000 XP",
     colorTheme: { primary: C.magenta, glow: C.magentaGlow, secondary: "#2A0015", ring: "rgba(255,45,120,0.25)" },
     symbolType: "specialist",
-    tier: 6,
+    tier: "51–60",
   },
   {
     title: "GENIUS",
-    progress: "6000 / 7000",
+    progress: "60,001 / 70,000 XP",
     colorTheme: { primary: C.cyan, glow: C.pixelCyan, secondary: "#003845", ring: "rgba(0,223,255,0.3)" },
     symbolType: "genius",
-    tier: 7,
+    tier: "61–70",
   },
   {
-    title: "MANIAC",
-    progress: "7000 / 8000",
+    title: "BRAINIAC",
+    progress: "70,001 / 80,000 XP",
     colorTheme: { primary: C.magenta, glow: "#FF0050", secondary: "#1A0010", ring: "rgba(255,0,80,0.3)" },
-    symbolType: "maniac",
-    tier: 8,
+    symbolType: "brainiac",
+    tier: "71–80",
   },
   {
     title: "SAGE",
-    progress: "8000 / 9000",
+    progress: "80,001 / 90,000 XP",
     colorTheme: { primary: C.purple, glow: "#E0A0FF", secondary: "#150020", ring: "rgba(224,160,255,0.3)" },
     symbolType: "sage",
-    tier: 9,
+    tier: "81–90",
   },
   {
     title: "ORACLE",
-    progress: "9000 / 10000",
+    progress: "90,001 / 100,000 XP",
     colorTheme: { primary: C.gold, glow: C.goldGlow, secondary: "#1A1200", ring: "rgba(255,215,0,0.3)" },
     symbolType: "oracle",
-    tier: 10,
+    tier: "91–100",
   },
 ];
 
@@ -319,7 +319,7 @@ function RankSymbol({ type, color, glow }: { type: RankDef["symbolType"]; color:
           <rect x="25" y="25" width="10" height="10" fill={color} {...px}/>
         </svg>
       );
-    case "maniac":
+    case "brainiac":
       // Pixel 16-pt burst star + inner pixel star + stepped square ring
       return (
         <svg viewBox="0 0 60 60" width="54" height="54" style={{ filter: glowFilter, animation: "symbolManiac 1.8s ease-in-out infinite" }} shapeRendering="crispEdges">
@@ -449,7 +449,7 @@ function RankCard({ rank, animDelay }: { rank: RankDef; animDelay: string }) {
         opacity: 0.5,
         letterSpacing: "0.1em",
       }}>
-        LVL.{String(tier).padStart(2, "0")}
+        LVL.{tier}
       </span>
 
       {/* Animated ring backdrop */}
@@ -588,7 +588,7 @@ export default function RankingPage() {
   const currentRanks = PAGES[page];
   const totalPages = PAGES.length;
 
-   const setScreen      = useGameStore((s) => s.setScreen);
+  const setScreen      = useGameStore((s) => s.setScreen);
 
   return (
     <div style={styles.root}>
@@ -878,8 +878,10 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     width: "100%",
     maxWidth: 900,
-    paddingLeft: 68,
-    paddingRight: 68,
+    paddingLeft: "clamp(12px, 4vw, 68px)",
+    paddingRight: "clamp(12px, 4vw, 68px)",
+    flexWrap: "wrap",
+    gap: 12,
     animation: "fadeUp 0.4s 0.3s both",
   },
   pageIndicator: {
@@ -897,12 +899,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   backBtn: {
     fontFamily: "'Press Start 2P', monospace",
-    fontSize: 9,
+    fontSize: "clamp(8px, 1vw, 14px)",
     color: C.btnText,
     background: C.btnFill,
     border: `1.5px solid ${C.green}`,
     borderRadius: 3,
-    padding: "8px 18px",
+    padding: "clamp(8px, 1vw, 16px) clamp(16px, 2vw, 32px)",
     cursor: "pointer",
     letterSpacing: "0.14em",
     boxShadow: `0 0 10px rgba(53,229,43,0.25)`,

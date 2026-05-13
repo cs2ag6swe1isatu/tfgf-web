@@ -155,6 +155,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         selectedAnswerRemainingTime: 0,
         score: 0,
         userAnswers: [],
+        questionLimit,
         playerScores: {},
         playerAnswers: {},
         currentStreak: 0,
@@ -218,11 +219,10 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         maxStreak: nextMaxStreak,
       });
     } else if (mode === 'multiplayer') {
+      // In multiplayer, don't change phase immediately — timer controls when scoring starts
       set({
         selectedAnswer: answer,
         selectedAnswerRemainingTime: answerRemainingTime,
-        phase: 'scoring',
-        timer: answerTimer,
         userAnswers: newUserAnswers,
         currentStreak: nextStreak,
         maxStreak: nextMaxStreak,
@@ -250,17 +250,27 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
     if (phase === 'answering') {
       if (selectedAnswer) {
-        set({ timer: 0 });
-        get().selectAnswer(selectedAnswer);
-        return;
+        if (mode === 'solo') {
+          set({ timer: 0 });
+          get().selectAnswer(selectedAnswer);
+          return;
+        }
+        // In multiplayer, host still needs to advance phase when timer expires
+        if (mode === 'multiplayer') {
+          set({
+            // Missed answer resets streak and moves to scoring.
+            phase: 'scoring',
+            timer: soloScoringDelay,
+            currentStreak: 0,
+          });
+          return;
+        }
       }
 
       const scoringDelay = mode === 'solo' ? soloScoringDelay : get().answerTimer;
       set({
-        // Missed answer resets streak and moves to scoring.
         phase: 'scoring',
         timer: scoringDelay,
-        currentStreak: 0,
       });
       return;
     }
@@ -374,7 +384,33 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       userAnswers: nextAnswers,
       currentStreak: nextStreak,
       maxStreak: nextMaxStreak,
+      // No phase change — timer controls when scoring starts
     });
+
+    // ── Check if all players have answered → immediately advance to scoring ──
+    if (useMultiplayerStore.getState().lobbyRole === 'host') {
+      const state = get();
+      const players = useMultiplayerStore.getState().players;
+      if (players.length > 0 && state.selectedAnswer) {
+        const allAnswered = players.every((player) => {
+          if (player.isHost) {
+            // Host: check via selectedAnswer (already set above)
+            return !!state.selectedAnswer;
+          }
+          // Client player: check via playerAnswers
+          const answers = state.playerAnswers[player.id];
+          return answers && !!answers[state.currentIndex];
+        });
+
+        if (allAnswered) {
+          set({
+            phase: 'scoring',
+            timer: soloScoringDelay,
+          });
+          return;
+        }
+      }
+    }
     
     if (mode === "multiplayer" && useMultiplayerStore.getState().lobbyRole === "client") {
       const bridge: MultiplayerBridge | undefined = window.multiplayer;
@@ -404,6 +440,28 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     };
     answers[playerId] = playerAnswerList;
     set({ playerAnswers: answers });
+
+    // ── Check if all players have answered → immediately advance to scoring ──
+    const state = get();
+    if (state.mode === 'multiplayer' && state.selectedAnswer) {
+      const players = useMultiplayerStore.getState().players;
+      if (players.length > 0) {
+        const allAnswered = players.every((player) => {
+          if (player.isHost) {
+            return !!state.selectedAnswer;
+          }
+          const playerAns = state.playerAnswers[player.id];
+          return playerAns && !!playerAns[state.currentIndex];
+        });
+
+        if (allAnswered) {
+          set({
+            phase: 'scoring',
+            timer: soloScoringDelay,
+          });
+        }
+      }
+    }
   },
   scoreCurrentQuestion: () => {
     const state = get();

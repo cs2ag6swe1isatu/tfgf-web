@@ -12,6 +12,7 @@ import StandingPage from "./pages/StandingPage";
 import MultiplayerMenuPage from "./pages/MultiplayerMenuPage";
 import MultiplayerLobbyPage from "./pages/MultiplayerLobbyPage";
 import MultiplayerDiscoveryPage from "./pages/MultiplayerDiscoveryPage";
+import MultiplayerResults from "./pages/MultiplayerResults";
 import { useGameStore } from "./store/gameStore";
 import { usePlayerStore } from "./store/playerStore";
 import theme from "./ui/theme";
@@ -204,8 +205,9 @@ export default function App() {
       );
       break;
     case "multiplayer-discovery": screenContent = <MultiplayerDiscoveryPage />; break;
+    case "multiplayer-results":   screenContent = <MultiplayerResults />;        break;
     case "home":
-    default:                      screenContent = <HomePage />;                 break;
+      default:                    screenContent = <HomePage />;                  break;
   }
 
   return (

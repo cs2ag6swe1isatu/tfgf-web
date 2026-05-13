@@ -17,10 +17,7 @@ import {
 } from '../components/rewards/RewardSystem';
 import { calculateXP, getLevel } from "../utils/progression";
 
-
-
 // ─── Keyframe Animations ────────────────────────────────────────────────────
-
 
 const neonFlicker = keyframes`
   0%, 100% { opacity: 1; }
@@ -66,40 +63,31 @@ const CLUTCH_MIN_LEADER_CORRECT_ANSWERS = 4;
 const CLUTCH_MIN_SCORE_GAP_CORRECT_ANSWERS = 2;
 
 // ─── Responsive Scale Wrapper ─────────────────────────────────────────────────
-// Default: 1024x768. Scales down/up for other target resolutions.
 
 const ScaleWrapper = styled(Box)({
-  position: "fixed", // Better than 'absolute' for full-screen apps
+  position: "fixed",
   top: 0,
   left: 0,
   right: 0,
   bottom: 0,
   display: "flex",
-  alignItems: "center",     // Centers vertically
-  justifyContent: "center",  // Centers horizontally
+  alignItems: "center",
+  justifyContent: "center",
   overflow: "hidden",
-  background: "#000",        // Pure black "letterboxing"
+  background: "#000",
 });
 
 const GameScreen = styled(Box)({
   width: "1024px",
   height: "768px",
-  position: "relative", // Ensure this isn't 'absolute' or 'fixed'
+  position: "relative",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   flexShrink: 0,
-  
-  /* --- THE CRITICAL FIXES --- */
-  transformOrigin: "center center", // Anchors the scaling to the middle
-  margin: "auto",                    // Helps Flexbox distribute space evenly
-  /* -------------------------- */
+  transformOrigin: "center center",
+  margin: "auto",
 
-  // ... keep your background and animations
-
-
-
-  // CRT horizontal scanlines overlay
   "&::before": {
     content: '""',
     position: "absolute",
@@ -110,7 +98,6 @@ const GameScreen = styled(Box)({
     zIndex: 20,
   },
 
-  // Moving scanline sweep
   "&::after": {
     content: '""',
     position: "absolute",
@@ -124,7 +111,6 @@ const GameScreen = styled(Box)({
     zIndex: 21,
   },
 
-  // Vignette edges
   "& > .vignette": {
     position: "absolute",
     inset: 0,
@@ -139,11 +125,11 @@ const GameScreen = styled(Box)({
 
 const HudBar = styled(Box)({
   width: "100%",
-  boxSizing: "border-box", // Essential for Electron
+  boxSizing: "border-box",
   padding: "30px 50px 0", 
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between", // Pushes Progress left and Timer right
+  justifyContent: "space-between",
   zIndex: 10,
 });
 
@@ -206,7 +192,6 @@ const QuestionPanel = styled(Box)({
   zIndex: 5,
   animation: `${fadeSlideDown} 0.45s ease 0.1s both, ${pulseGlow} 4s ease-in-out infinite`,
 
-  // Corner accent dots
   "&::before, &::after": {
     content: '""',
     position: "absolute",
@@ -244,9 +229,9 @@ const AnswerGrid = styled(Box)({
   position: "relative",
   zIndex: 5,
   animation: `${fadeSlideUp} 0.5s ease 0.2s both`,
-  flex: "none",        // Stop it from stretching automatically
-  height: "250px",      // Let it only be as tall as the buttons
-  marginBottom: "300px" // Add some breathing room before the bottom text
+  flex: "none",
+  height: "250px",
+  marginBottom: "300px"
 });
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
@@ -289,22 +274,18 @@ const AnswerButton = styled(Button, {
 
   return {
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    /* --- MATCHING THE SCREENSHOT --- */
-    fontSize: "20px",           // The text in the pic is small/clean
-    minHeight: "12px",          // The perfect "rectangle" height
-    padding: "0 25px",          // Side breathing room
+    fontSize: "20px",
+    minHeight: "12px",
+    padding: "0 25px",
     letterSpacing: "1px",
-    /* ------------------------------ */
-    
     color: textColor,
     textShadow: `0 0 5px ${textColor}88`,
     textTransform: "uppercase",
     lineHeight: 1.6,
     border: `1.5px solid ${borderColor}`,
-    borderRadius: "8px",        // Matches the subtle rounded corner in the pic
+    borderRadius: "8px",
     background: bgColor,
-    boxShadow: `0 0 10px ${glowColor}44`, // Subtle glow
-    
+    boxShadow: `0 0 10px ${glowColor}44`,
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-start",
@@ -312,9 +293,7 @@ const AnswerButton = styled(Button, {
     transition: "all 0.15s ease",
     position: "relative",
     overflow: "hidden",
-  
 
-    // Shimmer line on hover
     "&::after": {
       content: '""',
       position: "absolute",
@@ -362,7 +341,6 @@ const AnswerLabel = styled(Box, {
     flexShrink: 0,
   })
 );
-
 
 // ─── Ranking Overlay (scoring phase) ─────────────────────────────────────────
 
@@ -479,35 +457,23 @@ function useResponsiveScale(): string {
 
   useEffect(() => {
     const handleResize = () => {
-      // 1. Define the "Virtual Resolution" you designed for
       const targetW = 1024;
       const targetH = 768;
-
-      // 2. Get the actual available space in the Electron window
       const winW = window.innerWidth;
       const winH = window.innerHeight;
-
-      // 3. Calculate how much we need to scale to fit
       const scaleX = winW / targetW;
       const scaleY = winH / targetH;
-
-      // 4. Choose the smaller scale so we don't crop anything.
-      // We use 0.94 to leave a small "safe zone" margin around the game.
       const factor = Math.min(scaleX, scaleY) * 0.94;
-      
       setScale(factor);
     };
 
     window.addEventListener("resize", handleResize);
-    handleResize(); // Initial trigger
-
+    handleResize();
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   return `scale(${scale})`;
 }
-
-   
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -523,6 +489,7 @@ const QuestionPage = () => {
     answerTimer,
     playerScores,
     rankings,
+    questionLimit,
     submitAnswer,
     receiveRemoteAnswer,
     scoreCurrentQuestion,
@@ -633,9 +600,11 @@ const QuestionPage = () => {
     )
       return;
 
+      if (phase === "answering" && selectedAnswer && mode === "solo") return;
+
     let timerInterval: number;
     
-const timerTickIntervalMs = 1000; // 1000ms = 1 second
+const timerTickIntervalMs = 1000;
 
     if (mode === "solo" || lobbyRole === "host") {
       timerInterval = window.setInterval(() => {
@@ -813,12 +782,22 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
           1 + Object.values(triviaPlayerScores).filter((s) => s > currentPlayerScore).length
         : 0;
 
-    // Calculate elapsed time in seconds
     const elapsedMs = gameStartTimeRef.current 
       ? Date.now() - gameStartTimeRef.current 
       : 0;
     const elapsedSeconds = Math.max(0, Math.round(elapsedMs / 1000));
     gameElapsedTimeRef.current = elapsedSeconds;
+
+    const avgTime =
+      totalAnsweredRef.current > 0
+        ? Math.round(
+            (totalSessionTimeRef.current /
+             totalAnsweredRef.current) * 10
+          ) / 10
+        : 0.0;
+    useTriviaStore.setState({ avgTime });
+
+    const postUnlockScreen = mode === "multiplayer" ? "multiplayer-results" as const : "result" as const;
 
     const progressionInput: SessionProgressInput = {
       mode,
@@ -838,17 +817,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       fellBehindByHalfAndWon: mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
     };
 
-    const avgTime =
-      totalAnsweredRef.current > 0
-        ? Math.round(
-            (totalSessionTimeRef.current /
-             totalAnsweredRef.current) * 10
-          ) / 10
-        : 0.0;
-    useTriviaStore.setState({ avgTime });
-
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);
-    const postUnlockScreen = "result" as const;
 
     if (newlyUnlockedAchievements.length > 0) {
       const gameState = useGameStore.getState();
@@ -912,7 +881,6 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       ? "Reviewing results"
       : undefined;
 
-
   // ─────────────────────────────────────────────────────────────────────────────
 
   if (!currentQuestion) {
@@ -946,200 +914,6 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
     );
   }
 
-  const renderHUD = () => (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        px: 2,
-        py: 1.5,
-        borderBottom: '1px solid rgba(255,255,255,0.12)',
-        color: 'text.secondary',
-      }}
-    >
-      <Typography variant="body2">
-        {Math.min(currentIndex + 1, Math.max(questions.length, 1))} / {questions.length || 1}
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Clock />
-        <Typography variant="body2">
-          {phase === 'scoring' && !selectedAnswer
-            ? "TIME'S UP!"
-            : phase === 'scoring'
-              ? '---'
-              : Math.ceil(timer)}
-        </Typography>
-      </Box>
-    </Box>
-  );
-
-  const renderScoringPhase = () => {
-    const scoreEntries = displayedRankings.slice(0, 6);
-
-    return (
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1.2fr 0.8fr' },
-          gap: 2,
-          minHeight: 0,
-        }}
-      >
-        <Card variant="outlined" sx={{ p: 3, minHeight: 0 }}>
-          <Typography variant="overline" sx={{ display: 'block', mb: 1, opacity: 0.7 }}>
-            Current question
-          </Typography>
-          <Typography variant="h4" textAlign="center" sx={{ mb: 3 }}>
-            {currentQuestion?.text ?? 'No question loaded'}
-          </Typography>
-
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-            <Card variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption">Your answer</Typography>
-              <Typography variant="body1" sx={{ mt: 1 }}>
-                {selectedAnswer || 'No answer'}
-              </Typography>
-            </Card>
-
-            <Card variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption">Correct answer</Typography>
-              <Typography variant="body1" sx={{ mt: 1 }}>
-                {currentQuestion?.correctAnswer ?? '—'}
-              </Typography>
-            </Card>
-
-            <Card variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption">Next question in</Typography>
-              <Typography variant="body1" sx={{ mt: 1 }}>
-                {Math.ceil(timer)}s
-              </Typography>
-            </Card>
-
-            <Card variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption">Mode</Typography>
-              <Typography variant="body1" sx={{ mt: 1 }}>
-                {mode ?? 'solo'}
-              </Typography>
-            </Card>
-          </Box>
-        </Card>
-
-        <Card variant="outlined" sx={{ p: 3, minHeight: 0 }}>
-          <Typography variant="overline" sx={{ display: 'block', mb: 2, opacity: 0.7 }}>
-            Rankings
-          </Typography>
-          <Box sx={{ display: 'grid', gap: 1 }}>
-            {scoreEntries.map((entry) => (
-              <Box
-                key={entry.playerId}
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  px: 1.5,
-                  py: 1,
-                  borderRadius: 1,
-                  bgcolor: entry.playerId === localPlayer.id ? 'rgba(255,255,255,0.06)' : 'transparent',
-                }}
-              >
-                <Typography variant="body2">
-                  #{entry.rank} {entry.name}
-                </Typography>
-                <Typography variant="body2">{entry.score}</Typography>
-              </Box>
-            ))}
-          </Box>
-        </Card>
-      </Box>
-    );
-  };
-
-  const renderContent = () => {
-    switch (phase) {
-      case 'loading':
-        return (
-          <Typography sx={{ alignSelf: 'center', textAlign: 'center' }}>
-            Loading...
-          </Typography>
-        );
-      case 'readying':
-        return (
-          <Box sx={{ alignSelf: 'center', textAlign: 'center' }}>
-            <Typography variant="h5" sx={{ mb: 2 }}>
-              Get ready!
-            </Typography>
-            <Typography variant="body1">
-              Starting in {Math.ceil(timer)}...
-            </Typography>
-          </Box>
-        );
-      case 'scoring':
-        return renderScoringPhase();
-      case 'answering':
-      case 'asking':
-        return (
-          <>
-            <Card
-              variant="outlined"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                p: 4,
-                minHeight: { xs: 180, md: 240 },
-              }}
-            >
-              <Typography variant="h4" textAlign="center">
-                {currentQuestion?.text ?? 'Loading...'}
-              </Typography>
-            </Card>
-
-            {currentQuestion && (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                  gap: 2,
-                }}
-              >
-                {currentQuestion.allAnswers.map((answer) => (
-                  <Button
-                    key={answer}
-                    fullWidth
-                    variant={selectedAnswer === answer ? 'contained' : 'outlined'}
-                    onClick={() => handleAnswerClick(answer)}
-                    sx={{ py: 2 }}
-                  >
-                    {answer}
-                  </Button>
-                ))}
-              </Box>
-            )}
-          </>
-        );
-      case 'ranking':
-        return null;
-      case 'end':
-        return (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <Typography variant="h6" sx={{ mb: 3 }}>
-              No questions available for the selected criteria.
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => setScreen('home')}
-            >
-              Back to Menu
-            </Button>
-          </Box>
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
     <ScaleWrapper>
       <GameScreen style={{ transform: scale, position: 'relative' }}>
@@ -1150,7 +924,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
         <HudBar>
           {/* Progress: 1/15 */}
           <ProgressText>
-            {currentIndex + 1}/{questions.length}
+            {currentIndex + 1}/{questionLimit}
           </ProgressText>
 
           {/* Category */}
@@ -1169,8 +943,10 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
               }}
             />
             <TimerText urgent={isUrgent}>
-              {timer !== undefined ? `${timer}s` : "--"}
-            </TimerText>
+  {phase === 'asking' || phase === 'readying' 
+    ? "--" 
+    : timer !== undefined ? `${Math.ceil(timer)}s` : "--"}
+</TimerText>
           </TimerBox>
         </HudBar>
 
@@ -1193,6 +969,37 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
           <QuestionText>{currentQuestion.text}</QuestionText>
         </QuestionPanel>
 
+        {phase === 'readying' && (
+  <Box sx={{
+    position: 'absolute',
+    inset: 0,
+    zIndex: 40,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,0,0,0.85)',
+  }}>
+    <Typography sx={{
+      fontFamily: "'Press Start 2P', monospace",
+      fontSize: '40px',
+      color: '#35E52B',
+      textShadow: '0 0 16px #42FF5C',
+      marginBottom: '24px',
+    }}>
+      GET READY
+    </Typography>
+    <Typography sx={{
+      fontFamily: "'Press Start 2P', monospace",
+      fontSize: '80px',
+      color: '#00E5FF',
+      textShadow: '0 0 24px #00E5FF',
+    }}>
+      {Math.ceil(timer)}
+    </Typography>
+  </Box>
+)}
+
         {/* ── ANSWER GRID ───────────────────────────────────────────────────── */}
         <AnswerGrid>
           {currentQuestion.allAnswers.map((answer: string, idx: number) => {
@@ -1201,8 +1008,8 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
               <AnswerButton
                 key={answer}
                 ref={isSelected ? (answerButtonRef as any) : undefined}
-                onClick={() => { handleAnswerClick(answer); playSound("select"); }}
-                onMouseEnter={() => playSound("hover")}
+                onClick={() => { if (!isAnswered) { handleAnswerClick(answer); playSound("select"); } }}
+                onMouseEnter={() => { if (!isAnswered) playSound("hover"); }}
                 disabled={isAnswered}
                 selected={isSelected && !isRevealed}
                 correct={isCorrect}
@@ -1219,9 +1026,6 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
         </AnswerGrid>
 
        <PhaseBar>
-      {/* ✅ Use the Tag for the UI 
-         ✅ Use the Variable for the Text 
-      */}
       {currentHint && <PhaseHint>{currentHint}</PhaseHint>}
     </PhaseBar>
 
