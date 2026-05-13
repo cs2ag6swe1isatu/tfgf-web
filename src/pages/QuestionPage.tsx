@@ -580,7 +580,7 @@ const QuestionPage = () => {
         timer ?? 0,
         answerTimer,
       );
-      const xpEarned = calculateXP(finalScore, currentQuestion ? useTriviaStore.getState().currentStreak + 1 : 1);
+      const xpEarned = calculateXP(finalScore, currentQuestion ? useTriviaStore.getState().currentStreak : 1);
       const oldXP = localPlayer.totalXp;
       const newXP = oldXP + xpEarned;
       const currentOldLevel = localPlayer.level;
@@ -590,7 +590,7 @@ const QuestionPage = () => {
       triggerReward({
         score: finalScore,
         xp: xpEarned,
-        streak: useTriviaStore.getState().currentStreak + 1,
+        streak: useTriviaStore.getState().currentStreak,
         oldXP,
         newXP,
         oldLevel: currentNewLevel,  // Pass newLevel as oldLevel to suppress level-up trigger

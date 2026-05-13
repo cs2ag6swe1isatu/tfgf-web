@@ -196,7 +196,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     
     const isCorrect = answer === currentQuestion.correctAnswer;
     const answerRemainingTime = mode === 'multiplayer' ? get().selectedAnswerRemainingTime || timer : timer;
-    const nextStreak = isCorrect ? currentStreak : 0;
+    const nextStreak = isCorrect ? currentStreak + 1 : 0;
     const nextMaxStreak = isCorrect ? Math.max(maxStreak, nextStreak) : maxStreak;
     
     // Track user answer
