@@ -82,17 +82,13 @@ const ScaleRoot = styled(Box)({
 const SessionSummaryPage: React.FC = () => {
   const setScreen   = useGameStore((s) => s.setScreen);
   const storedRes   = useGameStore((s) => s.resolution);
-  const score       = useTriviaStore((s) => (s as any).score ?? 0);
-  const questions   = useTriviaStore((s) => s.questions);
-  const userAnswers = useTriviaStore((s) => (s as any).userAnswers ?? {});
+  const score       = useTriviaStore((s) => s.score);
+  const player      = usePlayerStore((state) => state.getPlayer());
   
   // ─── ADDED THE SCALE HOOK ───
   const scale = useResponsiveScale(); // Base design is for 1280x720
 
-  let playerRankTitle = 'STUDENT';
-  try {
-    playerRankTitle = usePlayerStore((s: any) => s?.getPlayer?.()?.rankTitle) ?? 'STUDENT';
-  } catch (_) { }
+  const playerRankTitle = player.rank.name.toUpperCase();
 
   // Compute layout from the user's stored resolution
   const base = {
@@ -116,12 +112,11 @@ const SessionSummaryPage: React.FC = () => {
     rankTitle: Math.max(16, Math.round(base.rankTitle * layoutScale)),
   } as const;
 
-  const totalQ    = questions.length;
-  const correct   = questions.reduce(
-    (acc: number, q: any, i: number) => acc + (userAnswers[i] === q.correctAnswer ? 1 : 0), 0
+  const rankProg  = Math.round(
+    player.xpToNextLevel > 0
+      ? (player.totalXp / (player.totalXp + player.xpToNextLevel)) * 100
+      : 0
   );
-  const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
-  const rankProg  = accuracy;
   const xpGained  = score;
 
   return (
