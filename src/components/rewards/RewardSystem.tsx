@@ -114,7 +114,7 @@ function getStreakTier(streak: number): StreakTier | null {
     flashColor: 'rgba(255,214,10,0.12)',
     flashOpacity: 0.12,
   };
-  if (streak >= 3) return {
+  if (streak >= 2) return {
     label: `${streak} STREAK!`,
     color: '#7CFC00',
     glowColor: 'rgba(124,252,0,0.6)',
