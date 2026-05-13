@@ -1,7 +1,8 @@
 import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
 import { Difficulty } from "../constants";
-import { soloDifficultyStartConfig, sessionHistoryRuntimeLimits } from "../config/gameConfig";
+import { soloDifficultyStartConfig, sessionHistoryRuntimeLimits, multiplayerDifficultyStartConfig } from "../config/gameConfig";
+ 
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -135,23 +136,40 @@ export default function DifficultyPage() {
   const startGame   = useTriviaStore((s) => s.startGame);
   const resetGame   = useTriviaStore((s) => s.resetGame);
 
-  const handleSelect = (difficulty: Difficulty) => {
-    setDifficulty(difficulty);
-    if (mode === "solo") {
-      resetGame();
-      startGame({
-        category,
-        difficulty,
-        mode: "solo",
-        ...soloDifficultyStartConfig,
-        ...sessionHistoryRuntimeLimits,
-        autoJoinLan: false
-      });
-      setScreen("question");
-    } else {
-      setScreenModal(null);
-    }
-  };
+ const handleSelect = (difficulty: Difficulty) => {
+  setDifficulty(difficulty);
+
+  if (mode === "solo") {
+    resetGame();
+
+    startGame({
+      category,
+      difficulty,
+      mode: "solo",
+      ...soloDifficultyStartConfig,
+      ...sessionHistoryRuntimeLimits,
+      autoJoinLan: false
+    });
+
+    setScreen("question");
+
+  } else if (mode === "multiplayer") {
+    resetGame();
+
+    startGame({
+      category,
+      difficulty,
+      mode: "multiplayer",
+      ...multiplayerDifficultyStartConfig,
+      ...sessionHistoryRuntimeLimits,
+      autoJoinLan: true
+    });
+
+    setScreen("question");
+  } else {
+    setScreenModal(null);
+  }
+};
 
   const handleBack = () => {
     mode === "solo" ? setScreen("category") : setScreenModal(null);
