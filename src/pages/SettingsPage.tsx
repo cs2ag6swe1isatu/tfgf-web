@@ -337,7 +337,10 @@ export default function SettingsPage() {
           <div>
             <SectionLabel>PLAYER NAME</SectionLabel>
             <div style={{ display: "flex", gap: 8, marginBottom: 28 }}>
+              {/* FIX: Added aria-label to satisfy accessibility linting (axe/forms).
+                  The input had no label, title, or placeholder — this is the minimal fix. */}
               <input
+                aria-label="Player name"
                 value={nameInput}
                 onChange={(e) => updatePlayerName(e.target.value)}
                 style={{
@@ -401,7 +404,7 @@ export default function SettingsPage() {
               ))}
             </div>
             <SectionLabel>EFFECTS</SectionLabel>
-            <PixelToggle value={useCase}   label="CASEMODE"  onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useCase", !useCase); }} />
+            <PixelToggle value={useCase}      label="CASEMODE"  onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useCase", !useCase); }} />
             <PixelToggle value={useFlicker}   label="FLICKER"   onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useFlicker", !useFlicker); }} />
             <PixelToggle value={useScanlines} label="SCANLINES" onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useScanlines", !useScanlines); }} />
             <SaveBar onSave={handleSave} saved={saved} />
@@ -445,7 +448,7 @@ export default function SettingsPage() {
                   resetPlayer();
                 }
               }],
-              ["CLEAR DATA",     () => {
+              ["CLEAR DATA", () => {
                 if (window.confirm("CLEAR ALL DATA?")) {
                   resetPlayer();
                 }

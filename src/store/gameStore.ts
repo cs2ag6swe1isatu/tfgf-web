@@ -42,6 +42,23 @@ export interface Settings {
   useFlicker: boolean;
 }
 
+type WithSettings = { settings: Settings };
+type WithGameConfig = { gameConfig: GameConfig };
+type WithAchievementQueue = {
+  achievementUnlockQueue: Achievement[];
+  postUnlockScreen: Screen | null;
+};
+
+// ─── Level-up session state (NOT persisted — lives only for this session) ────
+export interface LevelUpSession {
+  /** Player level at the START of the match (captured before applySessionProgress) */
+  sessionStartLevel: number;
+  /** Player level at the END of the match (captured after applySessionProgress) */
+  sessionEndLevel: number;
+  /** Whether the popup should be shown on the result screen */
+  showLevelUpPopup: boolean;
+}
+
 interface GameState {
   screen: Screen;
   modalScreen: Screen | null;
@@ -50,6 +67,9 @@ interface GameState {
   gameConfig: GameConfig;
   achievementUnlockQueue: Achievement[];
   postUnlockScreen: Screen | null;
+
+  // ── Deferred level-up popup state ──────────────────────────────────────────
+  levelUpSession: LevelUpSession;
 
   getPlayer: () => Player;
 
@@ -63,6 +83,24 @@ interface GameState {
   dismissCurrentAchievementUnlock: () => void;
   clearAchievementUnlocks: () => void;
 
+  /**
+   * Call this BEFORE applySessionProgress at the start of a match.
+   * Records the player's current level as the session-start baseline.
+   */
+  recordSessionStartLevel: () => void;
+
+  /**
+   * Call this AFTER applySessionProgress when the game ends.
+   * Compares end level to start level and arms the popup if the player levelled up.
+   */
+  recordSessionEndLevel: () => void;
+
+  /**
+   * Dismiss the popup and reset the session tracking state.
+   * Call from LevelUpPopup's onClose / CONTINUE button.
+   */
+  clearLevelUpSession: () => void;
+
   setMode: (mode: Mode) => void;
   setCategory: (category: Category) => void;
   setDifficulty: (difficulty: Difficulty) => void;
@@ -72,6 +110,12 @@ interface GameState {
   setAutoJoinLan: (enabled: boolean) => void;
 }
 
+const DEFAULT_LEVEL_UP_SESSION: LevelUpSession = {
+  sessionStartLevel: 1,
+  sessionEndLevel: 1,
+  showLevelUpPopup: false,
+};
+
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
@@ -79,17 +123,18 @@ export const useGameStore = create<GameState>()(
       modalScreen: null,
       achievementUnlockQueue: [],
       postUnlockScreen: null,
-
       resolution: { width: 1024, height: 768, label: "XGA" },
 
-      // ── Proper defaults so nothing is ever undefined ──
+      // Not persisted — always starts clean
+      levelUpSession: DEFAULT_LEVEL_UP_SESSION,
+
       settings: {
-        bgmEnabled:  true,
-        sfxEnabled:  true,
-        volume:      5,
-        useCase:     false,
+        bgmEnabled: true,
+        sfxEnabled: true,
+        volume: 5,
+        useCase: false,
         useScanlines: false,
-        useFlicker:  false,
+        useFlicker: false,
       },
 
       gameConfig: {
@@ -97,38 +142,37 @@ export const useGameStore = create<GameState>()(
         autoJoinLan: false,
       },
 
-      getPlayer: () => usePlayerStore.getState().getPlayer(),
+      getPlayer: (): Player => usePlayerStore.getState().getPlayer(),
 
-      setScreen:      (screen)      => set({ screen }),
-      setModalScreen: (modalScreen) => set({ modalScreen }),
+      setScreen: (screen: Screen) => set({ screen }),
+      setModalScreen: (modalScreen: Screen | null) => set({ modalScreen }),
 
-      setResolution: (width, height, label) =>
+      setResolution: (width: number, height: number, label: string) =>
         set({ resolution: { width, height, label } }),
 
-      toggleSetting: (key) =>
-        set((state: Pick<GameState, "settings">) => ({
+      toggleSetting: (key: keyof Settings) =>
+        set((state: WithSettings) => ({
           settings: { ...state.settings, [key]: !state.settings[key] },
         })),
 
-      // Merge a partial settings patch — used by the Save button
-      updateSettings: (patch) =>
-        set((state: Pick<GameState, "settings">) => ({
+      updateSettings: (patch: Partial<Settings>) =>
+        set((state: WithSettings) => ({
           settings: { ...state.settings, ...patch },
         })),
 
-      setGameConfig: (config) =>
-        set((state: { gameConfig: any; }) => ({
+      setGameConfig: (config: Partial<GameConfig>) =>
+        set((state: WithGameConfig) => ({
           gameConfig: { ...state.gameConfig, ...config },
         })),
 
-      queueAchievementUnlocks: (achievements, postUnlockScreen) =>
-        set((state: Pick<GameState, "achievementUnlockQueue" | "postUnlockScreen">) => ({
+      queueAchievementUnlocks: (achievements: Achievement[], postUnlockScreen: Screen) =>
+        set((state: WithAchievementQueue) => ({
           achievementUnlockQueue: [...state.achievementUnlockQueue, ...achievements],
           postUnlockScreen,
         })),
 
       dismissCurrentAchievementUnlock: () =>
-        set((state: Pick<GameState, "achievementUnlockQueue" | "postUnlockScreen">) => {
+        set((state: WithAchievementQueue) => {
           const remainingQueue = state.achievementUnlockQueue.slice(1);
           return {
             achievementUnlockQueue: remainingQueue,
@@ -139,19 +183,57 @@ export const useGameStore = create<GameState>()(
       clearAchievementUnlocks: () =>
         set({ achievementUnlockQueue: [], postUnlockScreen: null }),
 
-      setMode:          (mode)       => set((s: { gameConfig: any; }) => ({ gameConfig: { ...s.gameConfig, mode } })),
-      setCategory:      (category)   => set((s: { gameConfig: any; }) => ({ gameConfig: { ...s.gameConfig, category } })),
-      setDifficulty:    (difficulty) => set((s: { gameConfig: any; }) => ({ gameConfig: { ...s.gameConfig, difficulty } })),
-      setQuestionLimit: (limit)      => set((s: { gameConfig: any; }) => ({ gameConfig: { ...s.gameConfig, questionLimit: limit } })),
-      setQuestionTimer: (seconds)    => set((s: { gameConfig: any; }) => ({ gameConfig: { ...s.gameConfig, questionTimer: seconds } })),
-      setAnswerTimer:   (seconds)    => set((s: { gameConfig: any; }) => ({ gameConfig: { ...s.gameConfig, answerTimer: seconds } })),
-      setAutoJoinLan:   (enabled)    => set((s: { gameConfig: any; }) => ({ gameConfig: { ...s.gameConfig, autoJoinLan: enabled } })),
+      // ── Level-up deferred popup actions ──────────────────────────────────
+
+      recordSessionStartLevel: () => {
+        const currentLevel = usePlayerStore.getState().getPlayer().level;
+        set({
+          levelUpSession: {
+            sessionStartLevel: currentLevel,
+            sessionEndLevel: currentLevel,
+            showLevelUpPopup: false,
+          },
+        });
+      },
+
+      recordSessionEndLevel: () => {
+        const endLevel = usePlayerStore.getState().getPlayer().level;
+        const startLevel = get().levelUpSession.sessionStartLevel;
+        set({
+          levelUpSession: {
+            sessionStartLevel: startLevel,
+            sessionEndLevel: endLevel,
+            // Only show the popup when the player actually gained at least one level
+            showLevelUpPopup: endLevel > startLevel,
+          },
+        });
+      },
+
+      clearLevelUpSession: () =>
+        set({ levelUpSession: DEFAULT_LEVEL_UP_SESSION, modalScreen: null }),
+
+      // ── Convenience config setters (unchanged) ────────────────────────────
+
+      setMode: (mode: Mode) =>
+        set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, mode } })),
+      setCategory: (category: Category) =>
+        set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, category } })),
+      setDifficulty: (difficulty: Difficulty) =>
+        set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, difficulty } })),
+      setQuestionLimit: (limit: number) =>
+        set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, questionLimit: limit } })),
+      setQuestionTimer: (seconds: number) =>
+        set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, questionTimer: seconds } })),
+      setAnswerTimer: (seconds: number) =>
+        set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, answerTimer: seconds } })),
+      setAutoJoinLan: (enabled: boolean) =>
+        set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, autoJoinLan: enabled } })),
     }),
     {
-      name: "game-store", // localStorage key
-      // Only persist settings and resolution — not transient nav state
-      partialize: (state:any) => ({
-        settings:   state.settings,
+      name: "game-store",
+      // levelUpSession is intentionally excluded — it must not survive a page reload
+      partialize: (state: GameState) => ({
+        settings: state.settings,
         resolution: state.resolution,
         gameConfig: state.gameConfig,
       }),

@@ -18,10 +18,7 @@ import {
 import { calculateXP, getLevel } from "../utils/progression";
 import type { Achievement } from "../types/player";
 
-
-
 // ─── Keyframe Animations ────────────────────────────────────────────────────
-
 
 const neonFlicker = keyframes`
   0%, 100% { opacity: 1; }
@@ -67,40 +64,31 @@ const CLUTCH_MIN_LEADER_CORRECT_ANSWERS = 4;
 const CLUTCH_MIN_SCORE_GAP_CORRECT_ANSWERS = 2;
 
 // ─── Responsive Scale Wrapper ─────────────────────────────────────────────────
-// Default: 1024x768. Scales down/up for other target resolutions.
 
 const ScaleWrapper = styled(Box)({
-  position: "fixed", // Better than 'absolute' for full-screen apps
+  position: "fixed",
   top: 0,
   left: 0,
   right: 0,
   bottom: 0,
   display: "flex",
-  alignItems: "center",     // Centers vertically
-  justifyContent: "center",  // Centers horizontally
+  alignItems: "center",
+  justifyContent: "center",
   overflow: "hidden",
-  background: "#000",        // Pure black "letterboxing"
+  background: "#000",
 });
 
 const GameScreen = styled(Box)({
   width: "1024px",
   height: "768px",
-  position: "relative", // Ensure this isn't 'absolute' or 'fixed'
+  position: "relative",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   flexShrink: 0,
-  
-  /* --- THE CRITICAL FIXES --- */
-  transformOrigin: "center center", // Anchors the scaling to the middle
-  margin: "auto",                    // Helps Flexbox distribute space evenly
-  /* -------------------------- */
+  transformOrigin: "center center",
+  margin: "auto",
 
-  // ... keep your background and animations
-
-
-
-  // CRT horizontal scanlines overlay
   "&::before": {
     content: '""',
     position: "absolute",
@@ -111,7 +99,6 @@ const GameScreen = styled(Box)({
     zIndex: 20,
   },
 
-  // Moving scanline sweep
   "&::after": {
     content: '""',
     position: "absolute",
@@ -125,7 +112,6 @@ const GameScreen = styled(Box)({
     zIndex: 21,
   },
 
-  // Vignette edges
   "& > .vignette": {
     position: "absolute",
     inset: 0,
@@ -140,11 +126,11 @@ const GameScreen = styled(Box)({
 
 const HudBar = styled(Box)({
   width: "100%",
-  boxSizing: "border-box", // Essential for Electron
-  padding: "30px 50px 0", 
+  boxSizing: "border-box",
+  padding: "30px 50px 0",
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between", // Pushes Progress left and Timer right
+  justifyContent: "space-between",
   zIndex: 10,
 });
 
@@ -207,7 +193,6 @@ const QuestionPanel = styled(Box)({
   zIndex: 5,
   animation: `${fadeSlideDown} 0.45s ease 0.1s both, ${pulseGlow} 4s ease-in-out infinite`,
 
-  // Corner accent dots
   "&::before, &::after": {
     content: '""',
     position: "absolute",
@@ -245,9 +230,9 @@ const AnswerGrid = styled(Box)({
   position: "relative",
   zIndex: 5,
   animation: `${fadeSlideUp} 0.5s ease 0.2s both`,
-  flex: "none",        // Stop it from stretching automatically
-  height: "250px",      // Let it only be as tall as the buttons
-  marginBottom: "300px" // Add some breathing room before the bottom text
+  flex: "none",
+  height: "250px",
+  marginBottom: "300px",
 });
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
@@ -260,14 +245,14 @@ const AnswerButton = styled(Button, {
   correct?: boolean;
   incorrect?: boolean;
   revealed?: boolean;
-}>(({ selected, correct, incorrect, revealed }) => {
+}>(({ selected, correct, incorrect }) => {
   let borderColor = "#00E5FF";
   let bgColor = "rgba(0,5,15,0.7)";
   let textColor = "#35E52B";
   let glowColor = "#00E5FF55";
   let extraGlow = "";
 
-  if (selected && !revealed) {
+  if (selected && !correct && !incorrect) {
     borderColor = "#35E52B";
     bgColor = "rgba(0,30,10,0.8)";
     glowColor = "#35E52B88";
@@ -290,22 +275,18 @@ const AnswerButton = styled(Button, {
 
   return {
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    /* --- MATCHING THE SCREENSHOT --- */
-    fontSize: "20px",           // The text in the pic is small/clean
-    minHeight: "12px",          // The perfect "rectangle" height
-    padding: "0 25px",          // Side breathing room
+    fontSize: "20px",
+    minHeight: "12px",
+    padding: "0 25px",
     letterSpacing: "1px",
-    /* ------------------------------ */
-    
     color: textColor,
     textShadow: `0 0 5px ${textColor}88`,
     textTransform: "uppercase",
     lineHeight: 1.6,
     border: `1.5px solid ${borderColor}`,
-    borderRadius: "8px",        // Matches the subtle rounded corner in the pic
+    borderRadius: "8px",
     background: bgColor,
-    boxShadow: `0 0 10px ${glowColor}44`, // Subtle glow
-    
+    boxShadow: `0 0 10px ${glowColor}44${extraGlow}`,
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-start",
@@ -313,9 +294,7 @@ const AnswerButton = styled(Button, {
     transition: "all 0.15s ease",
     position: "relative",
     overflow: "hidden",
-  
 
-    // Shimmer line on hover
     "&::after": {
       content: '""',
       position: "absolute",
@@ -364,8 +343,7 @@ const AnswerLabel = styled(Box, {
   })
 );
 
-
-// ─── Ranking Overlay (scoring phase) ─────────────────────────────────────────
+// ─── Ranking Overlay ──────────────────────────────────────────────────────────
 
 const RankingOverlay = styled(Box)({
   position: "absolute",
@@ -438,7 +416,7 @@ const RankScore = styled(Typography)({
   textShadow: "0 0 6px #35E52B",
 });
 
-// ─── Bottom Spacer / Phase Hint ───────────────────────────────────────────────
+// ─── Bottom Phase Bar ─────────────────────────────────────────────────────────
 
 const PhaseBar = styled(Box)({
   width: "100%",
@@ -460,7 +438,7 @@ const PhaseHint = styled(Typography)({
   animation: `${neonFlicker} 3s ease-in-out infinite`,
 });
 
-// ─── Divider Line ─────────────────────────────────────────────────────────────
+// ─── Divider ──────────────────────────────────────────────────────────────────
 
 const NeonDivider = styled(Box)({
   width: "calc(100% - 80px)",
@@ -480,35 +458,24 @@ function useResponsiveScale(): string {
 
   useEffect(() => {
     const handleResize = () => {
-      // 1. Define the "Virtual Resolution" you designed for
       const targetW = 1024;
       const targetH = 768;
-
-      // 2. Get the actual available space in the Electron window
       const winW = window.innerWidth;
       const winH = window.innerHeight;
-
-      // 3. Calculate how much we need to scale to fit
       const scaleX = winW / targetW;
       const scaleY = winH / targetH;
-
-      // 4. Choose the smaller scale so we don't crop anything.
-      // We use 0.94 to leave a small "safe zone" margin around the game.
       const factor = Math.min(scaleX, scaleY) * 0.94;
-      
       setScale(factor);
     };
 
     window.addEventListener("resize", handleResize);
-    handleResize(); // Initial trigger
+    handleResize();
 
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   return `scale(${scale})`;
 }
-
-   
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -534,7 +501,7 @@ const QuestionPage = () => {
   const { applySessionProgress } = usePlayerStore();
   const localPlayer = usePlayerStore((state) => state.getPlayer());
   const { lobbyRole, players } = useMultiplayerStore();
-  const { setScreen } = useGameStore();
+  const { setScreen, recordSessionStartLevel, recordSessionEndLevel, queueAchievementUnlocks } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
   const category = useGameStore((state) => state.gameConfig.category);
   const localPlayerId = mode === "multiplayer" ? getMultiplayerPlayerId(localPlayer.id) : localPlayer.id;
@@ -547,21 +514,20 @@ const QuestionPage = () => {
   const { state: rewardState, trigger: triggerReward } = useRewardSystem();
   const answerButtonRef = useRef<HTMLElement>(null);
 
-  // ── Level-up tracking refs (FIX B) ─────────────────────────────────────────
-  const didLevelUpThisSessionRef = useRef<boolean>(false);
-  const levelAfterSessionRef     = useRef<number>(0);
+  // ── Session XP accumulator (ref — does not trigger re-renders) ────────────
+  const sessionXpRef = useRef(0);
 
-  // ── End-game deferred data (level-up before achievements - FIX D) ─────────
-  const endDataRef = useRef<{
-    achievements: Achievement[];
-    postUnlockScreen: "result";
-  } | null>(null);
-
-  // ── Game timer tracking ─────────────────────────────────────────────────────
+  // ── Game timer tracking ────────────────────────────────────────────────────
   const gameStartTimeRef = useRef<number | null>(null);
-  const gameElapsedTimeRef = useRef<number>(0);
   const totalSessionTimeRef = useRef<number>(0);
   const totalAnsweredRef = useRef<number>(0);
+
+  // ── Guard: prevents the end-of-game handler running more than once ─────────
+  // Reset when component mounts (new game) since refs persist across renders
+  // but are recreated on unmount/remount (screen change).
+  const endProgressAppliedRef = useRef(false);
+
+  const fellBehindByHalfRef = useRef(false);
 
   useEffect(() => {
     if (phase === 'answering' || phase === 'asking') {
@@ -613,32 +579,37 @@ const QuestionPage = () => {
         timer ?? 0,
         answerTimer,
       );
-      const xpEarned = calculateXP(finalScore, currentQuestion ? useTriviaStore.getState().currentStreak : 1);
-      const oldXP = localPlayer.totalXp;
-      const newXP = oldXP + xpEarned;
-      const currentOldLevel = localPlayer.level;
-      const currentNewLevel = getLevel(newXP);
 
-      // ── FIX A: Suppress level-up modal during gameplay by passing same level ──
+      // currentStreak is the value BEFORE submitAnswer increments it, so +1 here
+      // gives the streak that applies to this correct answer.
+      const streakAfterThisAnswer = useTriviaStore.getState().currentStreak + 1;
+      const xpEarned = calculateXP(finalScore, streakAfterThisAnswer);
+
+      sessionXpRef.current += xpEarned;
+
+      // Read persisted totalXp directly from store to avoid the stale
+      // localPlayer render-time snapshot.
+      const persistedTotalXp = usePlayerStore.getState().getPlayer().totalXp;
+      const oldXP = persistedTotalXp + (sessionXpRef.current - xpEarned);
+      const newXP = persistedTotalXp + sessionXpRef.current;
+
+      // Pass identical old/new level so the mid-game reward overlay never
+      // shows a level-up animation during gameplay.
+      const visualLevel = getLevel(newXP);
+
       triggerReward({
         score: finalScore,
         xp: xpEarned,
-        streak: useTriviaStore.getState().currentStreak,
+        streak: streakAfterThisAnswer,
         oldXP,
         newXP,
-        oldLevel: currentNewLevel,  // Pass newLevel as oldLevel to suppress level-up trigger
-        newLevel: currentNewLevel,  // Both same = no level-up visual during gameplay
+        oldLevel: visualLevel,
+        newLevel: visualLevel,
         xpPerLevel: 1000,
         buttonRef: answerButtonRef,
       });
-
-      // ── FIX B: Track actual level-up in refs ──────────────────────────────
-      if (currentNewLevel > currentOldLevel) {
-        didLevelUpThisSessionRef.current = true;
-        levelAfterSessionRef.current     = currentNewLevel;
-      }
     },
-    [submitAnswer, questions, currentIndex, timer, answerTimer, localPlayer, triggerReward]
+    [submitAnswer, questions, currentIndex, timer, answerTimer, triggerReward]
   );
 
   // ── Timer tick ──────────────────────────────────────────────────────────────
@@ -652,8 +623,7 @@ const QuestionPage = () => {
       return;
 
     let timerInterval: number;
-    
-const timerTickIntervalMs = 1000; // 1000ms = 1 second
+    const timerTickIntervalMs = 1000;
 
     if (mode === "solo" || lobbyRole === "host") {
       timerInterval = window.setInterval(() => {
@@ -760,25 +730,40 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
     }
   }, [phase, nextPhase]);
 
-  // ── Apply session progress at end ──────────────────────────────────────────
-
-  const endProgressAppliedRef = useRef(false);
-  const fellBehindByHalfRef = useRef(false);
+  // ── Reset all session refs at game start ────────────────────────────────────
+  // FIX: Also call recordSessionStartLevel() here so the gameStore has the
+  // player's level BEFORE this session's XP is applied.
 
   useEffect(() => {
     if (phase === "readying" && currentIndex === 0) {
       fellBehindByHalfRef.current = false;
       totalSessionTimeRef.current = 0;
       totalAnsweredRef.current = 0;
-      // ── FIX B: Reset level-up refs at game start ─────────────────────────
-      didLevelUpThisSessionRef.current = false;
-      levelAfterSessionRef.current     = 0;
+      sessionXpRef.current = 0;
+      endProgressAppliedRef.current = false;
+      gameStartTimeRef.current = null;
+
+      // Snapshot the player's level before this session begins.
+      // This is the "previous level" shown in LevelUpPopup.
+      recordSessionStartLevel();
     }
-  }, [phase, currentIndex]);
+  }, [phase, currentIndex, recordSessionStartLevel]);
+
+  // Solo mode game start also begins at phase "answering" with currentIndex 0
+  useEffect(() => {
+    if (phase === "answering" && currentIndex === 0 && sessionXpRef.current === 0) {
+      // Only reset if we haven't already (e.g. multiplayer already handled above)
+      if (gameStartTimeRef.current === null) {
+        gameStartTimeRef.current = Date.now();
+      }
+      if (!endProgressAppliedRef.current) {
+        recordSessionStartLevel();
+      }
+    }
+  }, [phase, currentIndex, recordSessionStartLevel]);
 
   useEffect(() => {
     if (mode !== "multiplayer") return;
-
     if (currentIndex < CLUTCH_MIN_ROUNDS) return;
 
     const scoreValues = Object.values(playerScores);
@@ -802,155 +787,108 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
     }
   }, [mode, playerScores, localPlayerId, currentIndex]);
 
-  // ── Step 1: Process game end data (XP, achievements) ───────────────────────
+  // ── End-of-game handler ─────────────────────────────────────────────────────
+  // FIX: Removed the broken triggerReward() → handleLevelUpDone chain for level-up.
+  // Level-up is now handled entirely by the gameStore levelUpSession system:
+  //   1. recordSessionStartLevel() called at game start (above)
+  //   2. applySessionProgress() applies XP
+  //   3. recordSessionEndLevel() compares levels and arms the popup
+  //   4. setScreen("result") always fires — ResultPage shows LevelUpPopup if needed
+  // This guarantees the screen never gets stuck here regardless of level-up state.
+
   useEffect(() => {
     if (phase !== "end" || endProgressAppliedRef.current) return;
     endProgressAppliedRef.current = true;
 
     const gameConfig = useGameStore.getState().gameConfig;
-    const { mode, category, difficulty } = gameConfig || {};
-    if (!mode || !category || !difficulty) return;
+    const { mode: cfgMode, category: cfgCategory, difficulty: cfgDifficulty } = gameConfig;
 
-    const triviaState = useTriviaStore.getState();
-    const userAnswers = triviaState.userAnswers;
-    const questionsState = triviaState.questions;
-
-    const correctAnswersCount = questionsState.filter(
-      (q, index) => q.correctAnswer === userAnswers[index]
-    ).length;
-
-    const fallbackScore = scoreForCorrectAnswers(correctAnswersCount);
-    const rankingEntry = triviaState.rankings.find(
-      (entry) => entry.playerId === localPlayerId
-    );
-    const triviaPlayerScores = triviaState.playerScores;
-    const currentPlayerScore =
-      mode === "multiplayer"
-        ? rankingEntry?.score ?? triviaPlayerScores[localPlayerId] ?? fallbackScore
-        : fallbackScore;
-
-    const playerRank =
-      mode === "multiplayer"
-        ? rankingEntry?.rank ??
-          1 + Object.values(triviaPlayerScores).filter((s) => s > currentPlayerScore).length
-        : 0;
-
-    // Calculate elapsed time in seconds
-    const elapsedMs = gameStartTimeRef.current 
-      ? Date.now() - gameStartTimeRef.current 
-      : 0;
-    const elapsedSeconds = Math.max(0, Math.round(elapsedMs / 1000));
-    gameElapsedTimeRef.current = elapsedSeconds;
-
-    const progressionInput: SessionProgressInput = {
-      mode,
-      category,
-      difficulty,
-      totalQuestions: questionsState.length,
-      correctAnswers: correctAnswersCount,
-      score: currentPlayerScore,
-      maxStreak: triviaState.maxStreak,
-      questions: questionsState,
-      userAnswers,
-      timeTaken: elapsedSeconds,
-      mastered: correctAnswersCount === questionsState.length,
-      won: mode === "multiplayer" ? playerRank === 1 : false,
-      topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
-      hostedLobby: mode === "multiplayer" && lobbyRole === "host",
-      fellBehindByHalfAndWon: mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
-    };
-
-    const avgTime =
-      totalAnsweredRef.current > 0
-        ? Math.round(
-            (totalSessionTimeRef.current /
-             totalAnsweredRef.current) * 10
-          ) / 10
-        : 0.0;
-    useTriviaStore.setState({ avgTime });
-
-    const newlyUnlockedAchievements = applySessionProgress(progressionInput);
-    const postUnlockScreen = "result" as const;
-
-    // ── FIX C + FIX D: Show level-up first, then achievements ──────────────
-    if (didLevelUpThisSessionRef.current) {
-      // Level-up happened this session — show it first
-      // Store achievements data for after level-up popup dismisses
-      endDataRef.current = {
-        achievements: newlyUnlockedAchievements,
-        postUnlockScreen,
-      };
-
-      // Trigger level-up reward popup (only level data, score/XP/streak will
-      // also trigger but at game end these are harmless flash effects)
-      triggerReward({
-        score: 0,
-        xp: 0,
-        streak: 0,
-        oldXP: 0,
-        newXP: 0,
-        oldLevel: levelAfterSessionRef.current - 1,
-        newLevel: levelAfterSessionRef.current,
-        xpPerLevel: 1000,
-      });
-      // The onDone callback on RewardOverlay handles the post-level-up flow
-    } else if (newlyUnlockedAchievements.length > 0) {
-      // No level-up, but achievements — go directly to achievement screen
-      const gameState = useGameStore.getState();
-      gameState.queueAchievementUnlocks(newlyUnlockedAchievements, postUnlockScreen);
-      gameState.setScreen("achievement-unlock");
-    } else {
-      // No level-up, no achievements — go directly to result
-      setScreen(postUnlockScreen);
-    }
-  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen, triggerReward]);
-
-  // ── Step 2: Handle level-up onDone callback → trigger achievements ─────────
-  const handleLevelUpDone = useCallback(() => {
-    const data = endDataRef.current;
-    if (!data) {
-      // No pending data — just go to result
+    if (!cfgMode || !cfgCategory || !cfgDifficulty) {
+      console.error("[QuestionPage] Missing game config at end of session:", gameConfig);
       setScreen("result");
       return;
     }
 
-    endDataRef.current = null;
+    const triviaState = useTriviaStore.getState();
+    const { userAnswers: finalUserAnswers, questions: finalQuestions, rankings: finalRankings, playerScores: finalPlayerScores, maxStreak } = triviaState;
 
-    if (data.achievements.length > 0) {
-      const gameState = useGameStore.getState();
-      gameState.queueAchievementUnlocks(data.achievements, "result");
-      gameState.setScreen("achievement-unlock");
+    const correctAnswersCount = finalQuestions.filter(
+      (q, index) => q.correctAnswer === finalUserAnswers[index]
+    ).length;
+
+    const fallbackScore = scoreForCorrectAnswers(correctAnswersCount);
+    const rankingEntry = finalRankings.find((entry) => entry.playerId === localPlayerId);
+    const currentPlayerScore =
+      cfgMode === "multiplayer"
+        ? rankingEntry?.score ?? finalPlayerScores[localPlayerId] ?? fallbackScore
+        : fallbackScore;
+
+    const playerRank =
+      cfgMode === "multiplayer"
+        ? rankingEntry?.rank ??
+          1 + Object.values(finalPlayerScores).filter((s) => s > currentPlayerScore).length
+        : 0;
+
+    const elapsedMs = gameStartTimeRef.current ? Date.now() - gameStartTimeRef.current : 0;
+    const elapsedSeconds = Math.max(0, Math.round(elapsedMs / 1000));
+
+    const avgTime =
+      totalAnsweredRef.current > 0
+        ? Math.round((totalSessionTimeRef.current / totalAnsweredRef.current) * 10) / 10
+        : 0;
+    useTriviaStore.setState({ avgTime });
+
+    const progressionInput: SessionProgressInput = {
+      mode: cfgMode,
+      category: cfgCategory,
+      difficulty: cfgDifficulty,
+      totalQuestions: finalQuestions.length,
+      correctAnswers: correctAnswersCount,
+      score: currentPlayerScore,
+      maxStreak,
+      questions: finalQuestions,
+      userAnswers: finalUserAnswers,
+      timeTaken: elapsedSeconds,
+      mastered: correctAnswersCount === finalQuestions.length,
+      won: cfgMode === "multiplayer" ? playerRank === 1 : false,
+      topThreeFinish: cfgMode === "multiplayer" ? playerRank <= 3 : false,
+      hostedLobby: cfgMode === "multiplayer" && lobbyRole === "host",
+      fellBehindByHalfAndWon:
+        cfgMode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
+    };
+
+    // Step 1: Apply XP and level-up to the player store.
+    const newlyUnlockedAchievements = applySessionProgress(progressionInput);
+
+    // Step 2: Snapshot the post-session level. gameStore compares it to the
+    // pre-session snapshot (recordSessionStartLevel) and sets showLevelUpPopup.
+    recordSessionEndLevel();
+
+    // Step 3: Navigate — always reaches "result". ResultPage shows LevelUpPopup
+    // on top if the player levelled up. This path can never get stuck.
+    if (newlyUnlockedAchievements.length > 0) {
+      queueAchievementUnlocks(newlyUnlockedAchievements, "result");
+      setScreen("achievement-unlock");
     } else {
-      setScreen("result" as const);
+      setScreen("result");
     }
-  }, [setScreen]);
+  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen,
+      recordSessionEndLevel, queueAchievementUnlocks]);
 
   // ── Derived state ───────────────────────────────────────────────────────────
 
   const currentQuestion = questions[currentIndex];
-  const previousXP = localPlayer.totalXp;
-  const xpEarned = rewardState.data?.xp ?? 0;
-  const currentLevel = localPlayer.level;
 
-  const displayedRankings = useMemo(() => {
-    const byPlayerId = new Map<string, { playerId: string; name: string; score: number }>();
+  // FIX: Read XP directly from the store at render time via a subscribed selector
+  // so the XP bar always reflects the latest persisted value + session accumulation.
+  const persistedTotalXp = usePlayerStore((s) => s.getPlayer().totalXp);
+  const persistedLevel   = usePlayerStore((s) => s.getPlayer().level);
 
-    rankings.forEach((entry) => {
-      byPlayerId.set(entry.playerId, { playerId: entry.playerId, name: entry.name, score: entry.score });
-    });
-    players.forEach((player) => {
-      if (!byPlayerId.has(player.id)) {
-        byPlayerId.set(player.id, { playerId: player.id, name: player.name, score: playerScores[player.id] ?? 0 });
-      }
-    });
-    if (!byPlayerId.has(localPlayer.id)) {
-      byPlayerId.set(localPlayer.id, { playerId: localPlayer.id, name: localPlayer.name, score: playerScores[localPlayer.id] ?? 0 });
-    }
-
-    return Array.from(byPlayerId.values())
-      .sort((a, b) => b.score - a.score)
-      .map((entry, index) => ({ ...entry, rank: index + 1 }));
-  }, [rankings, players, playerScores, localPlayer.id, localPlayer.name]);
+  // Visual XP for the live bar: persisted XP + what we've earned this session
+  const visualOldXP = persistedTotalXp;
+  const visualNewXP = persistedTotalXp + sessionXpRef.current;
+  // Show the level that corresponds to the accumulated visual XP
+  const visualLevel = getLevel(visualNewXP);
 
   // ── Answer state helpers ────────────────────────────────────────────────────
 
@@ -977,6 +915,27 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       ? "Reviewing results"
       : undefined;
 
+  // ── Multiplayer display rankings ────────────────────────────────────────────
+
+  const displayedRankings = useMemo(() => {
+    const byPlayerId = new Map<string, { playerId: string; name: string; score: number }>();
+
+    rankings.forEach((entry) => {
+      byPlayerId.set(entry.playerId, { playerId: entry.playerId, name: entry.name, score: entry.score });
+    });
+    players.forEach((player) => {
+      if (!byPlayerId.has(player.id)) {
+        byPlayerId.set(player.id, { playerId: player.id, name: player.name, score: playerScores[player.id] ?? 0 });
+      }
+    });
+    if (!byPlayerId.has(localPlayer.id)) {
+      byPlayerId.set(localPlayer.id, { playerId: localPlayer.id, name: localPlayer.name, score: playerScores[localPlayer.id] ?? 0 });
+    }
+
+    return Array.from(byPlayerId.values())
+      .sort((a, b) => b.score - a.score)
+      .map((entry, index) => ({ ...entry, rank: index + 1 }));
+  }, [rankings, players, playerScores, localPlayer.id, localPlayer.name]);
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1011,200 +970,6 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
     );
   }
 
-  const renderHUD = () => (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        px: 2,
-        py: 1.5,
-        borderBottom: '1px solid rgba(255,255,255,0.12)',
-        color: 'text.secondary',
-      }}
-    >
-      <Typography variant="body2">
-        {Math.min(currentIndex + 1, Math.max(questions.length, 1))} / {questions.length || 1}
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Clock />
-        <Typography variant="body2">
-          {phase === 'scoring' && !selectedAnswer
-            ? "TIME'S UP!"
-            : phase === 'scoring'
-              ? '---'
-              : Math.ceil(timer)}
-        </Typography>
-      </Box>
-    </Box>
-  );
-
-  const renderScoringPhase = () => {
-    const scoreEntries = displayedRankings.slice(0, 6);
-
-    return (
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1.2fr 0.8fr' },
-          gap: 2,
-          minHeight: 0,
-        }}
-      >
-        <Card variant="outlined" sx={{ p: 3, minHeight: 0 }}>
-          <Typography variant="overline" sx={{ display: 'block', mb: 1, opacity: 0.7 }}>
-            Current question
-          </Typography>
-          <Typography variant="h4" textAlign="center" sx={{ mb: 3 }}>
-            {currentQuestion?.text ?? 'No question loaded'}
-          </Typography>
-
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-            <Card variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption">Your answer</Typography>
-              <Typography variant="body1" sx={{ mt: 1 }}>
-                {selectedAnswer || 'No answer'}
-              </Typography>
-            </Card>
-
-            <Card variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption">Correct answer</Typography>
-              <Typography variant="body1" sx={{ mt: 1 }}>
-                {currentQuestion?.correctAnswer ?? '—'}
-              </Typography>
-            </Card>
-
-            <Card variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption">Next question in</Typography>
-              <Typography variant="body1" sx={{ mt: 1 }}>
-                {Math.ceil(timer)}s
-              </Typography>
-            </Card>
-
-            <Card variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption">Mode</Typography>
-              <Typography variant="body1" sx={{ mt: 1 }}>
-                {mode ?? 'solo'}
-              </Typography>
-            </Card>
-          </Box>
-        </Card>
-
-        <Card variant="outlined" sx={{ p: 3, minHeight: 0 }}>
-          <Typography variant="overline" sx={{ display: 'block', mb: 2, opacity: 0.7 }}>
-            Rankings
-          </Typography>
-          <Box sx={{ display: 'grid', gap: 1 }}>
-            {scoreEntries.map((entry) => (
-              <Box
-                key={entry.playerId}
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  px: 1.5,
-                  py: 1,
-                  borderRadius: 1,
-                  bgcolor: entry.playerId === localPlayer.id ? 'rgba(255,255,255,0.06)' : 'transparent',
-                }}
-              >
-                <Typography variant="body2">
-                  #{entry.rank} {entry.name}
-                </Typography>
-                <Typography variant="body2">{entry.score}</Typography>
-              </Box>
-            ))}
-          </Box>
-        </Card>
-      </Box>
-    );
-  };
-
-  const renderContent = () => {
-    switch (phase) {
-      case 'loading':
-        return (
-          <Typography sx={{ alignSelf: 'center', textAlign: 'center' }}>
-            Loading...
-          </Typography>
-        );
-      case 'readying':
-        return (
-          <Box sx={{ alignSelf: 'center', textAlign: 'center' }}>
-            <Typography variant="h5" sx={{ mb: 2 }}>
-              Get ready!
-            </Typography>
-            <Typography variant="body1">
-              Starting in {Math.ceil(timer)}...
-            </Typography>
-          </Box>
-        );
-      case 'scoring':
-        return renderScoringPhase();
-      case 'answering':
-      case 'asking':
-        return (
-          <>
-            <Card
-              variant="outlined"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                p: 4,
-                minHeight: { xs: 180, md: 240 },
-              }}
-            >
-              <Typography variant="h4" textAlign="center">
-                {currentQuestion?.text ?? 'Loading...'}
-              </Typography>
-            </Card>
-
-            {currentQuestion && (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                  gap: 2,
-                }}
-              >
-                {currentQuestion.allAnswers.map((answer) => (
-                  <Button
-                    key={answer}
-                    fullWidth
-                    variant={selectedAnswer === answer ? 'contained' : 'outlined'}
-                    onClick={() => handleAnswerClick(answer)}
-                    sx={{ py: 2 }}
-                  >
-                    {answer}
-                  </Button>
-                ))}
-              </Box>
-            )}
-          </>
-        );
-      case 'ranking':
-        return null;
-      case 'end':
-        return (
-          <Box sx={{ textAlign: 'center', py: 8 }}>
-            <Typography variant="h6" sx={{ mb: 3 }}>
-              No questions available for the selected criteria.
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => setScreen('home')}
-            >
-              Back to Menu
-            </Button>
-          </Box>
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
     <ScaleWrapper>
       <GameScreen style={{ transform: scale, position: 'relative' }}>
@@ -1213,17 +978,14 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
 
         {/* ── TOP HUD ──────────────────────────────────────────────────────── */}
         <HudBar>
-          {/* Progress: 1/15 */}
           <ProgressText>
             {currentIndex + 1}/{questions.length}
           </ProgressText>
 
-          {/* Category */}
           <CategoryLabel>
             {category ?? "TRIVIA"}
           </CategoryLabel>
 
-          {/* Timer */}
           <TimerBox>
             <Clock
               style={{
@@ -1240,12 +1002,15 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
         </HudBar>
 
         {/* ── XP BAR ──────────────────────────────────────────────────────── */}
+        {/* FIX: Use visual XP values computed from live store + session accumulator,
+            not the stale localPlayer render-time snapshot. Level updates immediately
+            when accumulated XP crosses a 1000-XP threshold. */}
         <Box sx={{ width: 'calc(100% - 100px)', px: 6, py: 1 }}>
           <XPBarAnimate
-            oldXP={previousXP}
-            newXP={previousXP + xpEarned}
+            oldXP={visualOldXP}
+            newXP={visualNewXP}
             xpPerLevel={1000}
-            level={currentLevel}
+            level={visualLevel}
             animate={rewardState.showXPBar}
           />
         </Box>
@@ -1283,12 +1048,9 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
           })}
         </AnswerGrid>
 
-       <PhaseBar>
-      {/* ✅ Use the Tag for the UI 
-         ✅ Use the Variable for the Text 
-      */}
-      {currentHint && <PhaseHint>{currentHint}</PhaseHint>}
-    </PhaseBar>
+        <PhaseBar>
+          {currentHint && <PhaseHint>{currentHint}</PhaseHint>}
+        </PhaseBar>
 
         {/* ── RANKING OVERLAY (multiplayer scoring phase) ───────────────────── */}
         {phase === "scoring" && mode === "multiplayer" && displayedRankings.length > 0 && (
@@ -1309,10 +1071,11 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
           </RankingOverlay>
         )}
 
-        {/* ── REWARD OVERLAY ───────────────────────────────────────────────── */}
+        {/* ── REWARD OVERLAY (mid-game XP/score popups only) ───────────────── */}
+        {/* onLevelUpDone is no longer used for navigation — kept for API compat */}
         <RewardOverlay
           rewardState={rewardState}
-          onLevelUpDone={handleLevelUpDone}
+          onLevelUpDone={() => {}}
           xpPerLevel={1000}
         />
       </GameScreen>
