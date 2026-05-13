@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
 import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
+import { getAvatarSrc } from "../utils/avatar";
 import type { Player } from "../types/player";
 
 // ─── SCORING ────────────────────────────────────────────────────────────────────
@@ -84,11 +85,11 @@ function buildPlayerResults(
   const playerMap = new Map<string, { name: string; avatar: string; isHost: boolean }>();
 
   lobbyMembers.forEach((p) => {
-    playerMap.set(p.id, { name: p.name, avatar: p.avatar ?? "👤", isHost: p.isHost });
+    playerMap.set(p.id, { name: p.name, avatar: p.avatar ?? "Detective.png", isHost: p.isHost });
   });
 
   if (!playerMap.has(localPlayerId)) {
-    playerMap.set(localPlayerId, { name: "You", avatar: "👤", isHost: false });
+    playerMap.set(localPlayerId, { name: "You", avatar: "Detective.png", isHost: false });
   }
 
   return rankings
@@ -181,7 +182,9 @@ function PlayerRow({ player, isYou, medals, delay, ready }: {
       <span style={{ width: 36, color: isFirst ? "#D9E600" : "#00DFFF", fontSize: player.rank <= 3 ? 12 : 7 }}>
         {player.rank <= 3 ? medals[player.rank - 1] : `#${player.rank}`}
       </span>
-      <span style={{ width: 28, fontSize: 14 }}>{player.avatar}</span>
+      <span style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <img src={getAvatarSrc(player.avatar)} alt="" style={{ width: 24, height: 24, imageRendering: "pixelated", objectFit: "contain" }} />
+      </span>
       <span style={{ flex: 1.5, color: isFirst ? "#D9E600" : isYou ? "#00DFFF" : "#E5E5E5" }}>
         {player.name}{isYou ? " ★" : ""}
       </span>

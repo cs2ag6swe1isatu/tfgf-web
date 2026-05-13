@@ -611,11 +611,7 @@ const MultiplayerLobby = () => {
           {allPlayers.map((p) => (
             <Box key={p.id} sx={styles.playerRow(true)}>
               <Box sx={styles.avatar}>
-                {p.avatar ? (
-                  <img src={getAvatarSrc(p.avatar)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "3px" }} />
-                ) : (
-                  <span style={{ fontSize: "16px", color: "#444" }}>👤</span>
-                )}
+                <img src={getAvatarSrc(p.avatar || "")} alt="" style={{ width: "100%", height: "100%", imageRendering: "pixelated", objectFit: "contain", borderRadius: "3px" }} />
               </Box>
               <Box sx={styles.playerInfo}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: "6px" }}>
