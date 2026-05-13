@@ -233,7 +233,7 @@ const normalizeGameSession = (value: unknown): GameSession => {
 const createDefaultPlayer = (): Player => ({
   id: createId(),
   name: "PLAYER_01",
-  avatar: "Detective 1.png",
+  avatar: "Detective.png",
   lastActive: new Date(),
   lastPlayedDate: undefined,
   gameHistory: [],
@@ -277,7 +277,7 @@ const normalizePlayer = (value: unknown): Player | null => {
     ...createDefaultPlayer(),
     id: typeof value.id === "string" ? value.id : createId(),
     name: typeof value.name === "string" ? value.name : "PLAYER_01",
-    avatar: typeof value.avatar === "string" ? getAvatarFileName(value.avatar) : "Detective 1.png",
+    avatar: typeof value.avatar === "string" && value.avatar.trim() !== "" ? getAvatarFileName(value.avatar) : "Detective.png",
     lastActive: readDate(value.lastActive),
     lastPlayedDate: readOptionalDate(value.lastPlayedDate),
     gameHistory: Array.isArray(value.gameHistory) ? trimGameHistory(value.gameHistory.map((entry) => normalizeGameSession(entry))) : [],
