@@ -350,6 +350,31 @@ set({
   userAnswers: nextAnswers,
   // No phase change — timer controls when scoring starts
 });
+
+    // ── Check if all players have answered → immediately advance to scoring ──
+    if (useMultiplayerStore.getState().lobbyRole === 'host') {
+      const state = get();
+      const players = useMultiplayerStore.getState().players;
+      if (players.length > 0 && state.selectedAnswer) {
+        const allAnswered = players.every((player) => {
+          if (player.isHost) {
+            // Host: check via selectedAnswer (already set above)
+            return !!state.selectedAnswer;
+          }
+          // Client player: check via playerAnswers
+          const answers = state.playerAnswers[player.id];
+          return answers && !!answers[state.currentIndex];
+        });
+
+        if (allAnswered) {
+          set({
+            phase: 'scoring',
+            timer: soloScoringDelay,
+          });
+          return;
+        }
+      }
+    }
     
     if (mode === "multiplayer" && useMultiplayerStore.getState().lobbyRole === "client") {
       const bridge: MultiplayerBridge | undefined = window.multiplayer;
@@ -375,6 +400,28 @@ set({
     playerAnswerList[questionIndex] = answer;
     answers[playerId] = playerAnswerList;
     set({ playerAnswers: answers });
+
+    // ── Check if all players have answered → immediately advance to scoring ──
+    const state = get();
+    if (state.mode === 'multiplayer' && state.selectedAnswer) {
+      const players = useMultiplayerStore.getState().players;
+      if (players.length > 0) {
+        const allAnswered = players.every((player) => {
+          if (player.isHost) {
+            return !!state.selectedAnswer;
+          }
+          const playerAns = state.playerAnswers[player.id];
+          return playerAns && !!playerAns[state.currentIndex];
+        });
+
+        if (allAnswered) {
+          set({
+            phase: 'scoring',
+            timer: soloScoringDelay,
+          });
+        }
+      }
+    }
   },
   scoreCurrentQuestion: () => {
     const state = get();

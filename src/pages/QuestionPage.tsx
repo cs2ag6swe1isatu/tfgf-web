@@ -575,7 +575,8 @@ const QuestionPage = () => {
     )
       return;
 
-      if (phase === "answering" && selectedAnswer) return;
+      // In multiplayer, keep timer ticking even after host answers (as fallback until all answer)
+      if (phase === "answering" && selectedAnswer && mode === "solo") return;
 
     let timerInterval: number;
     
@@ -771,8 +772,8 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       fellBehindByHalfAndWon: mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
     };
 
+    const postUnlockScreen = mode === "multiplayer" ? "multiplayer-results" as const : "result" as const;
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);
-    const postUnlockScreen = "result" as const;
 
     if (newlyUnlockedAchievements.length > 0) {
       const gameState = useGameStore.getState();
