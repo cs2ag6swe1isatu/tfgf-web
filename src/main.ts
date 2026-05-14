@@ -232,7 +232,8 @@ const createWindow = () => {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
-      backgroundThrottling: false
+      backgroundThrottling: false,
+      webSecurity: false,        // allows file:// to load local assets in packaged app
     },
   });
 
@@ -252,8 +253,10 @@ const createWindow = () => {
     );
   }
 
-  // Open the DevTools. remove later
-  mainWindow.webContents.openDevTools();
+  // Open DevTools only in dev
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.webContents.openDevTools();
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
