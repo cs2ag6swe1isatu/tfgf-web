@@ -120,9 +120,9 @@ export interface MultiplayerBridge {
   broadcastGameState: (gameState: MultiplayerGameState) => void;
   onGameStateSync: (id: string, cb: (gameState: MultiplayerGameState) => void) => void;
   offGameStateSync: (id: string) => void;
-  onAnswerSubmission: (id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void) => void;
+  onAnswerSubmission: (id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void) => void;
   offAnswerSubmission: (id: string) => void;
-  sendAnswerSubmission: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string }) => void;
+  sendAnswerSubmission: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void;
 }
 
 declare global {

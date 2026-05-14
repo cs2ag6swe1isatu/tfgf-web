@@ -1,4 +1,5 @@
 import { useGameStore } from "../store/gameStore";
+import { useSoundContext } from "../context/SoundContext";
 
 // ─── Palette (spec-accurate) ──────────────────────────────────────────────────
 const C = {
@@ -127,17 +128,20 @@ function ModeCard({
   label,
   avatar,
   onClick,
+  onMouseEnter,
   animDelay = "0s",
 }: {
   label: React.ReactNode;
   avatar: React.ReactNode;
   onClick: () => void;
+  onMouseEnter?: () => void;
   animDelay?: string;
 }) {
   return (
     <div
       className="mode-card"
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -180,6 +184,7 @@ function ModeCard({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function ModeSelectPage() {
+  const { playSound } = useSoundContext();
   const setScreen = useGameStore((s) => s.setScreen);
   const setMode   = useGameStore((s) => s.setMode);
 
@@ -274,13 +279,15 @@ export default function ModeSelectPage() {
           <ModeCard
             label={<>SOLO<br />PLAYER</>}
             avatar={<SoloAvatar />}
-            onClick={() => { setMode("solo"); setScreen("category"); }}
+            onClick={() => { setMode("solo"); setScreen("category");playSound("select"); }}
+            onMouseEnter={() => { playSound("hover"); }}
             animDelay="0.1s"
           />
           <ModeCard
             label={<>MULTI-<br />PLAYER</>}
             avatar={<MultiAvatar />}
-            onClick={() => { setMode("multiplayer"); setScreen("multiplayer-menu"); }}
+            onClick={() => { setMode("multiplayer"); setScreen("multiplayer-menu"); playSound("select"); }}
+            onMouseEnter={() => { playSound("hover"); }}
             animDelay="0.2s"
           />
         </div>
@@ -288,7 +295,9 @@ export default function ModeSelectPage() {
         {/* Back button */}
         <button
           className="back-btn"
-          onClick={() => setScreen("home")}
+          onClick={() => {setScreen("home"); playSound("select");}}
+          onMouseEnter={() => { playSound("hover"); }}
+
           style={styles.backBtn}
         >
           BACK

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useMemo } from "react";
 import { useGameStore } from "../store/gameStore";
+import { useSoundContext } from "../context/SoundContext";
 
 // ─── Floating background particle ───────────────────────────────────────────
 function FloatingParticle({
@@ -139,6 +140,7 @@ function StandingIcon() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function HomePage() {
+  const { playSound } = useSoundContext();
   const setScreen = useGameStore((state) => state.setScreen);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const particles = useParticles(55);
@@ -307,7 +309,9 @@ export default function HomePage() {
         <button
           className="play-btn"
           style={styles.playBtn}
-          onClick={() => setScreen("mode-select")}
+          onClick={() => {setScreen("mode-select"); playSound("select");}}
+          onMouseEnter={() => { playSound("hover"); }}
+
           aria-label="Play"
         >
           <span style={styles.playTriangle} />
@@ -318,7 +322,9 @@ export default function HomePage() {
           <button
             className="nav-btn"
             style={styles.navBtn}
-            onClick={() => setScreen("settings")}
+            onClick={() => {setScreen("settings"); playSound("select");}}
+            onMouseEnter={() => { playSound("hover"); }}
+
           >
             <GearIcon />
             <span style={styles.navLabel}>SETTINGS</span>
@@ -327,7 +333,10 @@ export default function HomePage() {
           <button
             className="nav-btn"
             style={styles.navBtn}
-            onClick={() => setScreen("profile")}
+            onClick={() => {setScreen("profile"); playSound("select");}}
+            onMouseEnter={() => { playSound("hover"); }}
+
+
           >
             <ProfileIcon />
             <span style={styles.navLabel}>PROFILE</span>
@@ -336,7 +345,8 @@ export default function HomePage() {
           <button
             className="nav-btn"
             style={styles.navBtn}
-            onClick={() => setScreen("standing")}
+            onClick={() => {setScreen("standing"); playSound("select");}}
+            onMouseEnter={() => { playSound("hover"); }}
           >
             <StandingIcon />
             <span style={styles.navLabel}>STANDING</span>

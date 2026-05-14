@@ -6,15 +6,16 @@ export const getAvatarFileName = (avatar: string): string => {
 };
 
 export const getAvatarSrc = (avatar: string): string => {
-  if (!avatar) return "";
+  const finalAvatar = (avatar && avatar.trim() !== "") ? avatar : "Detective.png";
+  
   if (
-    avatar.startsWith("/") ||
-    avatar.startsWith("http://") ||
-    avatar.startsWith("https://") ||
-    avatar.startsWith("data:")
+    finalAvatar.startsWith("/") ||
+    finalAvatar.startsWith("http://") ||
+    finalAvatar.startsWith("https://") ||
+    finalAvatar.startsWith("data:")
   ) {
-    return avatar;
+    return finalAvatar;
   }
 
-  return `${AVATAR_ASSET_PREFIX}${encodeURIComponent(avatar)}`;
+  return `${AVATAR_ASSET_PREFIX}${encodeURIComponent(finalAvatar)}`;
 };

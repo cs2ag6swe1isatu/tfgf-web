@@ -2,6 +2,7 @@ import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store/triviaStore";
 import { Difficulty } from "../constants";
 import { soloDifficultyStartConfig, sessionHistoryRuntimeLimits, multiplayerDifficultyStartConfig } from "../config/gameConfig";
+import { useSoundContext } from "../context/SoundContext";
  
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
@@ -94,16 +95,21 @@ function CircuitFrame() {
 function DiffBtn({
   label,
   onClick,
+  onMouseEnter,
   animDelay,
 }: {
   label: string;
   onClick: () => void;
+  onMouseEnter?: () => void;
   animDelay: string;
 }) {
+  const { playSound } = useSoundContext();
+
   return (
     <button
       className="diff-btn"
-      onClick={onClick}
+      onClick={() => { onClick(); playSound("select");}}
+      onMouseEnter={() => { onMouseEnter?.(); playSound("hover"); }}
       style={{
         width: 210,
         height: 76,
@@ -128,6 +134,7 @@ function DiffBtn({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function DifficultyPage() {
+  const { playSound } = useSoundContext();
   const mode        = useGameStore((s) => s.gameConfig.mode);
   const category    = useGameStore((s) => s.gameConfig.category) || "General Knowledge";
   const setDifficulty  = useGameStore((s) => s.setDifficulty);
@@ -154,18 +161,7 @@ export default function DifficultyPage() {
     setScreen("question");
 
   } else if (mode === "multiplayer") {
-    resetGame();
-
-    startGame({
-      category,
-      difficulty,
-      mode: "multiplayer",
-      ...multiplayerDifficultyStartConfig,
-      ...sessionHistoryRuntimeLimits,
-      autoJoinLan: true
-    });
-
-    setScreen("question");
+    setScreenModal(null);
   } else {
     setScreenModal(null);
   }
@@ -264,7 +260,8 @@ export default function DifficultyPage() {
             <DiffBtn
               key={label}
               label={label}
-              onClick={() => handleSelect(label.toLowerCase() as Difficulty)}
+              onClick={() => { handleSelect(label.toLowerCase() as Difficulty); playSound("select");}}
+              onMouseEnter={() => { playSound("hover"); }}
               animDelay={`${i * 0.08}s`}
             />
           ))}
@@ -274,7 +271,8 @@ export default function DifficultyPage() {
         <div style={styles.footer}>
           <button
             className="back-btn"
-            onClick={handleBack}
+            onClick={() => { handleBack(); playSound("select");}}
+            onMouseEnter={() => { playSound("hover"); }}
             style={styles.backBtn}
           >
             BACK

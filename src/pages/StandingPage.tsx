@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useGameStore } from "../store/gameStore";
+import { useSoundContext } from "../context/SoundContext";
 import { levelFromXp } from "../progression/progressionRules";
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
@@ -326,6 +327,13 @@ function AllRanksPage({ totalXp }: { totalXp:number }) {
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function RankingPage() {
   const [page, setPage] = useState(0);
+
+  const currentRanks = PAGES[page];
+  const totalPages = PAGES.length;
+
+  const setScreen      = useGameStore((s) => s.setScreen);
+  const { playSound } = useSoundContext();
+  
   const setScreen = useGameStore((s)=>s.setScreen);
   const totalXp: number = useGameStore((s)=>(s as any).player?.xp ?? (s as any).xp ?? 0);
 
@@ -372,6 +380,40 @@ export default function RankingPage() {
           </p>
         </div>
 
+        {/* Grid + arrows row */}
+        <div style={styles.gridRow}>
+
+          <ArrowBtn
+            direction="left"
+            disabled={page === 0}
+            onClick={() => { setPage(p => p - 1); playSound("select"); }}
+          />
+
+          {/* 5-card grid (3 + 2 centered) */}
+          <div style={styles.grid}>
+            {/* Top row: 3 cards */}
+            <div style={styles.topRow}>
+              {currentRanks.slice(0, 3).map((rank, i) => (
+                <div key={rank.title} style={styles.gridCell}>
+                  <RankCard rank={rank} animDelay={`${i * 0.06}s`} />
+                </div>
+              ))}
+            </div>
+            {/* Bottom row: 2 cards centered */}
+            <div style={styles.bottomRow}>
+              {currentRanks.slice(3, 5).map((rank, i) => (
+                <div key={rank.title} style={styles.gridCell}>
+                  <RankCard rank={rank} animDelay={`${(i + 3) * 0.06}s`} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <ArrowBtn
+            direction="right"
+            disabled={page === totalPages - 1}
+            onClick={() => { setPage(p => p + 1); playSound("select"); }}
+          />
         {/* Tab switcher */}
         <div style={{ display:"flex", gap:4, marginBottom:"clamp(10px,1.8vw,22px)", animation:"fadeUp 0.3s 0.1s both" }}>
           {["MY RANK","ALL RANKS"].map((label,i)=>(
@@ -394,6 +436,11 @@ export default function RankingPage() {
           <span style={{ fontFamily:"'Press Start 2P',monospace", fontSize:10, color:C.cyan, letterSpacing:"0.15em", textShadow:`0 0 8px ${C.cyan}`, opacity:0.7 }}>
             {page+1}/2
           </span>
+          <button
+            className="back-btn"
+            onClick={() => { setScreen("home"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
+            style={styles.backBtn}
+          >
           <button className="back-btn" onClick={()=>setScreen("home")} style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(8px,0.95vw,11px)", color:C.btnText, background:C.btnFill, border:`1.5px solid ${C.green}`, borderRadius:3, padding:"clamp(8px,1vw,12px) clamp(14px,2vw,28px)", cursor:"pointer", letterSpacing:"0.14em", boxShadow:"0 0 10px rgba(53,229,43,.25)", transition:"background .15s,border-color .15s,color .15s,box-shadow .15s", animation:"navGlow 3s ease-in-out infinite", outline:"none" }}>
             BACK
           </button>

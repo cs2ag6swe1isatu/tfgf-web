@@ -7,7 +7,7 @@ import { getMultiplayerPlayer, getMultiplayerPlayerId, usePlayerStore } from "./
 import { useMultiplayerStore } from './multiplayerStore';
 import type { MultiplayerBridge } from '../types/multiplayer';
 import { defaultGameConfig } from '../config/gameConfig';
-import { applyRoundScores, scoreIncrementForAnswer } from '../rules';
+import { applyRoundScores, scoreIncrementForAnswer, PlayerRoundAnswer } from '../rules';
 
 /**
  * Trivia Store - Game Logic and State Management
@@ -48,6 +48,7 @@ export interface TriviaState {
   questions: Question[];
   currentIndex: number;
   selectedAnswer: string;
+  selectedAnswerRemainingTime: number;
   timer: number;
   questionTimer: number;
   answerTimer: number;
@@ -60,8 +61,11 @@ export interface TriviaState {
   questionLimit: number;
   seed?: number;
   playerScores: Record<string, number>;
-  playerAnswers: Record<string, string[]>;
+  playerAnswers: Record<string, PlayerRoundAnswer[]>;
+  currentStreak: number;
+  maxStreak: number;
   rankings: PlayerRanking[];
+  avgTime: number;
 }
 
 export interface TriviaActions {
@@ -71,7 +75,7 @@ export interface TriviaActions {
   nextPhase: () => void;
   resetGame: () => void;
   submitAnswer: (answer: string) => void;
-  receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string) => void;
+  receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string, remainingTime?: number) => void;
   scoreCurrentQuestion: () => void;
   finalizeRankings: () => void;
 }
@@ -97,7 +101,11 @@ const initialState: TriviaState = {
   seed: undefined,
   playerScores: {},
   playerAnswers: {},
+  currentStreak: 0,
+  maxStreak: 0,
+  selectedAnswerRemainingTime: 0,
   rankings: [],
+  avgTime: 0,
 };
 
 export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => ({
@@ -144,11 +152,14 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         phase: mode === 'multiplayer' ? 'readying' : 'answering',
         currentIndex: 0,
         selectedAnswer: "",
+        selectedAnswerRemainingTime: 0,
         score: 0,
         userAnswers: [],
         questionLimit,
         playerScores: {},
         playerAnswers: {},
+        currentStreak: 0,
+        maxStreak: 0,
         rankings: [],
         seed,
       });
@@ -168,7 +179,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
   /* ---------- Answer handling ---------- */
   selectAnswer: (answer) => {
-    const { questions, currentIndex, mode, phase, score, userAnswers, answerTimer } = get();
+    const { questions, currentIndex, mode, phase, score, userAnswers, answerTimer, currentStreak, maxStreak, timer, difficulty } = get();
     
     // Validate phase and game state
     if (phase !== 'answering') return;
@@ -184,29 +195,39 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     }
     
     const isCorrect = answer === currentQuestion.correctAnswer;
+    const answerRemainingTime = mode === 'multiplayer' ? get().selectedAnswerRemainingTime || timer : timer;
+    const nextStreak = isCorrect ? currentStreak + 1 : 0;
+    const nextMaxStreak = isCorrect ? Math.max(maxStreak, nextStreak) : maxStreak;
     
     // Track user answer
     const newUserAnswers = [...userAnswers];
     newUserAnswers[currentIndex] = answer;
     
     if (mode === 'solo') {
-      const newScore = score + scoreIncrementForAnswer(isCorrect);
+      const newScore = score + scoreIncrementForAnswer(isCorrect, difficulty ?? 'easy', answerRemainingTime, answerTimer);
       
       const isLastQuestion = currentIndex + 1 >= questions.length;
       
       set({
         selectedAnswer: answer,
+        selectedAnswerRemainingTime: answerRemainingTime,
         score: newScore,
         phase: isLastQuestion ? 'end' : 'scoring',
         timer: isLastQuestion ? 0 : soloScoringDelay,
         userAnswers: newUserAnswers,
+        currentStreak: nextStreak,
+        maxStreak: nextMaxStreak,
       });
     } else if (mode === 'multiplayer') {
-  set({
-    selectedAnswer: answer,
-    userAnswers: newUserAnswers,
-  });
-} 
+      // In multiplayer, don't change phase immediately — timer controls when scoring starts
+      set({
+        selectedAnswer: answer,
+        selectedAnswerRemainingTime: answerRemainingTime,
+        userAnswers: newUserAnswers,
+        currentStreak: nextStreak,
+        maxStreak: nextMaxStreak,
+      });
+    }
   },
 
   /* ---------- Timer ---------- */
@@ -228,29 +249,31 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     }
 
     if (phase === 'answering') {
-  if (selectedAnswer) {
-    if (mode === 'solo') {
-      set({ timer: 0 });
-      get().selectAnswer(selectedAnswer);
-      return;
-    }
-    // In multiplayer, host still needs to advance phase when timer expires
-    if (mode === 'multiplayer') {
+      if (selectedAnswer) {
+        if (mode === 'solo') {
+          set({ timer: 0 });
+          get().selectAnswer(selectedAnswer);
+          return;
+        }
+        // In multiplayer, host still needs to advance phase when timer expires
+        if (mode === 'multiplayer') {
+          set({
+            // Missed answer resets streak and moves to scoring.
+            phase: 'scoring',
+            timer: soloScoringDelay,
+            currentStreak: 0,
+          });
+          return;
+        }
+      }
+
+      const scoringDelay = mode === 'solo' ? soloScoringDelay : get().answerTimer;
       set({
         phase: 'scoring',
-        timer: soloScoringDelay,
+        timer: scoringDelay,
       });
       return;
     }
-  }
-
-  const scoringDelay = mode === 'solo' ? soloScoringDelay : get().answerTimer;
-  set({
-    phase: 'scoring',
-    timer: scoringDelay,
-  });
-  return;
-}
 
     if (currentIndex + 1 < questions.length) {
       const answerTimer = get().answerTimer;
@@ -336,20 +359,33 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
   // Solo, prioritize responsive play; Multiplayer, send answer to host immediately but wait for host to trigger scoring phase
   submitAnswer: (answer: string) => {
-    const { currentIndex, userAnswers, mode } = get();
+    const { currentIndex, userAnswers, mode, questions, currentStreak, maxStreak, timer } = get();
+    const currentQuestion = questions[currentIndex];
 
     if (mode === 'solo') {
       get().selectAnswer(answer);
       return;
     }
 
+    if (!currentQuestion || !currentQuestion.allAnswers.includes(answer)) {
+      console.warn(`Invalid answer selected: ${answer}`);
+      return;
+    }
+
+    const isCorrect = answer === currentQuestion.correctAnswer;
+    const nextStreak = isCorrect ? currentStreak + 1 : 0;
+    const nextMaxStreak = isCorrect ? Math.max(maxStreak, nextStreak) : maxStreak;
     const nextAnswers = [...userAnswers];
-nextAnswers[currentIndex] = answer;
-set({ 
-  selectedAnswer: answer, 
-  userAnswers: nextAnswers,
-  // No phase change — timer controls when scoring starts
-});
+    nextAnswers[currentIndex] = answer;
+
+    set({
+      selectedAnswer: answer,
+      selectedAnswerRemainingTime: timer,
+      userAnswers: nextAnswers,
+      currentStreak: nextStreak,
+      maxStreak: nextMaxStreak,
+      // No phase change — timer controls when scoring starts
+    });
 
     // ── Check if all players have answered → immediately advance to scoring ──
     if (useMultiplayerStore.getState().lobbyRole === 'host') {
@@ -391,13 +427,17 @@ set({
         playerId,
         questionIndex: currentIndex,
         answer,
+        remainingTime: timer,
       });
     }
   },
-  receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string) => {
+  receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string, remainingTime?: number) => {
     const answers = { ...get().playerAnswers };
     const playerAnswerList = [...(answers[playerId] ?? [])];
-    playerAnswerList[questionIndex] = answer;
+    playerAnswerList[questionIndex] = {
+      answer,
+      remainingTime: remainingTime ?? get().timer,
+    };
     answers[playerId] = playerAnswerList;
     set({ playerAnswers: answers });
 
@@ -433,9 +473,12 @@ set({
       currentScores: state.playerScores,
       hostPlayerId: hostId,
       hostAnswer: state.selectedAnswer,
+      hostRemainingTime: state.selectedAnswerRemainingTime,
       playerAnswers: state.playerAnswers,
       questionIndex: state.currentIndex,
       correctAnswer: question.correctAnswer,
+      difficulty: state.difficulty ?? 'easy',
+      totalTime: state.answerTimer,
     });
     set({ playerScores: nextScores });
   },

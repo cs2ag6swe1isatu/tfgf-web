@@ -45,12 +45,12 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
 
   useEffect(() => {
     const files: Record<SoundType, string> = {
-      hover:  "/sounds/JDSherbert - Pixel UI SFX Pack - Cursor 2 (Square).mp3",
-      select: "/sounds/JDSherbert - Pixel UI SFX Pack - Select 1 (Square).mp3",
-      tab:    "/sounds/JDSherbert - Pixel UI SFX Pack - Popup Open 1 (Square).mp3",
-      back:   "/sounds/JDSherbert - Pixel UI SFX Pack - Cancel 1 (Square).mp3",
-      error:  "/sounds/JDSherbert - Pixel UI SFX Pack - Error 1 (Square).mp3",
-    };
+  hover: "/sounds/hover.mp3",
+  select: "/sounds/select.mp3",
+  tab: "/sounds/tab.mp3",
+  back: "/sounds/back.mp3",
+  error: "/sounds/error.mp3",
+};
 
     let loaded = 0;
     (Object.entries(files) as [SoundType, string][]).forEach(([key, src]) => {
@@ -135,7 +135,7 @@ export default function App() {
   const bgmReady = useRef(false);
 
   useEffect(() => {
-    const audio = new Audio("/sounds/bgm.mp3/Eric Skiff - A Night Of Dizzy Spells ♫ NO COPYRIGHT 8-bit Music + Background.mp3");
+    const audio = new Audio("/sounds/bgm/Eric Skiff - A Night Of Dizzy Spells ♫ NO COPYRIGHT 8-bit Music + Background.mp3");
     audio.loop = true;
     audio.volume = 0;
     bgmRef.current = audio;
