@@ -55,6 +55,7 @@ const MultiplayerLobby = () => {
   const hasHandledHostExitRef = useRef(false);
   const hasConfirmedJoinRef = useRef(false);
   const isTransitioningToGameRef = useRef(false);
+  const joinTimeoutRef = useRef<number | null>(null);
 
   const handleHostExit = useCallback(() => {
     if (hasHandledHostExitRef.current) return;
@@ -203,6 +204,12 @@ const MultiplayerLobby = () => {
 
     multiplayerBridge.startDiscovery();
 
+    joinTimeoutRef.current = window.setTimeout(() => {
+  if (!hasConfirmedJoinRef.current) {
+    handleHostExit(); // never got confirmed by host, bail out
+  }
+}, 8000);
+
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
       const currentLobbyId = useMultiplayerStore.getState().lobbyId;
       if (currentLobbyId && payload.lobbyId !== currentLobbyId) return;
@@ -214,7 +221,14 @@ const MultiplayerLobby = () => {
 
       const amIStillInLobby = payload.players.some((p) => p.id === multiplayerPlayer.id);
       if (amIStillInLobby) {
-        if (!hasConfirmedJoinRef.current) hasConfirmedJoinRef.current = true;
+        if (!hasConfirmedJoinRef.current) {
+  hasConfirmedJoinRef.current = true;
+  if (joinTimeoutRef.current !== null) {
+    clearTimeout(joinTimeoutRef.current);
+    joinTimeoutRef.current = null;
+  }
+}
+        
         syncLobbySnapshot(payload, payload.hostAddress);
         const currentConfig = useGameStore.getState().gameConfig;
         const nextCategory = payload.category ?? undefined;
@@ -245,69 +259,86 @@ const MultiplayerLobby = () => {
     }, 3000);
 
     return () => {
-      window.clearInterval(heartbeatInterval);
-      multiplayerBridge.offHostFound?.("Lobby");
-      multiplayerBridge.offHostExit?.("Lobby");
-      multiplayerBridge.stopDiscovery();
-      multiplayerBridge.offGameStateSync?.("Lobby");
-      window.removeEventListener("beforeunload", sendLeaveOnUnload);
-    };
+  if (joinTimeoutRef.current !== null) {
+    clearTimeout(joinTimeoutRef.current);
+    joinTimeoutRef.current = null;
+  }
+  window.clearInterval(heartbeatInterval);
+  multiplayerBridge.offHostFound?.("Lobby");
+  multiplayerBridge.offHostExit?.("Lobby");
+  multiplayerBridge.stopDiscovery();
+  multiplayerBridge.offGameStateSync?.("Lobby");
+  window.removeEventListener("beforeunload", sendLeaveOnUnload);
+};
   }, [lobbyRole, multiplayerBridge, syncLobbySnapshot, handleHostExit, handleGameStateSync, multiplayerPlayer.id]);
 
+  // Effect A: register listeners only — stable deps, won't re-run on player changes
   useEffect(() => {
-    if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
+  if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
-    const payload: MultiplayerLobbySnapshot = {
-      lobbyId,
-      hostId: multiplayerPlayer.id,
-      hostName: multiplayerPlayer.name,
-      hostLevel: multiplayerPlayer.level,
-      playerCount: players.length || 1,
-      maxPlayers: defaultGameConfig.maxPlayers,
-      category: gameConfig.category ?? undefined,
-      difficulty: gameConfig.difficulty ?? undefined,
-      isPrivate,
-      lastActive: new Date().toISOString(),
-      players,
-    };
+  const handlePlayerJoined = (p: LobbyMember) => addOrUpdatePlayer(p, { isHost: false, isReady: false });
+  const handlePlayerReadyChanged = (playerId: string, ready: boolean) => setPlayerReady(playerId, ready);
+  const handlePlayerLeft = (playerId: string) => removePlayer(playerId);
 
-    const handlePlayerJoined = (p: LobbyMember) => addOrUpdatePlayer(p, { isHost: false, isReady: false });
-    multiplayerBridge.onPlayerJoined("Lobby", handlePlayerJoined);
+  multiplayerBridge.onPlayerJoined("Lobby", handlePlayerJoined);
+  multiplayerBridge.onPlayerReadyChanged("Lobby", handlePlayerReadyChanged);
+  multiplayerBridge.onPlayerLeft("Lobby", handlePlayerLeft);
 
-    const handlePlayerReadyChanged = (playerId: string, ready: boolean) => setPlayerReady(playerId, ready);
-    multiplayerBridge.onPlayerReadyChanged("Lobby", handlePlayerReadyChanged);
+  return () => {
+    multiplayerBridge.offPlayerJoined?.("Lobby");
+    multiplayerBridge.offPlayerReadyChanged?.("Lobby");
+    multiplayerBridge.offPlayerLeft?.("Lobby");
+  };
+}, [lobbyRole, lobbyId, multiplayerBridge, addOrUpdatePlayer, setPlayerReady, removePlayer]);
 
-    const handlePlayerLeft = (playerId: string) => removePlayer(playerId);
-    multiplayerBridge.onPlayerLeft("Lobby", handlePlayerLeft);
+// Effect B: start broadcast once on mount, stop on unmount
+useEffect(() => {
+  if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
-    multiplayerBridge.startBroadcast(payload);
+  
 
-    return () => {
-      multiplayerBridge.offPlayerJoined?.("Lobby");
-      multiplayerBridge.offPlayerReadyChanged?.("Lobby");
-      multiplayerBridge.offPlayerLeft?.("Lobby");
-    };
-  }, [lobbyRole, lobbyId, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level, addOrUpdatePlayer, setPlayerReady, removePlayer, players, isPrivate, gameConfig.category, gameConfig.difficulty]);
+  // Minimal seed payload — updateLobbySnapshot effect keeps it current
+  const initialPayload: MultiplayerLobbySnapshot = {
+    lobbyId,
+    hostId: multiplayerPlayer.id,
+    hostName: multiplayerPlayer.name,
+    hostLevel: multiplayerPlayer.level,
+    playerCount: 1,
+    maxPlayers: defaultGameConfig.maxPlayers,
+    category: undefined,
+    difficulty: undefined,
+    isPrivate: false,
+    lastActive: new Date().toISOString(),
+    players: [],
+  };
 
-  useEffect(() => {
-    if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
-    const payload: MultiplayerLobbySnapshot = {
-      lobbyId,
-      hostId: multiplayerPlayer.id,
-      hostName: multiplayerPlayer.name,
-      hostLevel: multiplayerPlayer.level,
-      playerCount: players.length || 1,
-      maxPlayers: defaultGameConfig.maxPlayers,
-      category: gameConfig.category ?? undefined,
-      difficulty: gameConfig.difficulty ?? undefined,
-      isPrivate,
-      lastActive: new Date().toISOString(),
-      players,
-    };
-    if (typeof multiplayerBridge.updateLobbySnapshot === "function") {
-      multiplayerBridge.updateLobbySnapshot(payload);
-    }
-  }, [players, gameConfig, lobbyId, lobbyRole, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level, isPrivate]);
+  multiplayerBridge.startBroadcast(initialPayload);
+
+  return () => {
+    multiplayerBridge.stopBroadcast?.();
+  };
+}, [lobbyRole, lobbyId, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level]);
+
+useEffect(() => {
+  if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
+  const payload: MultiplayerLobbySnapshot = {
+    lobbyId,
+    hostId: multiplayerPlayer.id,
+    hostName: multiplayerPlayer.name,
+    hostLevel: multiplayerPlayer.level,
+    playerCount: players.length || 1,
+    maxPlayers: defaultGameConfig.maxPlayers,
+    category: gameConfig.category ?? undefined,
+    difficulty: gameConfig.difficulty ?? undefined,
+    isPrivate,
+    lastActive: new Date().toISOString(),
+    players,
+  };
+  if (typeof multiplayerBridge.updateLobbySnapshot === "function") {
+    multiplayerBridge.updateLobbySnapshot(payload);
+  }
+}, [players, gameConfig, lobbyId, lobbyRole, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level, isPrivate]);
+
 
   const handleReadyToggle = (playerId: string, ready: boolean) => {
     const targetPlayer = players.find((p) => p.id === playerId);
@@ -323,16 +354,16 @@ const MultiplayerLobby = () => {
   const isDifficultySelected = Boolean(gameConfig.difficulty);
   const canStart = isCategorySelected && isDifficultySelected && allPlayers.length > 1 && allPlayers.every((p) => p.isReady);
 
-  useEffect(() => {
-    if (lobbyRole === "host" && players.length === 0) {
-      handleCreateLobby();
-      return;
-    }
-    if (lobbyRole === "client" && players.length === 0) {
-      addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
-      setCurrentPlayerId(multiplayerPlayer.id);
-    }
-  }, [lobbyRole, players.length, multiplayerPlayer, addOrUpdatePlayer, setCurrentPlayerId, handleCreateLobby]);
+ useEffect(() => {
+  if (lobbyRole === "host" && players.length === 0) {
+    handleCreateLobby();
+    return;
+  }
+  if (lobbyRole === "client" && players.length === 0) {
+    // Don't pre-add — wait for host snapshot to confirm us via syncLobbySnapshot
+    setCurrentPlayerId(multiplayerPlayer.id);
+  }
+}, [lobbyRole, players.length, multiplayerPlayer, setCurrentPlayerId, handleCreateLobby]);
 
   // ─── Styles ──────────────────────────────────────────────────────────────
   const styles = {
