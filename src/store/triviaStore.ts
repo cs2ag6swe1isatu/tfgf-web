@@ -121,21 +121,57 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     const difficulty = cfg.difficulty ?? get().difficulty;
     const questionLimit = cfg.questionLimit ?? get().questionLimit;
     const seed = cfg.seed ?? get().seed;
+    const questionPort = cfg.questionPort;
 
-    // Input validation
+    // Input validation ...
     if (!category || !difficulty || !mode) {
       console.error("Invalid game parameters:", { category, difficulty, mode });
       set({ phase: 'end' });
       return;
     }
-    if (questionLimit <= 0 || questionTimer <= 0 || answerTimer <= 0) {
-      console.error("Invalid game parameters: limit and timers must be positive");
-      set({ phase: 'end' });
-      return;
-    }
 
     try {
-      const questions = await loadQuestions(category, difficulty, questionLimit, seed);
+      let questions: Question[] = [];
+      const multiplayerStore = useMultiplayerStore.getState();
+      const bridge: MultiplayerBridge | undefined = window.multiplayer;
+
+      if (mode === 'multiplayer') {
+        if (multiplayerStore.lobbyRole === 'host') {
+          // Host: Load locally and then start HTTP server to share
+          questions = await loadQuestions(category, difficulty, questionLimit, seed);
+          if (bridge?.startHttpServer) {
+            console.log('[TriviaStore] Host starting HTTP server for questions');
+            bridge.startHttpServer(JSON.stringify(questions));
+          }
+        } else {
+          // Client: Try to fetch from host via HTTP
+          const hostAddress = multiplayerStore.hostAddress;
+          if (hostAddress && questionPort) {
+            console.log(`[TriviaStore] Client attempting to fetch questions from host: ${hostAddress}:${questionPort}`);
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+              const response = await fetch(`http://${hostAddress}:${questionPort}/questions`, { signal: controller.signal });
+              clearTimeout(timeoutId);
+              
+              if (response.ok) {
+                questions = await response.json();
+                console.log(`[TriviaStore] Successfully fetched ${questions.length} questions from host`);
+              } else {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+            } catch (e) {
+              console.warn('[TriviaStore] Failed to fetch questions from host, falling back to local load', e);
+              questions = await loadQuestions(category, difficulty, questionLimit, seed);
+            }
+          } else {
+            // Fallback for missing address/port
+            questions = await loadQuestions(category, difficulty, questionLimit, seed);
+          }
+        }
+      } else {
+        questions = await loadQuestions(category, difficulty, questionLimit, seed);
+      }
 
       if (questions.length === 0) {
         console.warn(`No questions found for category: ${category}, difficulty: ${difficulty}`);

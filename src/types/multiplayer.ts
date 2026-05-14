@@ -37,6 +37,7 @@ export interface MultiplayerGameState {
   questionLimit?: number;
   questionTimer?: number;
   answerTimer?: number;
+  questionPort?: number;
   playerScores?: Record<string, number>;
   rankings?: Array<{
     playerId: string;
@@ -55,6 +56,7 @@ export interface MultiplayerLobbySnapshot extends MultiplayerBroadcastPayload {
   players: LobbyMember[];
   sessionId?: string;
   sequence?: number;
+  questionPort?: number;
 }
 
 export interface MultiplayerJoinAck {
@@ -129,6 +131,7 @@ export interface MultiplayerBridge {
   startBroadcast: (payload: MultiplayerLobbySnapshot) => void;
   updateLobbySnapshot?: (payload: MultiplayerLobbySnapshot) => void;
   requestJoin: (payload: MultiplayerJoinRequest) => void;
+  directJoin?: (hostAddress: string) => void;
   setReady: (payload: MultiplayerReadyUpdate) => void;
   kickPlayer?: (payload: { lobbyId: string; playerId: string; sessionId?: string }) => void;
   leaveLobby: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;
@@ -140,6 +143,10 @@ export interface MultiplayerBridge {
   onAnswerSubmission: (id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void) => void;
   offAnswerSubmission: (id: string) => void;
   sendAnswerSubmission: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void;
+  startHttpServer?: (data: string) => void;
+  stopHttpServer?: () => void;
+  onHttpServerStarted?: (id: string, cb: (port: number) => void) => void;
+  offHttpServerStarted?: (id: string) => void;
 }
 
 declare global {

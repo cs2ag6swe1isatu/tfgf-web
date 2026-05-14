@@ -34,6 +34,13 @@ const MultiplayerDiscovery = () => {
   const multiplayerBridge = (window as Window & { multiplayer?: MultiplayerBridge }).multiplayer;
 
   const [status, setStatus] = useState<string>("");
+  const [directIp, setDirectIp] = useState<string>("");
+
+  const handleDirectJoin = () => {
+    if (!directIp) return;
+    setStatus(`SCANNING ${directIp}...`);
+    multiplayerBridge?.directJoin?.(directIp);
+  };
 
   const handleJoinLobby = (selectedLobbyId: string) => {
     const discovered = discoveredHosts.find((host) => host.lobbyId === selectedLobbyId);
@@ -179,6 +186,31 @@ const MultiplayerDiscovery = () => {
             onClick={() => setScreen("multiplayer-menu")}
           >
             BACK
+          </button>
+        </Box>
+
+        {/* Direct Join Section */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', bgcolor: COLORS.surface, p: 2, border: `1px solid ${COLORS.cyan}` }}>
+          <Typography sx={{ color: COLORS.cyan, fontSize: '1rem', whiteSpace: 'nowrap' }}>DIRECT IP:</Typography>
+          <input 
+            type="text" 
+            value={directIp}
+            onChange={(e) => setDirectIp(e.target.value)}
+            placeholder="192.168.1.10"
+            style={{ 
+              background: 'black', color: COLORS.neonGreen, border: `1px solid ${COLORS.cyan}`, 
+              padding: '8px', flex: 1, fontFamily: 'inherit', outline: 'none' 
+            }}
+          />
+          <button 
+            onClick={handleDirectJoin}
+            style={{ 
+              background: COLORS.neonGreen, color: 'black', border: 'none', 
+              padding: '8px 20px', fontFamily: 'inherit', cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            CONNECT
           </button>
         </Box>
 

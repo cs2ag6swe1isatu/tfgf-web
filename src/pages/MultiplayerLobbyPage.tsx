@@ -87,6 +87,7 @@ const MultiplayerLobby = () => {
       const questionLimit = payload.questionLimit ?? currentConfig.questionLimit ?? defaultGameConfig.questionLimit;
       const questionTimer = payload.questionTimer ?? currentConfig.questionTimer ?? defaultGameConfig.questionTimer;
       const answerTimer = payload.answerTimer ?? currentConfig.answerTimer ?? defaultGameConfig.answerTimer;
+      const questionPort = payload.questionPort;
 
       setGameConfig({ category, difficulty, questionLimit, questionTimer, answerTimer, seed: payload.seed });
 
@@ -98,6 +99,7 @@ const MultiplayerLobby = () => {
         questionTimer,
         answerTimer,
         seed: payload.seed,
+        questionPort, // Pass port to startGame for fetching
         recentSessionLimitSolo: 0,
         recentSessionLimitMultiplayer: 0,
         autoJoinLan: false
@@ -131,6 +133,29 @@ const MultiplayerLobby = () => {
     const sessionQuestionTimer = gameConfig.questionTimer ?? defaultGameConfig.questionTimer;
     const sessionAnswerTimer = gameConfig.answerTimer ?? defaultGameConfig.answerTimer;
 
+    // Host: Listen for HTTP server port before broadcasting game-state
+    if (multiplayerBridge?.onHttpServerStarted) {
+      multiplayerBridge.onHttpServerStarted("StartGame", (port) => {
+        console.log(`[Lobby] HTTP server started on port ${port}, broadcasting game-state`);
+        const state = useTriviaStore.getState();
+        multiplayerBridge?.broadcastGameState({
+          phase: state.phase,
+          timer: state.timer,
+          currentIndex: state.currentIndex,
+          seed: gameSessionSeed,
+          category: gameConfig.category ?? undefined,
+          difficulty: gameConfig.difficulty ?? undefined,
+          questionLimit: state.questionLimit,
+          questionTimer: state.questionTimer,
+          answerTimer: state.answerTimer,
+          questionPort: port, // Include the port for clients to fetch questions
+          playerScores: state.playerScores,
+          rankings: state.rankings,
+        });
+        multiplayerBridge.offHttpServerStarted("StartGame");
+      });
+    }
+
     await startGame({
       category: gameConfig.category ?? "General Knowledge",
       difficulty: gameConfig.difficulty ?? "easy",
@@ -142,21 +167,6 @@ const MultiplayerLobby = () => {
       recentSessionLimitSolo: 0,
       recentSessionLimitMultiplayer: 0,
       autoJoinLan: false
-    });
-
-    const state = useTriviaStore.getState();
-    multiplayerBridge?.broadcastGameState({
-      phase: state.phase,
-      timer: state.timer,
-      currentIndex: state.currentIndex,
-      seed: gameSessionSeed,
-      category: gameConfig.category ?? undefined,
-      difficulty: gameConfig.difficulty ?? undefined,
-      questionLimit: state.questionLimit,
-      questionTimer: state.questionTimer,
-      answerTimer: state.answerTimer,
-      playerScores: state.playerScores,
-      rankings: state.rankings,
     });
 
     setScreen("question");

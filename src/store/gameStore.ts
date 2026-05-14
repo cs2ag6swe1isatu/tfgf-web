@@ -31,6 +31,7 @@ export interface GameConfig {
   recentSessionLimitSolo: number;
   recentSessionLimitMultiplayer: number;
   seed?: number;
+  questionPort?: number;
   autoJoinLan: boolean;
 }
 

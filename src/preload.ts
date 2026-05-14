@@ -1,7 +1,6 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 import { contextBridge, ipcRenderer } from "electron";
-import * as dgram from "dgram";
 import * as os from "os"; 
 import type {
   LobbyMember,
@@ -17,15 +16,45 @@ import type {
 
 function getLocalIp(): string {
   const nets = os.networkInterfaces();
+  const candidates: { address: string; internal: boolean; name: string }[] = [];
+
   for (const name of Object.keys(nets)) {
     const interfaces = nets[name];
     if (!interfaces) continue;
+
+    // Skip virtual/internal-only interfaces that commonly break LAN discovery
+    const lowerName = name.toLowerCase();
+    if (
+      lowerName.includes('docker') ||
+      lowerName.includes('vbox') ||
+      lowerName.includes('vmware') ||
+      lowerName.includes('vnet') ||
+      lowerName.includes('virtual') ||
+      lowerName.includes('tun') ||
+      lowerName.includes('tap') ||
+      lowerName.includes('wsl')
+    ) {
+      continue;
+    }
+
     for (const net of interfaces) {
-      if (net.family === 'IPv4' && !net.internal) {
-        return net.address;
+      if (net.family === 'IPv4') {
+        candidates.push({ address: net.address, internal: net.internal, name });
       }
     }
   }
+
+  // 1. Prioritize non-internal, likely-LAN addresses (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+  const lanMatch = candidates.find(c => 
+    !c.internal && 
+    (c.address.startsWith('192.168.') || c.address.startsWith('10.') || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(c.address))
+  );
+  if (lanMatch) return lanMatch.address;
+
+  // 2. Fallback to any non-internal IPv4
+  const externalMatch = candidates.find(c => !c.internal);
+  if (externalMatch) return externalMatch.address;
+
   return '127.0.0.1';
 }
 
@@ -44,6 +73,7 @@ type MultiplayerPacket =
     | { type: "host-exit"; payload: MultiplayerHostExitPayload }
     | { type: "game-state"; payload: MultiplayerGameState }
     | { type: "answer-submission"; payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string } }
+    | { type: "ack"; payload: { packetId: string; lobbyId: string; playerId?: string } }
   );
 
 const BROADCAST_PORT = 41234;
@@ -51,12 +81,21 @@ const BROADCAST_ADDR = "255.255.255.255";
 const HOST_SILENCE_TIMEOUT_MS = 6000;
 const HOST_WATCHDOG_INTERVAL_MS = 1000;
 
-let socket: dgram.Socket | null = null;
 let broadcastInterval: NodeJS.Timeout | null = null;
 let pendingHostExitTimeout: NodeJS.Timeout | null = null;
 let packetSequence = 0;
 const lastSeenPacketSequenceByScope = new Map<string, number>();
 const recentPacketIds = new Map<string, number>();
+
+interface PendingAck {
+  packet: MultiplayerPacket;
+  address: string;
+  attempts: number;
+  timeout: NodeJS.Timeout;
+}
+const pendingAcks = new Map<string, PendingAck>();
+const MAX_ACK_ATTEMPTS = 5;
+const ACK_RETRY_MS = 600;
 
 // Purge recent packetId cache periodically
 setInterval(() => {
@@ -76,6 +115,7 @@ const onHostExitCbs = new Map<string, (payload: MultiplayerHostExitPayload) => v
 const onJoinResponseCbs = new Map<string, (payload: MultiplayerJoinAck) => void>();
 const onGameStateSyncCbs = new Map<string, (payload: MultiplayerGameState) => void>();
 const onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void>();
+const onHttpServerStartedCbs = new Map<string, (port: number) => void>();
 
 let activeSnapshot: MultiplayerLobbySnapshot | null = null;
 let activeMode: "host" | "client" | null = null;
@@ -132,35 +172,59 @@ function trackClientLobby(lobbyId: string) {
   startClientHostWatchdog();
 }
 
-function createSocket() {
-  if (socket) return socket;
-
-  socket = dgram.createSocket({ type: "udp4", reuseAddr: true });
-  socket.on("error", (err) => {
-    // ignore socket errors to keep the app usable in environments that block UDP
-    console.error('[preload] SOCKET ERROR:', err);
-  });
-  socket.on("message", (msg, rinfo) => {
-    try {
-      const s = msg.toString();
-      console.log('[preload] socket message from', rinfo.address, 'len', s.length, 'payload', s.slice(0, 400));
-    } catch (e) {
-      console.warn('[preload] socket message parse error', e);
-    }
-    handlePacket(msg.toString(), rinfo.address);
-  });
-
-  socket.bind(BROADCAST_PORT, () => {
-    try {
-      socket?.setBroadcast(true);
-    } catch (err) {
-      // ignore broadcast capability errors
-      console.error('[preload] setBroadcast failed:', err);
-    }
-  });
-
-  return socket;
+function sendAck(packetId: string, lobbyId: string, address: string, playerId?: string) {
+  const packet: MultiplayerPacket = {
+    ...nextPacketMeta(),
+    type: "ack",
+    payload: { packetId, lobbyId, playerId }
+  };
+  sendUdpMessage(JSON.stringify(packet), address);
 }
+
+function sendCriticalUdpMessage(packet: MultiplayerPacket, address: string = BROADCAST_ADDR) {
+  const packetId = packet.packetId;
+  const message = JSON.stringify(packet);
+  
+  const attempt = (count: number) => {
+    if (count >= MAX_ACK_ATTEMPTS) {
+      console.warn(`[preload] Critical packet ${packet.type} (${packetId}) failed after ${MAX_ACK_ATTEMPTS} attempts`);
+      pendingAcks.delete(packetId);
+      return;
+    }
+
+    sendUdpMessage(message, address);
+
+    const timeout = setTimeout(() => {
+      const pending = pendingAcks.get(packetId);
+      if (pending) {
+        console.log(`[preload] Retrying critical packet ${packet.type} (${packetId}), attempt ${count + 1}`);
+        attempt(count + 1);
+      }
+    }, ACK_RETRY_MS);
+
+    pendingAcks.set(packetId, { packet, address, attempts: count + 1, timeout });
+  };
+
+  attempt(0);
+}
+
+function sendUdpMessage(message: string, address: string = BROADCAST_ADDR) {
+  ipcRenderer.send('multiplayer:udp-send', message, address);
+}
+
+// IPC listener for UDP messages from Main process
+ipcRenderer.on('multiplayer:udp-message', (_event, message: string, senderAddress: string) => {
+  handlePacket(message, senderAddress);
+});
+
+ipcRenderer.on('multiplayer:http-server-started', (_event, port: number) => {
+  onHttpServerStartedCbs.forEach(cb => cb(port));
+});
+
+ipcRenderer.on('multiplayer:mdns-host-found', (_event, address: string) => {
+  console.log('[preload] mDNS discovered host at', address);
+  directJoin(address);
+});
 
 function nextPacketMeta() {
   packetSequence += 1;
@@ -196,27 +260,31 @@ function getPacketScope(packet: MultiplayerPacket, senderAddress?: string) {
 }
 
 function shouldAcceptPacket(packet: MultiplayerPacket, senderAddress?: string) {
+  // Always accept ACKs to ensure we stop retrying even if sequence looks old
+  if (packet.type === 'ack') return true;
+
   const scope = getPacketScope(packet, senderAddress);
   const now = Date.now();
 
-  // Types that require ordering (we keep sequence-based filtering for these)
+  // Types that require strict ordering
   const sequenceTypes = new Set(["lobby-broadcast", "game-state", "join-ack", "join-nack", "host-exit"]);
 
   if (sequenceTypes.has(packet.type)) {
     if (!scope) return true;
     const lastSeen = lastSeenPacketSequenceByScope.get(scope);
+    
+    // Strict sequencing: only accept packets with HIGHER sequence than what we've seen
     if (lastSeen !== undefined && packet.sequence <= lastSeen) {
-      console.warn('[preload] DROPPING (seq) packet due to sequence:', { type: packet.type, sequence: packet.sequence, lastSeen, scope, senderAddress });
+      // console.warn('[preload] DROPPING (seq) packet due to sequence:', { type: packet.type, sequence: packet.sequence, lastSeen, scope, senderAddress });
       return false;
     }
     lastSeenPacketSequenceByScope.set(scope, packet.sequence);
     return true;
   }
 
-  // For other packets use packetId deduplication to avoid sequence collisions across senders
+  // For other packets (requests/submissions) use packetId deduplication
   if (recentPacketIds.has(packet.packetId)) {
-    const lastSeenTs = recentPacketIds.get(packet.packetId);
-    console.warn('[preload] DROPPING (dup) packet due to packetId seen:', { type: packet.type, packetId: packet.packetId, scope, senderAddress, lastSeenTs });
+    // console.warn('[preload] DROPPING (dup) packet due to packetId seen:', { type: packet.type, packetId: packet.packetId, scope, senderAddress });
     return false;
   }
   recentPacketIds.set(packet.packetId, now);
@@ -228,11 +296,9 @@ function generateSessionId() {
 }
 
 function sendJoinAck(lobbyId: string, hostId: string, sessionId: string | undefined, accepted: boolean, reason?: string) {
-  const s = createSocket();
   const payload: MultiplayerJoinAck = { lobbyId, hostId, sessionId, accepted, reason };
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: accepted ? "join-ack" : "join-nack", payload };
-  const data = Buffer.from(JSON.stringify(packet));
-  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => { if (err) console.warn('[preload] send join-ack error', err); });
+  sendUdpMessage(JSON.stringify(packet));
 }
 
 // ------- shared functions -------
@@ -253,16 +319,11 @@ function emitHostExit(payload: MultiplayerHostExitPayload) {
 }
 
 function broadcastSnapshot(snapshot: MultiplayerLobbySnapshot) {
-  const s = createSocket();
   const meta = nextPacketMeta();
   const sequencedSnapshot = { ...snapshot, sequence: meta.sequence };
   activeSnapshot = sequencedSnapshot;
   const packet: MultiplayerPacket = { ...meta, type: "lobby-broadcast", snapshot: sequencedSnapshot, isGameActive };
-  const payload = Buffer.from(JSON.stringify(packet));
-
-  s.send(payload, 0, payload.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
-    void err;
-  });
+  sendUdpMessage(JSON.stringify(packet));
 }
 
 function pruneStalePlayers(staleMs = 10000) {
@@ -292,21 +353,18 @@ function pruneStalePlayers(staleMs = 10000) {
 
 function sendHostExitMessage(lobbyId: string) {
   console.log('[preload] sending host-exit for lobby', lobbyId);
-  const s = createSocket();
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "host-exit", payload: { lobbyId, sessionId: activeSnapshot?.sessionId } };
-  const payload = Buffer.from(JSON.stringify(packet));
-  s.send(payload, 0, payload.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
-    void err;
-  });
+  sendUdpMessage(JSON.stringify(packet));
 }
 
-function discoveryRequest() {
-  const s = createSocket();
+function discoveryRequest(address: string = BROADCAST_ADDR) {
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "discovery-request" };
-  const data = Buffer.from(JSON.stringify(packet));
-  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
-    if (err) console.warn('[preload] send discovery-request error', err);
-  });
+  sendUdpMessage(JSON.stringify(packet), address);
+}
+
+function directJoin(hostAddress: string) {
+  console.log('[preload] directJoin to', hostAddress);
+  discoveryRequest(hostAddress);
 }
 
 function upsertLobbyMember(snapshot: MultiplayerLobbySnapshot, member: LobbyMember) {
@@ -339,32 +397,20 @@ function updateHostSnapshot(mutator: (current: MultiplayerLobbySnapshot) => Mult
 }
 
 function sendKickPlayer(payload: { lobbyId: string; playerId: string; sessionId?: string }) {
-  const s = createSocket();
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "kick-player", payload: { ...payload, sessionId: payload.sessionId ?? activeSnapshot?.sessionId } };
-  const data = Buffer.from(JSON.stringify(packet));
-  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
-    if (err) console.warn('[preload] send kick-player error', err);
-  });
+  sendUdpMessage(JSON.stringify(packet));
 }
 
 
 function broadcastGameState(gameState: MultiplayerGameState) {
   isGameActive = true;
-  const s = createSocket();
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "game-state", payload: { ...gameState, sessionId: activeSnapshot?.sessionId } };
-  const payload = Buffer.from(JSON.stringify(packet));
-  s.send(payload, 0, payload.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
-    if(err) console.warn('[preload] broadcast game state error', err);
-  });
+  sendUdpMessage(JSON.stringify(packet));
 }
 
 function sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) {
-  const s = createSocket();
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "answer-submission", payload };
-  const data = Buffer.from(JSON.stringify(packet));
-  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
-    if (err) console.warn('[preload] send answer-submission error', err);
-  });
+  sendCriticalUdpMessage(packet, BROADCAST_ADDR);
 }
 
 function handlePacket(raw: string, senderAddress: string) {
@@ -378,8 +424,33 @@ function handlePacket(raw: string, senderAddress: string) {
   }
 
   if (!packet) return;
-  if (!shouldAcceptPacket(packet, senderAddress)) return;
-  // console.log('[preload] handlePacket parsed', packet.type, 'activeMode=', activeMode, 'activeSnapshot=', activeSnapshot?.lobbyId);
+  if (!shouldAcceptPacket(packet, senderAddress)) {
+    // Even if we don't accept the packet (e.g. duplicate), we should still ACK it
+    // if it's a critical type that requires an ACK, so the sender stops retrying.
+    const criticalIncoming = ["join-request", "ready-update", "leave-request", "answer-submission"];
+    if (criticalIncoming.includes(packet.type)) {
+      // @ts-ignore - payload has lobbyId and potentially playerId
+      sendAck(packet.packetId, packet.payload.lobbyId, senderAddress, packet.payload.playerId);
+    }
+    return;
+  }
+  
+  if (packet.type === "ack") {
+    const pending = pendingAcks.get(packet.payload.packetId);
+    if (pending) {
+      clearTimeout(pending.timeout);
+      pendingAcks.delete(packet.payload.packetId);
+      console.log(`[preload] Received ACK for packet ${packet.payload.packetId}`);
+    }
+    return;
+  }
+
+  // Send ACK for incoming critical packets that passed shouldAcceptPacket
+  const criticalIncoming = ["join-request", "ready-update", "leave-request", "answer-submission"];
+  if (criticalIncoming.includes(packet.type)) {
+    // @ts-ignore
+    sendAck(packet.packetId, packet.payload.lobbyId, senderAddress, packet.payload.playerId);
+  }
 
   // ------- shared discovery behavior (client+host) -------
   if (packet.type === "lobby-broadcast") {
@@ -528,7 +599,7 @@ function handlePacket(raw: string, senderAddress: string) {
 function startDiscovery() {
   console.log('[preload] startDiscovery');
   activeMode = "client";
-  createSocket();
+  ipcRenderer.send('multiplayer:mdns-query');
 }
 
 function stopDiscovery() {
@@ -544,13 +615,14 @@ function startBroadcast(snapshot: MultiplayerLobbySnapshot) {
   const localIp = getLocalIp();
   console.log('[preload] startBroadcast lobby', snapshot.lobbyId, 'hostAddress', localIp);
 
+  ipcRenderer.send('multiplayer:mdns-start-adv', snapshot.lobbyId);
+
   if (pendingHostExitTimeout) {
     clearTimeout(pendingHostExitTimeout);
     pendingHostExitTimeout = null;
   }
 
   activeMode = "host";
-  createSocket();
   // merge with any existing activeSnapshot to avoid accidentally dropping recently-joined players
   const existing = activeSnapshot && activeSnapshot.lobbyId === snapshot.lobbyId ? activeSnapshot : null;
   const mergedPlayers = [
@@ -577,6 +649,8 @@ function startBroadcast(snapshot: MultiplayerLobbySnapshot) {
 function stopBroadcast() {
   isGameActive = false;
   console.log('[preload] stopBroadcast');
+
+  ipcRenderer.send('multiplayer:mdns-stop-adv');
 
   if (activeMode === 'host' && activeSnapshot) {
     const lobbyId = activeSnapshot.lobbyId;
@@ -621,7 +695,6 @@ function updateLobbySnapshot(snapshot: MultiplayerLobbySnapshot) {
 function requestJoin(payload: MultiplayerJoinRequest) {
   console.log('[preload] sending join-request to', payload.hostAddress, 'lobby', payload.lobbyId, 'player', payload.player?.id, 'via broadcast');
   trackClientLobby(payload.lobbyId);
-  const s = createSocket();
 
   // Strip player to essential fields only to avoid EMSGSIZE
  const slimPayload = {
@@ -638,31 +711,18 @@ function requestJoin(payload: MultiplayerJoinRequest) {
 };
 
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "join-request", payload: slimPayload };
-  const data = Buffer.from(JSON.stringify(packet));
-  console.log('[preload] join-request packet size:', data.length);
-  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
-    if (err) console.warn('[preload] send join-request error', err);
-  });
+  sendCriticalUdpMessage(packet, BROADCAST_ADDR);
 }
 
 function setReady(payload: MultiplayerReadyUpdate) {
   console.log('[preload] sending ready-update to', payload.hostAddress, 'player', payload.playerId, 'ready', payload.ready, 'via broadcast');
-  const s = createSocket();
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "ready-update", payload };
-  const data = Buffer.from(JSON.stringify(packet));
-  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
-    if (err) console.warn('[preload] send ready-update error', err);
-  });
+  sendCriticalUdpMessage(packet, BROADCAST_ADDR);
 }
 
 function sendHeartbeat(payload: { lobbyId: string; hostAddress: string; playerId: string }) {
-  // console.log('[preload] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
-  const s = createSocket();
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "heartbeat", payload: { lobbyId: payload.lobbyId, hostAddress: payload.hostAddress, playerId: payload.playerId } };
-  const data = Buffer.from(JSON.stringify(packet));
-  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
-    if (err) console.warn('[preload] send heartbeat error', err);
-  });
+  sendUdpMessage(JSON.stringify(packet));
 }
 
 function leaveLobby(payload: MultiplayerLeaveRequest) {
@@ -671,12 +731,8 @@ function leaveLobby(payload: MultiplayerLeaveRequest) {
     stopClientHostWatchdog({ resetLobby: true });
     activeMode = null;
   }
-  const s = createSocket();
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "leave-request", payload };
-  const data = Buffer.from(JSON.stringify(packet));
-  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
-    if (err) console.warn('[preload] send leave-request error', err);
-  });
+  sendCriticalUdpMessage(packet, BROADCAST_ADDR);
 }
 
 // Expose file-based player storage API for Electron
@@ -718,8 +774,13 @@ contextBridge.exposeInMainWorld("multiplayer", {
   
   onAnswerSubmission: (id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void) => { onAnswerSubmissionCbs.set(id, cb); },
   offAnswerSubmission: (id: string) => { onAnswerSubmissionCbs.delete(id); },
+  startHttpServer: (data: string) => ipcRenderer.send('multiplayer:start-http-server', data),
+  stopHttpServer: () => ipcRenderer.send('multiplayer:stop-http-server'),
+  onHttpServerStarted: (id: string, cb: (port: number) => void) => { onHttpServerStartedCbs.set(id, cb); },
+  offHttpServerStarted: (id: string) => { onHttpServerStartedCbs.delete(id); },
   sendAnswerSubmission,
   requestJoin,
+  directJoin,
   setReady,
   discoveryRequest,
   sendHeartbeat,
