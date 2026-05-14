@@ -214,7 +214,7 @@ const QuestionPanel = styled(Box)({
 
 const QuestionText = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "20px",
+  fontSize: "17px",
   color: "#35E52B",
   textShadow: "0 0 8px #42FF5C, 0 0 20px #35E52B55",
   textAlign: "center",
@@ -281,7 +281,7 @@ const AnswerButton = styled(Button, {
 
   return {
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "20px",
+    fontSize: "17px",
     width: "100%",
     height: "100%",
     padding: "0 20px",
@@ -340,7 +340,7 @@ const AnswerLabel = styled(Box, {
 })<{ correct?: boolean; incorrect?: boolean }>( 
   ({ correct, incorrect }) => ({
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "18px",
+    fontSize: "17px",
     color: correct ? "#35E52B" : incorrect ? "#E33232" : "#00E5FF",
     textShadow: correct
       ? "0 0 8px #35E52B"
@@ -978,7 +978,7 @@ useEffect(() => {
           <Typography
             sx={{
               fontFamily: "'Press Start 2P', monospace",
-              fontSize: "23px",
+              fontSize: "17px",
               color: "#35E52B",
               textShadow: "0 0 8px #42FF5C",
               letterSpacing: "3px",
