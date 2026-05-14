@@ -386,7 +386,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     if (useMultiplayerStore.getState().lobbyRole === 'host') {
       const state = get();
       const players = useMultiplayerStore.getState().players;
-      if (players.length > 0 && state.selectedAnswer) {
+      if (players.length > 0 ) {
         const allAnswered = players.every((player) => {
           if (player.isHost) {
             // Host: check via selectedAnswer (already set above)
@@ -441,16 +441,16 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
     // ── Check if all players have answered → immediately advance to scoring ──
     const state = get();
-    if (state.mode === 'multiplayer' && state.selectedAnswer) {
-      const players = useMultiplayerStore.getState().players;
-      if (players.length > 0) {
-        const allAnswered = players.every((player) => {
-          if (player.isHost) {
-            return !!state.selectedAnswer;
-          }
-          const playerAns = state.playerAnswers[player.id];
-          return playerAns && !!playerAns[state.currentIndex];
-        });
+   if (state.mode === 'multiplayer') {
+  const players = useMultiplayerStore.getState().players;
+  if (players.length > 0) {
+    const allAnswered = players.every((player) => {
+      if (player.isHost) {
+        return !!state.selectedAnswer;
+      }
+      const playerAns = answers[player.id]; // use the updated answers, not state.playerAnswers
+      return playerAns && !!playerAns[state.currentIndex];
+    });
 
         if (allAnswered) {
           set({

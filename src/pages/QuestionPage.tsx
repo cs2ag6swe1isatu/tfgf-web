@@ -636,7 +636,8 @@ const QuestionPage = () => {
     )
       return;
 
-    if (phase === "answering" && selectedAnswer && mode === "solo") return;
+    if (phase === "answering" && mode === "solo" && selectedAnswer) return;
+    
 
     let timerInterval: number;
 
@@ -696,6 +697,30 @@ const QuestionPage = () => {
   useEffect(() => {
     if (phase !== "scoring") hasScoredRef.current = false;
   }, [phase]);
+
+  // ── Multiplayer: auto-advance when all players have answered ────────────────
+useEffect(() => {
+  if (mode !== "multiplayer" || lobbyRole !== "host") return;
+  if (phase !== "answering") return;
+
+  const totalPlayers = players.length;
+  if (totalPlayers === 0) return;
+
+  const state = useTriviaStore.getState();
+  const answersForQuestion = state.playerScores?.[currentIndex] ?? {};
+  const remoteAnswerCount = Object.keys(answersForQuestion).length;
+
+  // Count local player's answer too
+  const localHasAnswered = !!selectedAnswer;
+  const totalAnswered = remoteAnswerCount + (localHasAnswered ? 1 : 0);
+
+  if (totalAnswered >= totalPlayers) {
+    // Everyone answered — skip remaining timer and go to scoring
+    nextPhase();
+    broadcastMultiplayerState();
+  }
+}, [mode, lobbyRole, phase, players.length, selectedAnswer, currentIndex,
+    nextPhase, broadcastMultiplayerState]);
 
   // ── Multiplayer: broadcast on state changes ─────────────────────────────────
 
