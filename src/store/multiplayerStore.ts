@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { Player } from "../types/player";
-import type { DiscoveredHost, LobbyMember, MultiplayerGameState, MultiplayerLobbySnapshot } from "../types/multiplayer";
+import type { DiscoveredHost, LobbyMember, MultiplayerLobbySnapshot } from "../types/multiplayer";
 import { getRankForLevel } from "../constants";
 
 
@@ -10,6 +10,8 @@ type LobbyState = "lobby" | "discovering";
 export interface MultiplayerStateData {
   lobbyRole: LobbyRole | null;
   lobbyId: string | null;
+  sessionId: string | null;
+  lastSnapshotSequence: number | null;
   hostId: string | null;
   hostAddress: string | null;
   players: LobbyMember[];
@@ -31,6 +33,8 @@ export interface MultiplayerSelectors {
 export interface MultiplayerActions {
   setLobbyRole: (role: LobbyRole | null) => void;
   setLobbyId: (id: string | null) => void;
+  setSessionId: (id: string | null) => void;
+  setLastSnapshotSequence: (sequence: number | null) => void;
   setHostId: (id: string | null) => void;
   setHostAddress: (address: string | null) => void;
   setPrivate: (isPrivate: boolean) => void;
@@ -54,6 +58,8 @@ export type MultiplayerState = MultiplayerStateData & MultiplayerSelectors & Mul
 const initialState: MultiplayerStateData = {
   lobbyRole: null,
   lobbyId: null,
+  sessionId: null,
+  lastSnapshotSequence: null,
   hostId: null,
   hostAddress: null,
   players: [],
@@ -88,19 +94,27 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   // Actions
   setLobbyRole: (role) => set({ lobbyRole: role }),
   setLobbyId: (id) => set({ lobbyId: id }),
+  setSessionId: (id) => set({ sessionId: id }),
+  setLastSnapshotSequence: (sequence) => set({ lastSnapshotSequence: sequence }),
   setHostId: (id) => set({ hostId: id }),
   setHostAddress: (address) => set({ hostAddress: address }),
   setPrivate: (isPrivate) => set({ isPrivate }),
   setJoinStatus: (status) => set({ joinStatus: status }),
 
   addOrUpdateDiscoveredHost: (host) => {
-    if (!host.lobbyId || !host.hostId) return;
+    const lobbyId = host.lobbyId;
+    const hostId = host.hostId;
+    if (typeof lobbyId !== 'string' || typeof hostId !== 'string') return;
     const now = Date.now();
     set((state) => {
-      const existingIndex = state.discoveredHosts.findIndex((h) => h.lobbyId === host.lobbyId);
+      const existingIndex = state.discoveredHosts.findIndex((h) => h.lobbyId === lobbyId);
+      const existing = existingIndex >= 0 ? state.discoveredHosts[existingIndex] : null;
+      if (existing?.sequence !== undefined && host.sequence !== undefined && host.sequence <= existing.sequence) {
+        return state;
+      }
       const entry: DiscoveredHost = {
-        lobbyId: host.lobbyId,
-        hostId: host.hostId,
+        lobbyId,
+        hostId,
         hostName: host.hostName,
         hostLevel: host.hostLevel,
         hostAddress: host.hostAddress,
@@ -108,6 +122,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         maxPlayers: host.maxPlayers,
         category: host.category,
         difficulty: host.difficulty,
+        sessionId: host.sessionId,
+        sequence: host.sequence,
         lastSeen: now,
       };
 
@@ -165,18 +181,31 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   setLobbyState: (stateValue) => set({ lobbyState: stateValue }),
 
   syncLobbySnapshot: (snapshot, hostAddress) =>
-    set((state) => ({
-      lobbyRole: state.lobbyRole,
-      lobbyId: snapshot.lobbyId,
-      hostId: snapshot.hostId ?? null,
-      hostAddress: hostAddress ?? state.hostAddress ?? null,
-      players: snapshot.players.map((p) => ({
-        ...p,
-        rank: getRankForLevel(p.level),
-      })),
-      lobbyState: state.lobbyState,
-      isPrivate: snapshot.isPrivate ?? state.isPrivate,
-    })),
+    set((state) => {
+      const incomingSessionId = snapshot.sessionId ?? null;
+      const incomingSequence = snapshot.sequence ?? null;
+      if (state.sessionId && incomingSessionId && state.sessionId !== incomingSessionId) {
+        return state;
+      }
+      if (state.lastSnapshotSequence !== null && incomingSequence !== null && incomingSequence <= state.lastSnapshotSequence) {
+        return state;
+      }
+
+      return {
+        lobbyRole: state.lobbyRole,
+        lobbyId: snapshot.lobbyId,
+        sessionId: incomingSessionId ?? state.sessionId,
+        lastSnapshotSequence: incomingSequence ?? state.lastSnapshotSequence,
+        hostId: snapshot.hostId ?? null,
+        hostAddress: hostAddress ?? state.hostAddress ?? null,
+        players: snapshot.players.map((p) => ({
+          ...p,
+          rank: getRankForLevel(p.level),
+        })),
+        lobbyState: state.lobbyState,
+        isPrivate: snapshot.isPrivate ?? state.isPrivate,
+      };
+    }),
 
   resetMultiplayer: () => set({ ...initialState }),
 }));

@@ -12,12 +12,15 @@ import type {
   MultiplayerLobbySnapshot,
   MultiplayerReadyUpdate,
   MultiplayerGameState,
+  MultiplayerJoinAck,
 } from "./types/multiplayer";
 
 function getLocalIp(): string {
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {
-    for (const net of nets[name]!) {
+    const interfaces = nets[name];
+    if (!interfaces) continue;
+    for (const net of interfaces) {
       if (net.family === 'IPv4' && !net.internal) {
         return net.address;
       }
@@ -27,15 +30,21 @@ function getLocalIp(): string {
 }
 
 type MultiplayerPacket =
-  | { type: "lobby-broadcast"; snapshot: MultiplayerLobbySnapshot; isGameActive?: boolean }
-  | { type: "discovery-request" }
-  | { type: "join-request"; payload: MultiplayerJoinRequest }
-  | { type: "ready-update"; payload: MultiplayerReadyUpdate }
-  | { type: "leave-request"; payload: MultiplayerLeaveRequest }
-  | { type: "heartbeat"; payload: { lobbyId: string; hostAddress: string; playerId: string } }
-  | { type: "host-exit"; payload: MultiplayerHostExitPayload }
-  | { type: "game-state"; payload: MultiplayerGameState }
-  | { type: "answer-submission"; payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string } };
+  & { sequence: number; packetId: string }
+  & (
+    | { type: "lobby-broadcast"; snapshot: MultiplayerLobbySnapshot; isGameActive?: boolean }
+    | { type: "discovery-request" }
+    | { type: "join-request"; payload: MultiplayerJoinRequest }
+    | { type: "join-ack"; payload: MultiplayerJoinAck }
+    | { type: "join-nack"; payload: MultiplayerJoinAck }
+      | { type: "kick-player"; payload: { lobbyId: string; playerId: string; sessionId?: string } }
+    | { type: "ready-update"; payload: MultiplayerReadyUpdate }
+    | { type: "leave-request"; payload: MultiplayerLeaveRequest }
+    | { type: "heartbeat"; payload: { lobbyId: string; hostAddress: string; playerId: string } }
+    | { type: "host-exit"; payload: MultiplayerHostExitPayload }
+    | { type: "game-state"; payload: MultiplayerGameState }
+    | { type: "answer-submission"; payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string } }
+  );
 
 const BROADCAST_PORT = 41234;
 const BROADCAST_ADDR = "255.255.255.255";
@@ -45,13 +54,26 @@ const HOST_WATCHDOG_INTERVAL_MS = 1000;
 let socket: dgram.Socket | null = null;
 let broadcastInterval: NodeJS.Timeout | null = null;
 let pendingHostExitTimeout: NodeJS.Timeout | null = null;
+let packetSequence = 0;
+const lastSeenPacketSequenceByScope = new Map<string, number>();
+const recentPacketIds = new Map<string, number>();
+
+// Purge recent packetId cache periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, ts] of recentPacketIds.entries()) {
+    if (now - ts > 60_000) recentPacketIds.delete(id);
+  }
+}, 30_000);
 
 const onHostFoundCbs = new Map<string, (payload: MultiplayerDiscoveredPayload) => void>();
 const onDiscoveryResponseCbs = new Map<string, (payload: MultiplayerDiscoveredPayload) => void>();
 const onPlayerJoinedCbs = new Map<string, (player: LobbyMember) => void>();
+const onPlayerKickedCbs = new Map<string, (payload: { lobbyId: string; playerId: string; sessionId?: string }) => void>();
 const onPlayerReadyChangedCbs = new Map<string, (playerId: string, ready: boolean) => void>();
 const onPlayerLeftCbs = new Map<string, (playerId: string) => void>();
 const onHostExitCbs = new Map<string, (payload: MultiplayerHostExitPayload) => void>();
+const onJoinResponseCbs = new Map<string, (payload: MultiplayerJoinAck) => void>();
 const onGameStateSyncCbs = new Map<string, (payload: MultiplayerGameState) => void>();
 const onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void>();
 
@@ -140,6 +162,79 @@ function createSocket() {
   return socket;
 }
 
+function nextPacketMeta() {
+  packetSequence += 1;
+  return { sequence: packetSequence, packetId: generateSessionId() };
+}
+
+function getPacketScope(packet: MultiplayerPacket, senderAddress?: string) {
+  switch (packet.type) {
+    case "lobby-broadcast":
+      return `${senderAddress ?? 'unknown'}:${packet.snapshot.lobbyId}:${packet.snapshot.sessionId ?? 'no-session'}`;
+    case "join-ack":
+    case "join-nack":
+      return `${senderAddress ?? 'unknown'}:${packet.payload.lobbyId}:${packet.payload.sessionId ?? 'no-session'}`;
+    case "join-request":
+      // scope join requests by player id to avoid collisions when multiple instances share the same IP
+      return `${senderAddress ?? 'unknown'}:${packet.payload.lobbyId}:${(packet.payload.player && packet.payload.player.id) ?? 'no-player'}`;
+    case "ready-update":
+    case "leave-request":
+    case "heartbeat":
+    case "kick-player":
+    case "answer-submission":
+      // scope per-player where possible so different players on same IP don't share sequence state
+      // payloads for these types include playerId
+      // @ts-ignore - narrow by case above
+      return `${senderAddress ?? 'unknown'}:${packet.payload.lobbyId}:${packet.payload.playerId ?? packet.payload.player?.id ?? 'no-player'}`;
+    case "host-exit":
+      return `${senderAddress ?? 'unknown'}:${packet.payload.lobbyId}`;
+    case "game-state":
+      return `${senderAddress ?? 'unknown'}:${packet.payload.sessionId ?? 'no-session'}`;
+    default:
+      return null;
+  }
+}
+
+function shouldAcceptPacket(packet: MultiplayerPacket, senderAddress?: string) {
+  const scope = getPacketScope(packet, senderAddress);
+  const now = Date.now();
+
+  // Types that require ordering (we keep sequence-based filtering for these)
+  const sequenceTypes = new Set(["lobby-broadcast", "game-state", "join-ack", "join-nack", "host-exit"]);
+
+  if (sequenceTypes.has(packet.type)) {
+    if (!scope) return true;
+    const lastSeen = lastSeenPacketSequenceByScope.get(scope);
+    if (lastSeen !== undefined && packet.sequence <= lastSeen) {
+      console.warn('[preload] DROPPING (seq) packet due to sequence:', { type: packet.type, sequence: packet.sequence, lastSeen, scope, senderAddress });
+      return false;
+    }
+    lastSeenPacketSequenceByScope.set(scope, packet.sequence);
+    return true;
+  }
+
+  // For other packets use packetId deduplication to avoid sequence collisions across senders
+  if (recentPacketIds.has(packet.packetId)) {
+    const lastSeenTs = recentPacketIds.get(packet.packetId);
+    console.warn('[preload] DROPPING (dup) packet due to packetId seen:', { type: packet.type, packetId: packet.packetId, scope, senderAddress, lastSeenTs });
+    return false;
+  }
+  recentPacketIds.set(packet.packetId, now);
+  return true;
+}
+
+function generateSessionId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+}
+
+function sendJoinAck(lobbyId: string, hostId: string, sessionId: string | undefined, accepted: boolean, reason?: string) {
+  const s = createSocket();
+  const payload: MultiplayerJoinAck = { lobbyId, hostId, sessionId, accepted, reason };
+  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: accepted ? "join-ack" : "join-nack", payload };
+  const data = Buffer.from(JSON.stringify(packet));
+  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => { if (err) console.warn('[preload] send join-ack error', err); });
+}
+
 // ------- shared functions -------
 
 function emitHostFound(snapshot: MultiplayerLobbySnapshot, hostAddress: string, isGameActiveFlag?: boolean) {
@@ -159,7 +254,10 @@ function emitHostExit(payload: MultiplayerHostExitPayload) {
 
 function broadcastSnapshot(snapshot: MultiplayerLobbySnapshot) {
   const s = createSocket();
-  const packet: MultiplayerPacket = { type: "lobby-broadcast", snapshot, isGameActive };
+  const meta = nextPacketMeta();
+  const sequencedSnapshot = { ...snapshot, sequence: meta.sequence };
+  activeSnapshot = sequencedSnapshot;
+  const packet: MultiplayerPacket = { ...meta, type: "lobby-broadcast", snapshot: sequencedSnapshot, isGameActive };
   const payload = Buffer.from(JSON.stringify(packet));
 
   s.send(payload, 0, payload.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
@@ -195,7 +293,7 @@ function pruneStalePlayers(staleMs = 10000) {
 function sendHostExitMessage(lobbyId: string) {
   console.log('[preload] sending host-exit for lobby', lobbyId);
   const s = createSocket();
-  const packet: MultiplayerPacket = { type: "host-exit", payload: { lobbyId } };
+  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "host-exit", payload: { lobbyId, sessionId: activeSnapshot?.sessionId } };
   const payload = Buffer.from(JSON.stringify(packet));
   s.send(payload, 0, payload.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
     void err;
@@ -204,7 +302,7 @@ function sendHostExitMessage(lobbyId: string) {
 
 function discoveryRequest() {
   const s = createSocket();
-  const packet: MultiplayerPacket = { type: "discovery-request" };
+  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "discovery-request" };
   const data = Buffer.from(JSON.stringify(packet));
   s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
     if (err) console.warn('[preload] send discovery-request error', err);
@@ -228,17 +326,32 @@ function upsertLobbyMember(snapshot: MultiplayerLobbySnapshot, member: LobbyMemb
 
 function updateHostSnapshot(mutator: (current: MultiplayerLobbySnapshot) => MultiplayerLobbySnapshot) {
   if (!activeSnapshot) return;
-  activeSnapshot = mutator(activeSnapshot);
-  console.log('[preload] updated activeSnapshot, players=', activeSnapshot.players.map(p => p.id).join(','));
+  const current = activeSnapshot;
+  const updated = mutator(current);
+  activeSnapshot = {
+    ...updated,
+    hostAddress: updated.hostAddress ?? current.hostAddress ?? BROADCAST_ADDR,
+    sessionId: updated.sessionId ?? current.sessionId ?? generateSessionId(),
+  };
+  console.log('[preload] updated activeSnapshot, players=', activeSnapshot.players.map((p) => p.id).join(','));
   broadcastSnapshot(activeSnapshot);
   emitHostFound(activeSnapshot, activeSnapshot.hostAddress ?? BROADCAST_ADDR);
+}
+
+function sendKickPlayer(payload: { lobbyId: string; playerId: string; sessionId?: string }) {
+  const s = createSocket();
+  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "kick-player", payload: { ...payload, sessionId: payload.sessionId ?? activeSnapshot?.sessionId } };
+  const data = Buffer.from(JSON.stringify(packet));
+  s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
+    if (err) console.warn('[preload] send kick-player error', err);
+  });
 }
 
 
 function broadcastGameState(gameState: MultiplayerGameState) {
   isGameActive = true;
   const s = createSocket();
-  const packet: MultiplayerPacket = { type: "game-state", payload: gameState };
+  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "game-state", payload: { ...gameState, sessionId: activeSnapshot?.sessionId } };
   const payload = Buffer.from(JSON.stringify(packet));
   s.send(payload, 0, payload.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
     if(err) console.warn('[preload] broadcast game state error', err);
@@ -247,7 +360,7 @@ function broadcastGameState(gameState: MultiplayerGameState) {
 
 function sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) {
   const s = createSocket();
-  const packet: MultiplayerPacket = { type: "answer-submission", payload };
+  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "answer-submission", payload };
   const data = Buffer.from(JSON.stringify(packet));
   s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
     if (err) console.warn('[preload] send answer-submission error', err);
@@ -265,6 +378,7 @@ function handlePacket(raw: string, senderAddress: string) {
   }
 
   if (!packet) return;
+  if (!shouldAcceptPacket(packet, senderAddress)) return;
   // console.log('[preload] handlePacket parsed', packet.type, 'activeMode=', activeMode, 'activeSnapshot=', activeSnapshot?.lobbyId);
 
   // ------- shared discovery behavior (client+host) -------
@@ -288,6 +402,7 @@ function handlePacket(raw: string, senderAddress: string) {
   }
 
   if (packet.type === "host-exit") {
+    if (packet.payload.sessionId && activeSnapshot?.sessionId && packet.payload.sessionId !== activeSnapshot.sessionId) return;
     console.log('[preload] host-exit received for lobby', packet.payload.lobbyId);
     emitHostExit(packet.payload);
 
@@ -308,6 +423,19 @@ function handlePacket(raw: string, senderAddress: string) {
     return;
   }
 
+  if (packet.type === 'join-ack' || packet.type === 'join-nack') {
+    if (activeMode === 'client') {
+      onJoinResponseCbs.forEach((cb) => cb(packet.payload));
+    }
+    return;
+  }
+
+  if (packet.type === "kick-player") {
+    if (packet.payload.sessionId && activeSnapshot?.sessionId && packet.payload.sessionId !== activeSnapshot.sessionId) return;
+    onPlayerKickedCbs.forEach((cb) => cb(packet.payload));
+    return;
+  }
+
   // ------- host-only handler block -------
   if (activeMode !== "host" || !activeSnapshot) return;
 
@@ -322,6 +450,8 @@ function handlePacket(raw: string, senderAddress: string) {
     const isExistingPlayer = activeSnapshot.players.some((player) => player.id === packet.payload.player.id);
     if (isGameActive && !isExistingPlayer) {
       console.log('[preload] rejecting mid-game join for new player', packet.payload.player.id, 'lobby', packet.payload.lobbyId);
+      // send explicit join-nack so client knows it was rejected
+      sendJoinAck(packet.payload.lobbyId, activeSnapshot.hostId ?? '', activeSnapshot.sessionId, false, 'in-game');
       return;
     }
     console.log('[preload] join-request for lobby', packet.payload.lobbyId, 'from', senderAddress, 'player', packet.payload.player.id);
@@ -343,12 +473,20 @@ function handlePacket(raw: string, senderAddress: string) {
         isReady: false,
       }),
     );
+    // acknowledge the join so the requesting client can proceed
+    sendJoinAck(packet.payload.lobbyId, activeSnapshot.hostId ?? '', activeSnapshot.sessionId, true);
     return;
   }
 
   if (packet.type === "ready-update") {
     if (!activeSnapshot || packet.payload.lobbyId !== activeSnapshot.lobbyId) return;
-    console.log('[preload] ready-update for', packet.payload.playerId, 'ready=', packet.payload.ready);
+    const playerExists = activeSnapshot.players.some((p) => p.id === packet.payload.playerId);
+    console.log('[preload] ready-update for', packet.payload.playerId, 'ready=', packet.payload.ready, 'playerExists=', playerExists);
+
+    if (!playerExists) {
+      console.warn('[preload] ready-update received for unknown player', packet.payload.playerId);
+      return;
+    }
 
     playerHeartbeats.set(packet.payload.playerId, Date.now());
 
@@ -413,9 +551,18 @@ function startBroadcast(snapshot: MultiplayerLobbySnapshot) {
 
   activeMode = "host";
   createSocket();
+  // merge with any existing activeSnapshot to avoid accidentally dropping recently-joined players
+  const existing = activeSnapshot && activeSnapshot.lobbyId === snapshot.lobbyId ? activeSnapshot : null;
+  const mergedPlayers = [
+    ...(snapshot.players || []),
+    ...(existing?.players || []).filter((p) => !(snapshot.players || []).some((sp) => sp.id === p.id)),
+  ];
   activeSnapshot = {
     ...snapshot,
-    hostAddress: localIp,   // ← correctly sets hostAddress inside the object
+    hostAddress: localIp,
+    players: mergedPlayers,
+    playerCount: mergedPlayers.length,
+    sessionId: existing?.sessionId ?? generateSessionId(),
   };
   broadcastSnapshot(activeSnapshot);
 
@@ -455,9 +602,20 @@ function stopBroadcast() {
 }
 
 function updateLobbySnapshot(snapshot: MultiplayerLobbySnapshot) {
-  console.log('[preload] updateLobbySnapshot lobby', snapshot.lobbyId);
-  activeSnapshot = snapshot;
-  broadcastSnapshot(snapshot);
+  console.log('[preload] updateLobbySnapshot lobby', snapshot.lobbyId, 'players', snapshot.players.map(p => p.id).join(','));
+  // Treat incoming snapshot players as authoritative to avoid re-adding removed players.
+  const existing = activeSnapshot && activeSnapshot.lobbyId === snapshot.lobbyId ? activeSnapshot : null;
+  const incomingPlayerIds = (snapshot.players || []).map((p) => p.id).join(',');
+  const existingPlayerIds = (existing?.players || []).map((p) => p.id).join(',');
+  console.log('[preload] updateLobbySnapshot incomingPlayers=', incomingPlayerIds, 'existingPlayers=', existingPlayerIds);
+  activeSnapshot = {
+    ...snapshot,
+    players: snapshot.players || [],
+    playerCount: (snapshot.players || []).length,
+    sessionId: snapshot.sessionId ?? existing?.sessionId ?? generateSessionId(),
+    hostAddress: snapshot.hostAddress ?? existing?.hostAddress ?? BROADCAST_ADDR,
+  };
+  broadcastSnapshot(activeSnapshot);
 }
 
 function requestJoin(payload: MultiplayerJoinRequest) {
@@ -479,7 +637,7 @@ function requestJoin(payload: MultiplayerJoinRequest) {
   }
 };
 
-  const packet: MultiplayerPacket = { type: "join-request", payload: slimPayload };
+  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "join-request", payload: slimPayload };
   const data = Buffer.from(JSON.stringify(packet));
   console.log('[preload] join-request packet size:', data.length);
   s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
@@ -490,7 +648,7 @@ function requestJoin(payload: MultiplayerJoinRequest) {
 function setReady(payload: MultiplayerReadyUpdate) {
   console.log('[preload] sending ready-update to', payload.hostAddress, 'player', payload.playerId, 'ready', payload.ready, 'via broadcast');
   const s = createSocket();
-  const packet: MultiplayerPacket = { type: "ready-update", payload };
+  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "ready-update", payload };
   const data = Buffer.from(JSON.stringify(packet));
   s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
     if (err) console.warn('[preload] send ready-update error', err);
@@ -500,7 +658,7 @@ function setReady(payload: MultiplayerReadyUpdate) {
 function sendHeartbeat(payload: { lobbyId: string; hostAddress: string; playerId: string }) {
   // console.log('[preload] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
   const s = createSocket();
-  const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, hostAddress: payload.hostAddress, playerId: payload.playerId } };
+  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "heartbeat", payload: { lobbyId: payload.lobbyId, hostAddress: payload.hostAddress, playerId: payload.playerId } };
   const data = Buffer.from(JSON.stringify(packet));
   s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
     if (err) console.warn('[preload] send heartbeat error', err);
@@ -514,7 +672,7 @@ function leaveLobby(payload: MultiplayerLeaveRequest) {
     activeMode = null;
   }
   const s = createSocket();
-  const packet: MultiplayerPacket = { type: "leave-request", payload };
+  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "leave-request", payload };
   const data = Buffer.from(JSON.stringify(packet));
   s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
     if (err) console.warn('[preload] send leave-request error', err);
@@ -541,6 +699,8 @@ contextBridge.exposeInMainWorld("multiplayer", {
   
   onPlayerJoined: (id: string, cb: (player: LobbyMember) => void) => { onPlayerJoinedCbs.set(id, cb); },
   offPlayerJoined: (id: string) => { onPlayerJoinedCbs.delete(id); },
+  onPlayerKicked: (id: string, cb: (payload: { lobbyId: string; playerId: string; sessionId?: string }) => void) => { onPlayerKickedCbs.set(id, cb); },
+  offPlayerKicked: (id: string) => { onPlayerKickedCbs.delete(id); },
   
   onPlayerReadyChanged: (id: string, cb: (playerId: string, ready: boolean) => void) => { onPlayerReadyChangedCbs.set(id, cb); },
   offPlayerReadyChanged: (id: string) => { onPlayerReadyChangedCbs.delete(id); },
@@ -550,6 +710,8 @@ contextBridge.exposeInMainWorld("multiplayer", {
   
   onHostExit: (id: string, cb: (payload: MultiplayerHostExitPayload) => void) => { onHostExitCbs.set(id, cb); },
   offHostExit: (id: string) => { onHostExitCbs.delete(id); },
+  onJoinResponse: (id: string, cb: (payload: MultiplayerJoinAck) => void) => { onJoinResponseCbs.set(id, cb); },
+  offJoinResponse: (id: string) => { onJoinResponseCbs.delete(id); },
   
   onGameStateSync: (id: string, cb: (payload: MultiplayerGameState) => void) => { onGameStateSyncCbs.set(id, cb); },
   offGameStateSync: (id: string) => { onGameStateSyncCbs.delete(id); },
@@ -562,6 +724,7 @@ contextBridge.exposeInMainWorld("multiplayer", {
   discoveryRequest,
   sendHeartbeat,
   leaveLobby,
+  kickPlayer: sendKickPlayer,
   updateLobbySnapshot,
   broadcastGameState,
 });
