@@ -13,6 +13,7 @@ import type {
   MultiplayerLobbySnapshot,
   LobbyMember,
   MultiplayerGameState,
+  MultiplayerHostExitPayload,
 } from "../types/multiplayer";
 import { defaultGameConfig } from "../config/gameConfig";
 
@@ -58,6 +59,8 @@ const MultiplayerLobby = () => {
   const handleHostExit = useCallback(() => {
     if (hasHandledHostExitRef.current) return;
     hasHandledHostExitRef.current = true;
+    hasConfirmedJoinRef.current = false;
+    isTransitioningToGameRef.current = false;
     multiplayerBridge?.stopDiscovery();
     resetMultiplayer();
     setScreen("multiplayer-menu");
@@ -176,6 +179,7 @@ const MultiplayerLobby = () => {
       lastActive: new Date().toISOString(),
       players: updatedPlayers,
     });
+    multiplayerBridge?.kickPlayer?.({ lobbyId, playerId, sessionId: useMultiplayerStore.getState().sessionId ?? undefined });
   };
 
   const handleLeaveLobby = () => {
@@ -191,6 +195,8 @@ const MultiplayerLobby = () => {
   useEffect(() => {
     if (!multiplayerBridge || lobbyRole !== "client") return;
     hasHandledHostExitRef.current = false;
+    hasConfirmedJoinRef.current = false;
+    isTransitioningToGameRef.current = false;
     const newestTimestampRef = { current: 0 };
 
     const sendLeaveOnUnload = () => {
@@ -204,7 +210,11 @@ const MultiplayerLobby = () => {
 
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
       const currentLobbyId = useMultiplayerStore.getState().lobbyId;
+      const currentSessionId = useMultiplayerStore.getState().sessionId;
+      const lastSnapshotSequence = useMultiplayerStore.getState().lastSnapshotSequence;
       if (currentLobbyId && payload.lobbyId !== currentLobbyId) return;
+      if (currentSessionId && payload.sessionId && payload.sessionId !== currentSessionId) return;
+      if (lastSnapshotSequence !== null && payload.sequence !== undefined && payload.sequence <= lastSnapshotSequence) return;
       if (isTransitioningToGameRef.current) return;
 
       const packetTime = payload.lastSeen;
@@ -226,14 +236,27 @@ const MultiplayerLobby = () => {
       if (hasConfirmedJoinRef.current) handleHostExit();
     };
 
-    const onHostExitCb = (payload: { lobbyId: string }) => {
+    const onHostExitCb = (payload: MultiplayerHostExitPayload) => {
       const currentLobbyId = useMultiplayerStore.getState().lobbyId;
-      if (currentLobbyId && payload.lobbyId === currentLobbyId) handleHostExit();
+      const currentSessionId = useMultiplayerStore.getState().sessionId;
+      if (currentLobbyId && payload.lobbyId === currentLobbyId) {
+        if (currentSessionId && payload.sessionId && payload.sessionId !== currentSessionId) return;
+        handleHostExit();
+      }
+    };
+
+    const onPlayerKickedCb = (payload: { lobbyId: string; playerId: string; sessionId?: string }) => {
+      const state = useMultiplayerStore.getState();
+      if (state.lobbyId !== payload.lobbyId) return;
+      if (state.sessionId && payload.sessionId && state.sessionId !== payload.sessionId) return;
+      if (payload.playerId !== multiplayerPlayer.id) return;
+      handleHostExit();
     };
 
     window.addEventListener("beforeunload", sendLeaveOnUnload);
     multiplayerBridge.onHostFound("Lobby", onHostFoundCb);
     multiplayerBridge.onHostExit("Lobby", onHostExitCb);
+    multiplayerBridge.onPlayerKicked?.("Lobby", onPlayerKickedCb);
     multiplayerBridge.onGameStateSync("Lobby", handleGameStateSync);
 
     const heartbeatInterval = window.setInterval(() => {
@@ -247,6 +270,7 @@ const MultiplayerLobby = () => {
       window.clearInterval(heartbeatInterval);
       multiplayerBridge.offHostFound?.("Lobby");
       multiplayerBridge.offHostExit?.("Lobby");
+      multiplayerBridge.offPlayerKicked?.("Lobby");
       multiplayerBridge.stopDiscovery();
       multiplayerBridge.offGameStateSync?.("Lobby");
       window.removeEventListener("beforeunload", sendLeaveOnUnload);
