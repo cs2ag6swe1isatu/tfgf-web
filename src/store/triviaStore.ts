@@ -310,13 +310,8 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
           return;
         }
       }
-      // Time expired with no answer — reset streak, go to scoring
-      const scoringDelay = mode === 'solo' ? soloScoringDelay : get().answerTimer;
+            const scoringDelay = mode === 'solo' ? soloScoringDelay : soloScoringDelay;
       set({ phase: 'scoring', timer: scoringDelay, currentStreak: 0 });
-      set({
-        phase: 'scoring',
-        timer: scoringDelay,
-      });
       return;
     }
 
