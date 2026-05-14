@@ -9,6 +9,7 @@ import { calculateXP, getLevelProgressPercent } from '../utils/progression';
 import { getLastXpGained } from '../progression/progressionRules';
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from '../components/ui/RankIcon';
 
+import XPProgressBar from '../components/progression/XPProgressBar';
 import { keyframes, styled } from '@mui/material/styles';
 
 // ─── Keyframes ────────────────────────────────────────────────────────────────
@@ -84,9 +85,6 @@ const greenPulse = keyframes`
   50%       { text-shadow: 0 0 16px rgba(53,229,43,0.8), 0 0 32px rgba(53,229,43,0.4); }
 `;
 
-// Layout is derived from the user's stored resolution so pages use the
-// actual selected resolution in the `gameStore` rather than an inline table.
-
 const ScaleRoot = styled(Box)({
   width: '100%',
   height: '100%',
@@ -108,7 +106,7 @@ const SessionSummaryPage: React.FC = () => {
   const scale = useResponsiveScale();
   const player = usePlayerStore((s) => s.getPlayer());
   const playerTotalXp = player.totalXp;
-  const storedRes   = useGameStore((s) => s.resolution);
+  const storedRes = useGameStore((s) => s.resolution);
 
   const playerRankTitle = player.rank.name.toUpperCase();
 
@@ -133,23 +131,22 @@ const SessionSummaryPage: React.FC = () => {
     gap: Math.max(8, Math.round(base.gap * layoutScale)),
     rankTitle: Math.max(16, Math.round(base.rankTitle * layoutScale)),
   } as const;
-  const totalQ    = questions.length;
-  const correct   = questions.reduce(
+
+  const totalQ  = questions.length;
+  const correct = questions.reduce(
     (acc: number, q: any, i: number) => acc + (userAnswers[i] === q.correctAnswer ? 1 : 0), 0
   );
-  const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
-  const rankProg  = Math.round(
-    player.xpToNextLevel > 0
-      ? (player.totalXp / (player.totalXp + player.xpToNextLevel)) * 100
-      : 0
-  );
-  const xpGained  = getLastXpGained() || score;
-  // Get actual time from most recent game session
-  const mostRecentSession = player.gameHistory && player.gameHistory.length > 0 
-    ? player.gameHistory[player.gameHistory.length - 1] 
-    : null;
-  const totalTimeSeconds = mostRecentSession?.timeTaken ?? (totalQ * 10);
-  
+  const accuracy = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
+
+  // FIX 5: Correct rank progress formula.
+  // Previous formula: totalXp / (totalXp + xpToNextLevel) — this is wrong because
+  // xpToNextLevel is remaining XP, making the denominator equal to totalXp at level
+  // boundaries and giving inflated percentages.
+  // Correct formula: XP within the current level (mod 1000) divided by 1000.
+  const rankProg = Math.round((playerTotalXp % 1000) / 1000 * 100);
+
+  const xpGained = getLastXpGained() || score;
+
   const avgTime = useTriviaStore((s) => s.avgTime);
   const avgTimeDisplay =
     typeof avgTime === 'number'
@@ -240,13 +237,7 @@ const SessionSummaryPage: React.FC = () => {
               <Typography sx={{ fontSize: `${L.label}px`, color: '#8ECFFF' }}>
                 YOUR SCORE
               </Typography>
-              <Typography
-                sx={{
-                  fontSize: `${L.stat}px`,
-                  color: '#fff',
-                  lineHeight: 1,
-                }}
-              >
+              <Typography sx={{ fontSize: `${L.stat}px`, color: '#fff', lineHeight: 1 }}>
                 {score}
               </Typography>
             </Box>
@@ -267,13 +258,7 @@ const SessionSummaryPage: React.FC = () => {
               <Typography sx={{ fontSize: `${L.label}px`, color: '#8ECFFF' }}>
                 XP GAINED
               </Typography>
-              <Typography
-                sx={{
-                  fontSize: `${L.stat}px`,
-                  color: '#fff',
-                  lineHeight: 1,
-                }}
-              >
+              <Typography sx={{ fontSize: `${L.stat}px`, color: '#fff', lineHeight: 1 }}>
                 {xpGained}
               </Typography>
             </Box>
@@ -294,13 +279,7 @@ const SessionSummaryPage: React.FC = () => {
               <Typography sx={{ fontSize: `${L.label}px`, color: '#8ECFFF' }}>
                 ACCURACY
               </Typography>
-              <Typography
-                sx={{
-                  fontSize: `${L.stat}px`,
-                  color: '#fff',
-                  lineHeight: 1,
-                }}
-              >
+              <Typography sx={{ fontSize: `${L.stat}px`, color: '#fff', lineHeight: 1 }}>
                 {accuracy}%
               </Typography>
               <Typography sx={{ fontSize: `${Math.round(L.label * 0.75)}px`, color: '#8ECFFF', textAlign: 'center', mt: 1 }}>
@@ -324,13 +303,7 @@ const SessionSummaryPage: React.FC = () => {
               <Typography sx={{ fontSize: `${L.label}px`, color: '#8ECFFF' }}>
                 AVG TIME
               </Typography>
-              <Typography
-                sx={{
-                  fontSize: `${L.stat}px`,
-                  color: '#fff',
-                  lineHeight: 1,
-                }}
-              >
+              <Typography sx={{ fontSize: `${L.stat}px`, color: '#fff', lineHeight: 1 }}>
                 {avgTimeDisplay}
               </Typography>
               <Typography sx={{ fontSize: `${Math.round(L.label * 0.75)}px`, color: '#8ECFFF', textAlign: 'center', mt: 1 }}>
@@ -338,6 +311,9 @@ const SessionSummaryPage: React.FC = () => {
               </Typography>
             </Box>
           </Box>
+
+          {/* XP PROGRESS */}
+          <XPProgressBar />
 
           {/* RANK */}
           <Box
@@ -442,12 +418,7 @@ const SessionSummaryPage: React.FC = () => {
                 background: '#0D4D73',
               }}
             >
-              <Typography
-                sx={{
-                  fontSize: `${L.btn}px`,
-                  color: '#35E52B',
-                }}
-              >
+              <Typography sx={{ fontSize: `${L.btn}px`, color: '#35E52B' }}>
                 MAIN MENU
               </Typography>
             </Button>
@@ -461,12 +432,7 @@ const SessionSummaryPage: React.FC = () => {
                 background: '#0D4D73',
               }}
             >
-              <Typography
-                sx={{
-                  fontSize: `${L.btn}px`,
-                  color: '#35E52B',
-                }}
-              >
+              <Typography sx={{ fontSize: `${L.btn}px`, color: '#35E52B' }}>
                 VIEW PROFILE
               </Typography>
             </Button>

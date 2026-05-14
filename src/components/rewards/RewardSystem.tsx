@@ -305,8 +305,8 @@ export const XPBarAnimate: React.FC<{
   const [displayPct, setDisplayPct] = useState(oldPct);
 
   useEffect(() => {
-    if (!animate) { setDisplayPct(oldPct); return; }
-    const start = performance.now();
+  if (!animate) return;  // ← just do nothing when animate is false
+  const start = performance.now();
     const duration = 800;
     const from = oldPct;
     const to   = newPct < from ? 100 : newPct;
