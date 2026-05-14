@@ -2,6 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 import { contextBridge, ipcRenderer } from "electron";
 import * as dgram from "dgram";
+import * as os from "os"; 
 import type {
   LobbyMember,
   MultiplayerDiscoveredPayload,
@@ -12,6 +13,18 @@ import type {
   MultiplayerReadyUpdate,
   MultiplayerGameState,
 } from "./types/multiplayer";
+
+function getLocalIp(): string {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]!) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return '127.0.0.1';
+}
 
 type MultiplayerPacket =
   | { type: "lobby-broadcast"; snapshot: MultiplayerLobbySnapshot; isGameActive?: boolean }
@@ -390,7 +403,9 @@ function stopDiscovery() {
 
 function startBroadcast(snapshot: MultiplayerLobbySnapshot) {
   isGameActive = false;
-  console.log('[preload] startBroadcast lobby', snapshot.lobbyId);
+  const localIp = getLocalIp();
+  console.log('[preload] startBroadcast lobby', snapshot.lobbyId, 'hostAddress', localIp);
+
   if (pendingHostExitTimeout) {
     clearTimeout(pendingHostExitTimeout);
     pendingHostExitTimeout = null;
@@ -398,8 +413,11 @@ function startBroadcast(snapshot: MultiplayerLobbySnapshot) {
 
   activeMode = "host";
   createSocket();
-  activeSnapshot = snapshot;
-  broadcastSnapshot(snapshot);
+  activeSnapshot = {
+    ...snapshot,
+    hostAddress: localIp,   // ← correctly sets hostAddress inside the object
+  };
+  broadcastSnapshot(activeSnapshot);
 
   if (broadcastInterval) clearInterval(broadcastInterval);
   broadcastInterval = setInterval(() => {
@@ -446,8 +464,24 @@ function requestJoin(payload: MultiplayerJoinRequest) {
   console.log('[preload] sending join-request to', payload.hostAddress, 'lobby', payload.lobbyId, 'player', payload.player?.id, 'via broadcast');
   trackClientLobby(payload.lobbyId);
   const s = createSocket();
-  const packet: MultiplayerPacket = { type: "join-request", payload };
+
+  // Strip player to essential fields only to avoid EMSGSIZE
+ const slimPayload = {
+  ...payload,
+  player: {
+    id: payload.player.id,
+    name: payload.player.name,
+    level: payload.player.level,
+    avatar: payload.player.avatar,
+    rank: payload.player.rank,
+    isHost: payload.player.isHost,
+    isReady: payload.player.isReady,
+  }
+};
+
+  const packet: MultiplayerPacket = { type: "join-request", payload: slimPayload };
   const data = Buffer.from(JSON.stringify(packet));
+  console.log('[preload] join-request packet size:', data.length);
   s.send(data, 0, data.length, BROADCAST_PORT, BROADCAST_ADDR, (err) => {
     if (err) console.warn('[preload] send join-request error', err);
   });

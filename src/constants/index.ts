@@ -11,7 +11,8 @@ export const PAGES = [
     "standing",
     "multiplayer-menu",
     "multiplayer-lobby",
-    "multiplayer-discovery"
+    "multiplayer-discovery",
+    "multiplayer-results",
 ]
 export type Page = typeof PAGES[number];
 

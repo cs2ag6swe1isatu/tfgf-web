@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSoundContext } from "../context/SoundContext";
 import {
   Typography,
   Box,
@@ -157,6 +158,7 @@ const achievementCardHeight = "clamp(11rem, 15vw, 12.5rem)";
 const ProfilePage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
   const player = usePlayerStore((state) => state.getPlayer());
+  const { playSound } = useSoundContext();
 
   // States
   const [selectedTab, setSelectedTab] = useState<number>(0);
@@ -364,14 +366,14 @@ const ProfilePage = () => {
 
           {/* Navigation */}
           <Box sx={{ display: "flex", flexDirection: "column", gap: "1rem", mt: "1rem"}}>
-            <Button sx={getButtonStyle(selectedTab === 0)} onClick={() => setSelectedTab(0)}>
+            <Button sx={getButtonStyle(selectedTab === 0)} onClick={() => { setSelectedTab(0); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
               STATS
             </Button>
-            <Button sx={getButtonStyle(selectedTab === 1)} onClick={() => setSelectedTab(1)}>
+            <Button sx={getButtonStyle(selectedTab === 1)} onClick={() => { setSelectedTab(1); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
               ACHIEVEMENTS
             </Button>
-            <Button sx={getButtonStyle(selectedTab === 2)} onClick={() => setSelectedTab(2)}>
-              GAME HISTORY
+            <Button sx={getButtonStyle(selectedTab === 2)} onClick={() => { setSelectedTab(2); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
+              HISTORY
             </Button>
           </Box>
 
@@ -385,7 +387,7 @@ const ProfilePage = () => {
                 width: "auto",
                 px: "2rem"
               }}
-              onClick={() => setScreen("home")}
+              onClick={() => { setScreen("home"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
             >
               BACK
             </Button>
@@ -420,21 +422,22 @@ const ProfilePage = () => {
                 {/* Stats Header Tabs */}
                 <Box sx={{ display: "flex", gap: "1.5rem", mb: "2rem", justifyContent: "center", alignItems: "center" }}>
                   <Typography
-                    onClick={() => setHistoryView("all")}
-                    sx={subTabButtonStyle(historyView === "all")}
+  onClick={() => { setHistoryView("all"); playSound("select"); }}
+  onMouseEnter={() => playSound("hover")}
+  sx={subTabButtonStyle(historyView === "all")}
                   >
                     Overall
                   </Typography>
                   <Typography sx={{ color: "white" }}>|</Typography>
                   <Typography
-                    onClick={() => setHistoryView("solo")}
+                    onClick={() => { setAchCategoryView("solo"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={subTabButtonStyle(historyView === "solo")}
                   >
                     Solo
                   </Typography>
                   <Typography sx={{ color: "white" }}>|</Typography>
                   <Typography
-                    onClick={() => setHistoryView("multiplayer")}
+                    onClick={() => { setAchCategoryView("multiplayer"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={subTabButtonStyle(historyView === "multiplayer")}
                   >
                     Multiplayer
@@ -595,14 +598,14 @@ const ProfilePage = () => {
                 {/* Header Solo | Multiplayer */}
                 <Box sx={{ display: "flex", gap: "1.5rem", mb: "1rem", alignItems: "center" }}>
                   <Typography
-                    onClick={() => setAchCategoryView("solo")}
+                    onClick={() => { setAchCategoryView("solo"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={subTabButtonStyle(achCategoryView === "solo")}
                   >
                     Solo
                   </Typography>
                   <Typography sx={{ color: "white" }}>|</Typography>
                   <Typography
-                    onClick={() => setAchCategoryView("multiplayer")}
+                    onClick={() => { setAchCategoryView("multiplayer"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={subTabButtonStyle(achCategoryView === "multiplayer")}
                   >
                     Multiplayer
@@ -723,10 +726,7 @@ const ProfilePage = () => {
               <Box sx={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                 <Box sx={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
                   <Typography
-                    onClick={() => {
-                      setSelectedHistoryEntry(null);
-                      setHistoryMode("solo");
-                    }}
+                   onClick={() => { setSelectedHistoryEntry(null); setHistoryMode("solo"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={{
                       ...subTabButtonStyle(historyMode === "solo"),
                     }}
@@ -735,10 +735,7 @@ const ProfilePage = () => {
                   </Typography>
                   <Typography sx={{ color: "white" }}>|</Typography>
                   <Typography
-                    onClick={() => {
-                      setSelectedHistoryEntry(null);
-                      setHistoryMode("multiplayer");
-                    }}
+                    onClick={() => { setSelectedHistoryEntry(null); setHistoryMode("multiplayer"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={{
                       ...subTabButtonStyle(historyMode === "multiplayer"),
                     }}
@@ -769,7 +766,7 @@ const ProfilePage = () => {
                         </Typography>
                       </Box>
                       <Button
-                        onClick={() => setSelectedHistoryEntry(null)}
+                        onClick={() => { setSelectedHistoryEntry(null); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                         sx={{
                           ...getButtonStyle(false),
                           width: "auto",
@@ -899,7 +896,7 @@ const ProfilePage = () => {
                         key={entry.id}
                         role="button"
                         tabIndex={0}
-                        onClick={() => setSelectedHistoryEntry(entry)}
+                        onClick={() => { setSelectedHistoryEntry(entry); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();

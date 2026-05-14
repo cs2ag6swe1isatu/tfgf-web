@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
-import { Box, Typography, Button, Card} from "@mui/material";
+import { Box, Typography, Button } from "@mui/material";
 import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
 import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { Clock } from 'pixelarticons/react';
@@ -10,6 +10,7 @@ import { scoreForCorrectAnswers, scoreIncrementForAnswer } from "../rules";
 import { defaultGameConfig } from "../config/gameConfig";
 import { styled, keyframes } from "@mui/material/styles";
 import { useSoundContext } from "../context/SoundContext";
+
 import {
   useRewardSystem,
   RewardOverlay,
@@ -81,6 +82,11 @@ const ScaleWrapper = styled(Box)({
 const GameScreen = styled(Box)({
   width: "1024px",
   height: "768px",
+// ─── Main Screen Container ──────────────────────────────────────────────────
+
+const GameScreen = styled(Box)({
+  width: "100%",
+  height: "100%",
   position: "relative",
   display: "flex",
   flexDirection: "column",
@@ -120,6 +126,7 @@ const GameScreen = styled(Box)({
     pointerEvents: "none",
     zIndex: 19,
   },
+  overflow: "hidden",
 });
 
 // ─── Top HUD Bar ──────────────────────────────────────────────────────────────
@@ -128,6 +135,7 @@ const HudBar = styled(Box)({
   width: "100%",
   boxSizing: "border-box",
   padding: "30px 50px 0",
+  padding: "16px 50px 0",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
@@ -136,7 +144,7 @@ const HudBar = styled(Box)({
 
 const ProgressText = styled(Typography)({
   fontFamily: "'Courier New', 'Lucida Console', monospace",
-  fontSize: "20px",
+  fontSize: "16px",
   fontWeight: 300,
   color: "#B7B7B7",
   letterSpacing: "1px",
@@ -145,7 +153,7 @@ const ProgressText = styled(Typography)({
 
 const CategoryLabel = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "25px",
+  fontSize: "16px",
   color: "#35E52B",
   textShadow: "0 0 8px #3FFF56, 0 0 16px #35E52B66",
   letterSpacing: "2px",
@@ -157,12 +165,12 @@ const CategoryLabel = styled(Typography)({
 const TimerBox = styled(Box)({
   display: "flex",
   alignItems: "center",
-  gap: "15px",
+  gap: "10px",
 });
 
 const TimerText = styled(Typography)<{ urgent?: boolean }>(({ urgent }) => ({
   fontFamily: "'Courier New', 'Lucida Console', monospace",
-  fontSize: "25px",
+  fontSize: "18px",
   fontWeight: 400,
   color: urgent ? "#FF6540" : "#E5E5E5",
   letterSpacing: "1px",
@@ -174,12 +182,15 @@ const TimerText = styled(Typography)<{ urgent?: boolean }>(({ urgent }) => ({
 }));
 
 // ─── Question Panel ───────────────────────────────────────────────────────────
+// Fixed height that comfortably fits 1–3 lines of text. Overflow scrolls
+// rather than expanding so the answer grid below is never pushed off-screen.
 
 const QuestionPanel = styled(Box)({
-  marginTop: "30px",
+  marginTop: "16px",
   width: "calc(100% - 83px)",
   maxWidth: "875px",
-  minHeight: "170px",
+  // Fixed height: enough for ~3 lines at 15px with lineHeight 1.8
+  height: "140px",
   borderRadius: "15px",
   border: "1.5px solid #00DFFF",
   boxShadow:
@@ -188,10 +199,13 @@ const QuestionPanel = styled(Box)({
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: "28px 40px",
+  padding: "16px 32px",
+  boxSizing: "border-box",
   position: "relative",
   zIndex: 5,
   animation: `${fadeSlideDown} 0.45s ease 0.1s both, ${pulseGlow} 4s ease-in-out infinite`,
+  // If text is extremely long, scroll instead of growing
+  overflowY: "auto",
 
   "&::before, &::after": {
     content: '""',
@@ -208,31 +222,37 @@ const QuestionPanel = styled(Box)({
 
 const QuestionText = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "20px",
+  fontSize: "15px",
   color: "#35E52B",
   textShadow: "0 0 8px #42FF5C, 0 0 20px #35E52B55",
   textAlign: "center",
-  lineHeight: 2,
-  letterSpacing: "1.5px",
+  lineHeight: 1.8,
+  letterSpacing: "1px",
   textTransform: "uppercase",
   wordBreak: "break-word",
 });
 
 // ─── Answer Grid ──────────────────────────────────────────────────────────────
+// Fixed height so all 4 buttons are always fully visible.
 
 const AnswerGrid = styled(Box)({
-  marginTop: "50px",
+  marginTop: "20px",
   width: "calc(100% - 75px)",
   maxWidth: "1000px",
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  gap: "25px",
+  // Each row is fixed; gap is fixed — total grid height is always the same
+  gridTemplateRows: "1fr 1fr",
+  gap: "16px",
   position: "relative",
   zIndex: 5,
   animation: `${fadeSlideUp} 0.5s ease 0.2s both`,
   flex: "none",
   height: "250px",
   marginBottom: "300px",
+  // Fill remaining vertical space between question panel and phase bar
+  flex: 1,
+  minHeight: 0,
 });
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
@@ -278,15 +298,21 @@ const AnswerButton = styled(Button, {
     fontSize: "20px",
     minHeight: "12px",
     padding: "0 25px",
+    fontSize: "13px",
+    // Button fills its grid cell completely — no fixed px height
+    width: "100%",
+    height: "100%",
+    padding: "0 20px",
     letterSpacing: "1px",
     color: textColor,
     textShadow: `0 0 5px ${textColor}88`,
     textTransform: "uppercase",
-    lineHeight: 1.6,
+    lineHeight: 1.5,
     border: `1.5px solid ${borderColor}`,
     borderRadius: "8px",
     background: bgColor,
     boxShadow: `0 0 10px ${glowColor}44${extraGlow}`,
+    boxShadow: `0 0 10px ${glowColor}44`,
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-start",
@@ -294,6 +320,9 @@ const AnswerButton = styled(Button, {
     transition: "all 0.15s ease",
     position: "relative",
     overflow: "hidden",
+    // Prevent text from overflowing — clip with ellipsis on extreme cases
+    whiteSpace: "normal",
+    wordBreak: "break-word",
 
     "&::after": {
       content: '""',
@@ -331,7 +360,7 @@ const AnswerLabel = styled(Box, {
 })<{ correct?: boolean; incorrect?: boolean }>(
   ({ correct, incorrect }) => ({
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "20px",
+    fontSize: "13px",
     color: correct ? "#35E52B" : incorrect ? "#E33232" : "#00E5FF",
     textShadow: correct
       ? "0 0 8px #35E52B"
@@ -417,21 +446,22 @@ const RankScore = styled(Typography)({
 });
 
 // ─── Bottom Phase Bar ─────────────────────────────────────────────────────────
+// ─── Bottom Spacer / Phase Hint ───────────────────────────────────────────────
 
 const PhaseBar = styled(Box)({
   width: "100%",
-  padding: "0 40px 20px",
+  padding: "10px 40px 14px",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   position: "relative",
   zIndex: 5,
-  marginTop: "auto",
+  flexShrink: 0,
 });
 
 const PhaseHint = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "20px",
+  fontSize: "11px",
   color: "#35E52B66",
   letterSpacing: "3px",
   textAlign: "center",
@@ -446,9 +476,10 @@ const NeonDivider = styled(Box)({
   background:
     "linear-gradient(90deg, transparent, #00E5FF66 20%, #00E5FF 50%, #00E5FF66 80%, transparent)",
   boxShadow: "0 0 6px #00E5FF44",
-  margin: "20px 0 0",
+  margin: "12px 0 0",
   position: "relative",
   zIndex: 5,
+  flexShrink: 0,
 });
 
 // ─── Responsive scale helper ──────────────────────────────────────────────────
@@ -491,6 +522,7 @@ const QuestionPage = () => {
     answerTimer,
     playerScores,
     rankings,
+    questionLimit,
     submitAnswer,
     receiveRemoteAnswer,
     scoreCurrentQuestion,
@@ -508,14 +540,25 @@ const QuestionPage = () => {
 
   const multiplayerBridge: MultiplayerBridge | undefined = window.multiplayer;
 
-  const scale = useResponsiveScale();
-
   // ── Reward System hooks ────────────────────────────────────────────────────
-  const { state: rewardState, trigger: triggerReward } = useRewardSystem();
+  const {
+    state: rewardState,
+    trigger: triggerReward,
+    handleLevelUpDone,
+  } = useRewardSystem();
   const answerButtonRef = useRef<HTMLElement>(null);
 
   // ── Session XP accumulator (ref — does not trigger re-renders) ────────────
   const sessionXpRef = useRef(0);
+  // ── Level-up tracking refs ──────────────────────────────────────────────────
+  const didLevelUpThisSessionRef = useRef<boolean>(false);
+  const levelAfterSessionRef     = useRef<number>(0);
+
+  // ── End-game deferred data (level-up before achievements) ─────────────────
+  const endDataRef = useRef<{
+  achievements: Achievement[];
+  postUnlockScreen: "result" | "multiplayer-results";
+} | null>(null);
 
   // ── Game timer tracking ────────────────────────────────────────────────────
   const gameStartTimeRef = useRef<number | null>(null);
@@ -608,6 +651,16 @@ const QuestionPage = () => {
         xpPerLevel: 1000,
         buttonRef: answerButtonRef,
       });
+        oldLevel: currentNewLevel,
+        newLevel: currentNewLevel,
+        xpPerLevel: 1000,
+        buttonRef: answerButtonRef,
+      });
+
+      if (currentNewLevel > currentOldLevel) {
+        didLevelUpThisSessionRef.current = true;
+        levelAfterSessionRef.current     = currentNewLevel;
+      }
     },
     [submitAnswer, questions, currentIndex, timer, answerTimer, triggerReward]
   );
@@ -622,7 +675,10 @@ const QuestionPage = () => {
     )
       return;
 
+    if (phase === "answering" && selectedAnswer && mode === "solo") return;
+
     let timerInterval: number;
+    
     const timerTickIntervalMs = 1000;
 
     if (mode === "solo" || lobbyRole === "host") {
@@ -746,6 +802,9 @@ const QuestionPage = () => {
       // Snapshot the player's level before this session begins.
       // This is the "previous level" shown in LevelUpPopup.
       recordSessionStartLevel();
+      didLevelUpThisSessionRef.current = false;
+      levelAfterSessionRef.current     = 0;
+      endProgressAppliedRef.current
     }
   }, [phase, currentIndex, recordSessionStartLevel]);
 
@@ -874,6 +933,105 @@ const QuestionPage = () => {
     }
   }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen,
       recordSessionEndLevel, queueAchievementUnlocks]);
+  // ── Step 1: Process game end data (XP, achievements) ───────────────────────
+ useEffect(() => {
+   if (phase !== "end" || endProgressAppliedRef.current) return;
+endProgressAppliedRef.current = true;
+
+const gameConfig = useGameStore.getState().gameConfig;
+const { mode, category, difficulty } = gameConfig || {};
+if (!mode || !category || !difficulty) return;
+
+if (mode === "multiplayer") {
+  finalizeRankings();
+}
+
+const triviaState = useTriviaStore.getState();
+const userAnswers = triviaState.userAnswers;
+const questionsState = triviaState.questions;
+const correctAnswersCount = questionsState.filter(
+  (q, index) => q.correctAnswer === userAnswers[index]
+).length;
+
+const fallbackScore = scoreForCorrectAnswers(correctAnswersCount);
+const rankingEntry = triviaState.rankings.find(
+  (entry) => entry.playerId === localPlayerId
+);
+const triviaPlayerScores = triviaState.playerScores;
+const currentPlayerScore =
+  mode === "multiplayer"
+    ? rankingEntry?.score ?? triviaPlayerScores[localPlayerId] ?? fallbackScore
+    : fallbackScore;
+
+const playerRank =
+  mode === "multiplayer"
+    ? rankingEntry?.rank ??
+      1 + Object.values(triviaPlayerScores).filter((s) => s > currentPlayerScore).length
+    : 0;
+
+const elapsedMs = gameStartTimeRef.current
+  ? Date.now() - gameStartTimeRef.current
+  : 0;
+const elapsedSeconds = Math.max(0, Math.round(elapsedMs / 1000));
+gameElapsedTimeRef.current = elapsedSeconds;
+
+const avgTime =
+  totalAnsweredRef.current > 0
+    ? Math.round((totalSessionTimeRef.current / totalAnsweredRef.current) * 10) / 10
+    : 0.0;
+useTriviaStore.setState({ avgTime });
+
+const postUnlockScreen: "result" | "multiplayer-results" =
+  mode === "multiplayer" ? "multiplayer-results" : "result";
+
+const progressionInput: SessionProgressInput = {
+  mode,
+  category,
+  difficulty,
+  totalQuestions: questionsState.length,
+  correctAnswers: correctAnswersCount,
+  score: currentPlayerScore,
+  maxStreak: triviaState.maxStreak,
+  questions: questionsState,
+  userAnswers,
+  timeTaken: elapsedSeconds,
+  mastered: correctAnswersCount === questionsState.length,
+  won: mode === "multiplayer" ? playerRank === 1 : false,
+  topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
+  hostedLobby: mode === "multiplayer" && lobbyRole === "host",
+  fellBehindByHalfAndWon:
+    mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
+};
+
+const newlyUnlockedAchievements = applySessionProgress(progressionInput);
+
+if (didLevelUpThisSessionRef.current) {
+  endDataRef.current = {
+    achievements: newlyUnlockedAchievements,
+    postUnlockScreen,
+  };
+  triggerReward({
+    score: 0,
+    xp: 0,
+    streak: 0,
+    oldXP: 0,
+    newXP: 0,
+    oldLevel: levelAfterSessionRef.current - 1,
+    newLevel: levelAfterSessionRef.current,
+    xpPerLevel: 1000,
+  });
+} else if (newlyUnlockedAchievements.length > 0) {
+  const gameState = useGameStore.getState();
+  gameState.queueAchievementUnlocks(newlyUnlockedAchievements, postUnlockScreen);
+  gameState.setScreen("achievement-unlock");
+} else {
+  if (mode === "multiplayer") {
+    setTimeout(() => setScreen(postUnlockScreen), 50); // wait for finalizeRankings to settle
+  } else {
+    setScreen(postUnlockScreen);
+  }
+}
+  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen, triggerReward, finalizeRankings]);
 
   // ── Derived state ───────────────────────────────────────────────────────────
 
@@ -941,32 +1099,29 @@ const QuestionPage = () => {
 
   if (!currentQuestion) {
     return (
-      <ScaleWrapper>
-        <GameScreen style={{ transform: scale }}>
-          <div className="vignette" />
-          <Box
+      <GameScreen>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: 1,
+            zIndex: 5,
+          }}
+        >
+          <Typography
             sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flex: 1,
-              zIndex: 5,
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: "20px",
+              color: "#35E52B",
+              textShadow: "0 0 8px #42FF5C",
+              letterSpacing: "3px",
             }}
           >
-            <Typography
-              sx={{
-                fontFamily: "'Press Start 2P', monospace",
-                fontSize: "20px",
-                color: "#35E52B",
-                textShadow: "0 0 8px #42FF5C",
-                letterSpacing: "3px",
-              }}
-            >
-              LOADING...
-            </Typography>
-          </Box>
-        </GameScreen>
-      </ScaleWrapper>
+            LOADING...
+          </Typography>
+        </Box>
+      </GameScreen>
     );
   }
 
@@ -1080,6 +1235,120 @@ const QuestionPage = () => {
         />
       </GameScreen>
     </ScaleWrapper>
+    <GameScreen>
+      {/* ── TOP HUD ──────────────────────────────────────────────────────── */}
+      <HudBar>
+        <ProgressText>
+          {currentIndex + 1}/{questionLimit}
+        </ProgressText>
+
+        <CategoryLabel>
+          {category ?? "TRIVIA"}
+        </CategoryLabel>
+
+        <TimerBox>
+          <Clock
+            style={{
+              width: 16,
+              height: 16,
+              color: "#DADADA",
+              flexShrink: 0,
+            }}
+          />
+          <TimerText urgent={isUrgent}>
+            {phase === 'asking' || phase === 'readying' 
+              ? "--" 
+              : timer !== undefined ? `${Math.ceil(timer)}s` : "--"}
+          </TimerText>
+        </TimerBox>
+      </HudBar>
+
+      {/* ── XP BAR ──────────────────────────────────────────────────────── */}
+      <Box sx={{ width: 'calc(100% - 100px)', px: 6, py: 1, flexShrink: 0 }}>
+        <XPBarAnimate
+          oldXP={previousXP}
+          newXP={previousXP + xpEarned}
+          xpPerLevel={1000}
+          level={currentLevel}
+          animate={rewardState.showXPBar}
+        />
+      </Box>
+
+      {/* Divider */}
+      <NeonDivider />
+
+      {/* ── QUESTION PANEL ────────────────────────────────────────────────── */}
+      <QuestionPanel>
+        <QuestionText>{currentQuestion.text}</QuestionText>
+      </QuestionPanel>
+
+      {phase === 'readying' && (
+        <Box sx={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 40,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0,0,0,0.85)',
+        }}>
+          <Typography sx={{
+            fontFamily: "'Press Start 2P', monospace",
+            fontSize: '40px',
+            color: '#35E52B',
+            textShadow: '0 0 16px #42FF5C',
+            marginBottom: '24px',
+          }}>
+            GET READY
+          </Typography>
+          <Typography sx={{
+            fontFamily: "'Press Start 2P', monospace",
+            fontSize: '80px',
+            color: '#00E5FF',
+            textShadow: '0 0 24px #00E5FF',
+          }}>
+            {Math.ceil(timer)}
+          </Typography>
+        </Box>
+      )}
+
+      {/* ── ANSWER GRID ───────────────────────────────────────────────────── */}
+      <AnswerGrid>
+        {currentQuestion.allAnswers.map((answer: string, idx: number) => {
+          const { isSelected, isCorrect, isIncorrect } = getAnswerState(answer);
+          return (
+            <AnswerButton
+              key={answer}
+              ref={isSelected ? (answerButtonRef as any) : undefined}
+              onClick={() => { if (!isAnswered) { handleAnswerClick(answer); playSound("select"); } }}
+              onMouseEnter={() => { if (!isAnswered) playSound("hover"); }}
+              disabled={isAnswered}
+              selected={isSelected && !isRevealed}
+              correct={isCorrect}
+              incorrect={isIncorrect}
+              disableRipple={false}
+            >
+              <AnswerLabel correct={isCorrect} incorrect={isIncorrect}>
+                {ANSWER_LABELS[idx]}.
+              </AnswerLabel>
+              {answer}
+            </AnswerButton>
+          );
+        })}
+      </AnswerGrid>
+
+      <PhaseBar>
+        {currentHint && <PhaseHint>{currentHint}</PhaseHint>}
+      </PhaseBar>
+
+      {/* ── REWARD OVERLAY ───────────────────────────────────────────────── */}
+      <RewardOverlay
+        rewardState={rewardState}
+        onLevelUpDone={handleLevelUpDone}
+        xpPerLevel={1000}
+      />
+    </GameScreen>
   );
 };
 

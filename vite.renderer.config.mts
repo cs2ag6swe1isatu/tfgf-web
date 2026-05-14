@@ -18,7 +18,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'renderer/main_window',
-    emptyOutDir: true,
-  },
+  outDir: '.vite/renderer/main_window',
+  emptyOutDir: true,
+},
 });
