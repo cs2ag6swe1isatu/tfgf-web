@@ -64,6 +64,21 @@ const CLUTCH_MIN_ROUNDS = 3;
 const CLUTCH_MIN_LEADER_CORRECT_ANSWERS = 4;
 const CLUTCH_MIN_SCORE_GAP_CORRECT_ANSWERS = 2;
 
+// ─── Responsive Scale Wrapper ─────────────────────────────────────────────────
+
+const ScaleWrapper = styled(Box)({
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  overflow: "hidden",
+  background: "#000",
+});
+
 // ─── Main Screen Container ──────────────────────────────────────────────────
 
 const GameScreen = styled(Box)({
@@ -74,6 +89,40 @@ const GameScreen = styled(Box)({
   flexDirection: "column",
   alignItems: "center",
   flexShrink: 0,
+  transformOrigin: "center center",
+  margin: "auto",
+
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    inset: 0,
+    background:
+      "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px)",
+    pointerEvents: "none",
+    zIndex: 20,
+  },
+
+  "&::after": {
+    content: '""',
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: "80px",
+    background:
+      "linear-gradient(transparent, rgba(0,229,255,0.025) 50%, transparent)",
+    animation: `${fadeSlideDown} 8s linear infinite`,
+    pointerEvents: "none",
+    zIndex: 21,
+  },
+
+  "& > .vignette": {
+    position: "absolute",
+    inset: 0,
+    background:
+      "radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.7) 100%)",
+    pointerEvents: "none",
+    zIndex: 19,
+  },
   overflow: "hidden",
 });
 
@@ -129,14 +178,11 @@ const TimerText = styled(Typography)<{ urgent?: boolean }>(({ urgent }) => ({
 }));
 
 // ─── Question Panel ───────────────────────────────────────────────────────────
-// Fixed height that comfortably fits 1–3 lines of text. Overflow scrolls
-// rather than expanding so the answer grid below is never pushed off-screen.
 
 const QuestionPanel = styled(Box)({
   marginTop: "16px",
   width: "calc(100% - 83px)",
   maxWidth: "875px",
-  // Fixed height: enough for ~3 lines at 15px with lineHeight 1.8
   height: "140px",
   borderRadius: "15px",
   border: "1.5px solid #00DFFF",
@@ -151,7 +197,6 @@ const QuestionPanel = styled(Box)({
   position: "relative",
   zIndex: 5,
   animation: `${fadeSlideDown} 0.45s ease 0.1s both, ${pulseGlow} 4s ease-in-out infinite`,
-  // If text is extremely long, scroll instead of growing
   overflowY: "auto",
 
   "&::before, &::after": {
@@ -180,7 +225,6 @@ const QuestionText = styled(Typography)({
 });
 
 // ─── Answer Grid ──────────────────────────────────────────────────────────────
-// Fixed height so all 4 buttons are always fully visible.
 
 const AnswerGrid = styled(Box)({
   marginTop: "20px",
@@ -188,13 +232,11 @@ const AnswerGrid = styled(Box)({
   maxWidth: "1000px",
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  // Each row is fixed; gap is fixed — total grid height is always the same
   gridTemplateRows: "1fr 1fr",
   gap: "16px",
   position: "relative",
   zIndex: 5,
   animation: `${fadeSlideUp} 0.5s ease 0.2s both`,
-  // Fill remaining vertical space between question panel and phase bar
   flex: 1,
   minHeight: 0,
 });
@@ -209,14 +251,14 @@ const AnswerButton = styled(Button, {
   correct?: boolean;
   incorrect?: boolean;
   revealed?: boolean;
-}>(({ selected, correct, incorrect, revealed }) => {
+}>(({ selected, correct, incorrect }) => {
   let borderColor = "#00E5FF";
   let bgColor = "rgba(0,5,15,0.7)";
   let textColor = "#35E52B";
   let glowColor = "#00E5FF55";
   let extraGlow = "";
 
-  if (selected && !revealed) {
+  if (selected && !correct && !incorrect) {
     borderColor = "#35E52B";
     bgColor = "rgba(0,30,10,0.8)";
     glowColor = "#35E52B88";
@@ -240,7 +282,6 @@ const AnswerButton = styled(Button, {
   return {
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
     fontSize: "13px",
-    // Button fills its grid cell completely — no fixed px height
     width: "100%",
     height: "100%",
     padding: "0 20px",
@@ -252,7 +293,7 @@ const AnswerButton = styled(Button, {
     border: `1.5px solid ${borderColor}`,
     borderRadius: "8px",
     background: bgColor,
-    boxShadow: `0 0 10px ${glowColor}44`,
+    boxShadow: `0 0 10px ${glowColor}44${extraGlow}`,
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-start",
@@ -260,7 +301,6 @@ const AnswerButton = styled(Button, {
     transition: "all 0.15s ease",
     position: "relative",
     overflow: "hidden",
-    // Prevent text from overflowing — clip with ellipsis on extreme cases
     whiteSpace: "normal",
     wordBreak: "break-word",
 
@@ -312,7 +352,80 @@ const AnswerLabel = styled(Box, {
   })
 );
 
-// ─── Bottom Spacer / Phase Hint ───────────────────────────────────────────────
+// ─── Ranking Overlay ──────────────────────────────────────────────────────────
+
+const RankingOverlay = styled(Box)({
+  position: "absolute",
+  inset: 0,
+  zIndex: 30,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(1,7,7,0.92)",
+  animation: `${fadeIn} 0.3s ease both`,
+});
+
+const RankingPanel = styled(Box)({
+  width: "560px",
+  border: "1.5px solid #00DFFF",
+  borderRadius: "12px",
+  background: "rgba(0,5,20,0.95)",
+  boxShadow: "0 0 24px #00DFFF44, 0 0 48px #00DFFF22",
+  padding: "28px 32px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "10px",
+});
+
+const RankingTitle = styled(Typography)({
+  fontFamily: "'Press Start 2P', 'Courier New', monospace",
+  fontSize: "25px",
+  color: "#35E52B",
+  textShadow: "0 0 8px #42FF5C",
+  textAlign: "center",
+  marginBottom: "8px",
+  letterSpacing: "3px",
+});
+
+const RankingRow = styled(Box)<{ isLocal?: boolean }>(({ isLocal }) => ({
+  display: "flex",
+  alignItems: "center",
+  gap: "14px",
+  padding: "10px 14px",
+  borderRadius: "6px",
+  background: isLocal ? "rgba(0,229,255,0.08)" : "transparent",
+  border: isLocal ? "1px solid #00E5FF44" : "1px solid transparent",
+}));
+
+const RankNumber = styled(Typography)({
+  fontFamily: "'Press Start 2P', 'Courier New', monospace",
+  fontSize: "25px",
+  color: "#00E5FF",
+  textShadow: "0 0 6px #00E5FF",
+  minWidth: "24px",
+  textAlign: "center",
+});
+
+const RankName = styled(Typography)({
+  fontFamily: "'Courier New', monospace",
+  fontSize: "25px",
+  color: "#DADADA",
+  flex: 1,
+  letterSpacing: "1px",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+});
+
+const RankScore = styled(Typography)({
+  fontFamily: "'Press Start 2P', 'Courier New', monospace",
+  fontSize: "25px",
+  color: "#35E52B",
+  textShadow: "0 0 6px #35E52B",
+});
+
+// ─── Bottom Phase Bar ─────────────────────────────────────────────────────────
 
 const PhaseBar = styled(Box)({
   width: "100%",
@@ -334,7 +447,7 @@ const PhaseHint = styled(Typography)({
   animation: `${neonFlicker} 3s ease-in-out infinite`,
 });
 
-// ─── Divider Line ─────────────────────────────────────────────────────────────
+// ─── Divider ──────────────────────────────────────────────────────────────────
 
 const NeonDivider = styled(Box)({
   width: "calc(100% - 80px)",
@@ -347,6 +460,32 @@ const NeonDivider = styled(Box)({
   zIndex: 5,
   flexShrink: 0,
 });
+
+// ─── Responsive scale helper ──────────────────────────────────────────────────
+
+function useResponsiveScale(): string {
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const targetW = 1024;
+      const targetH = 768;
+      const winW = window.innerWidth;
+      const winH = window.innerHeight;
+      const scaleX = winW / targetW;
+      const scaleY = winH / targetH;
+      const factor = Math.min(scaleX, scaleY) * 0.94;
+      setScale(factor);
+    };
+
+    window.addEventListener("resize", handleResize);
+    handleResize();
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  return `scale(${scale})`;
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -373,7 +512,7 @@ const QuestionPage = () => {
   const { applySessionProgress } = usePlayerStore();
   const localPlayer = usePlayerStore((state) => state.getPlayer());
   const { lobbyRole, players } = useMultiplayerStore();
-  const { setScreen } = useGameStore();
+  const { setScreen, recordSessionStartLevel, recordSessionEndLevel, queueAchievementUnlocks } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
   const category = useGameStore((state) => state.gameConfig.category);
   const localPlayerId = mode === "multiplayer" ? getMultiplayerPlayerId(localPlayer.id) : localPlayer.id;
@@ -388,21 +527,27 @@ const QuestionPage = () => {
   } = useRewardSystem();
   const answerButtonRef = useRef<HTMLElement>(null);
 
+  // ── Session XP accumulator (ref — does not trigger re-renders) ────────────
+  const sessionXpRef = useRef(0);
   // ── Level-up tracking refs ──────────────────────────────────────────────────
   const didLevelUpThisSessionRef = useRef<boolean>(false);
   const levelAfterSessionRef     = useRef<number>(0);
 
   // ── End-game deferred data (level-up before achievements) ─────────────────
   const endDataRef = useRef<{
-  achievements: Achievement[];
-  postUnlockScreen: "result" | "multiplayer-results";
-} | null>(null);
+    achievements: Achievement[];
+    postUnlockScreen: "result" | "multiplayer-results";
+  } | null>(null);
 
-  // ── Game timer tracking ─────────────────────────────────────────────────────
+  // ── Game timer tracking ────────────────────────────────────────────────────
   const gameStartTimeRef = useRef<number | null>(null);
-  const gameElapsedTimeRef = useRef<number>(0);
   const totalSessionTimeRef = useRef<number>(0);
   const totalAnsweredRef = useRef<number>(0);
+
+  // ── Guard: prevents the end-of-game handler running more than once ─────────
+  const endProgressAppliedRef = useRef(false);
+
+  const fellBehindByHalfRef = useRef(false);
 
   useEffect(() => {
     if (phase === 'answering' || phase === 'asking') {
@@ -454,30 +599,31 @@ const QuestionPage = () => {
         timer ?? 0,
         answerTimer,
       );
-      const xpEarned = calculateXP(finalScore, currentQuestion ? useTriviaStore.getState().currentStreak : 1);
-      const oldXP = localPlayer.totalXp;
-      const newXP = oldXP + xpEarned;
-      const currentOldLevel = localPlayer.level;
-      const currentNewLevel = getLevel(newXP);
+
+      const streakAfterThisAnswer = useTriviaStore.getState().currentStreak + 1;
+      const xpEarned = calculateXP(finalScore, streakAfterThisAnswer);
+
+      sessionXpRef.current += xpEarned;
+
+      const persistedTotalXp = usePlayerStore.getState().getPlayer().totalXp;
+      const oldXP = persistedTotalXp + (sessionXpRef.current - xpEarned);
+      const newXP = persistedTotalXp + sessionXpRef.current;
+
+      const visualLevel = getLevel(newXP);
 
       triggerReward({
         score: finalScore,
         xp: xpEarned,
-        streak: useTriviaStore.getState().currentStreak,
+        streak: streakAfterThisAnswer,
         oldXP,
         newXP,
-        oldLevel: currentNewLevel,
-        newLevel: currentNewLevel,
+        oldLevel: visualLevel,
+        newLevel: visualLevel,
         xpPerLevel: 1000,
         buttonRef: answerButtonRef,
       });
-
-      if (currentNewLevel > currentOldLevel) {
-        didLevelUpThisSessionRef.current = true;
-        levelAfterSessionRef.current     = currentNewLevel;
-      }
     },
-    [submitAnswer, questions, currentIndex, timer, answerTimer, localPlayer, triggerReward]
+    [submitAnswer, questions, currentIndex, timer, answerTimer, triggerReward]
   );
 
   // ── Timer tick ──────────────────────────────────────────────────────────────
@@ -490,10 +636,11 @@ const QuestionPage = () => {
     )
       return;
 
-    if (phase === "answering" && selectedAnswer && mode === "solo") return;
+    if (phase === "answering" && mode === "solo" && selectedAnswer) return;
+    
 
     let timerInterval: number;
-    
+
     const timerTickIntervalMs = 1000;
 
     if (mode === "solo" || lobbyRole === "host") {
@@ -551,6 +698,30 @@ const QuestionPage = () => {
     if (phase !== "scoring") hasScoredRef.current = false;
   }, [phase]);
 
+  // ── Multiplayer: auto-advance when all players have answered ────────────────
+useEffect(() => {
+  if (mode !== "multiplayer" || lobbyRole !== "host") return;
+  if (phase !== "answering") return;
+
+  const totalPlayers = players.length;
+  if (totalPlayers === 0) return;
+
+  const state = useTriviaStore.getState();
+  const answersForQuestion = state.playerScores?.[currentIndex] ?? {};
+  const remoteAnswerCount = Object.keys(answersForQuestion).length;
+
+  // Count local player's answer too
+  const localHasAnswered = !!selectedAnswer;
+  const totalAnswered = remoteAnswerCount + (localHasAnswered ? 1 : 0);
+
+  if (totalAnswered >= totalPlayers) {
+    // Everyone answered — skip remaining timer and go to scoring
+    nextPhase();
+    broadcastMultiplayerState();
+  }
+}, [mode, lobbyRole, phase, players.length, selectedAnswer, currentIndex,
+    nextPhase, broadcastMultiplayerState]);
+
   // ── Multiplayer: broadcast on state changes ─────────────────────────────────
 
   useEffect(() => {
@@ -601,25 +772,36 @@ const QuestionPage = () => {
     }
   }, [phase, nextPhase]);
 
-  // ── Apply session progress at end ──────────────────────────────────────────
-
-  const endProgressAppliedRef = useRef(false);
-  const fellBehindByHalfRef = useRef(false);
+  // ── Reset all session refs at game start ────────────────────────────────────
 
   useEffect(() => {
     if (phase === "readying" && currentIndex === 0) {
       fellBehindByHalfRef.current = false;
       totalSessionTimeRef.current = 0;
       totalAnsweredRef.current = 0;
+      sessionXpRef.current = 0;
+      endProgressAppliedRef.current = false;
+      gameStartTimeRef.current = null;
+
+      recordSessionStartLevel();
       didLevelUpThisSessionRef.current = false;
       levelAfterSessionRef.current     = 0;
-      endProgressAppliedRef.current
     }
-  }, [phase, currentIndex]);
+  }, [phase, currentIndex, recordSessionStartLevel]);
+
+  useEffect(() => {
+    if (phase === "answering" && currentIndex === 0 && sessionXpRef.current === 0) {
+      if (gameStartTimeRef.current === null) {
+        gameStartTimeRef.current = Date.now();
+      }
+      if (!endProgressAppliedRef.current) {
+        recordSessionStartLevel();
+      }
+    }
+  }, [phase, currentIndex, recordSessionStartLevel]);
 
   useEffect(() => {
     if (mode !== "multiplayer") return;
-
     if (currentIndex < CLUTCH_MIN_ROUNDS) return;
 
     const scoreValues = Object.values(playerScores);
@@ -643,132 +825,94 @@ const QuestionPage = () => {
     }
   }, [mode, playerScores, localPlayerId, currentIndex]);
 
-  // ── Step 1: Process game end data (XP, achievements) ───────────────────────
- useEffect(() => {
-   if (phase !== "end" || endProgressAppliedRef.current) return;
-endProgressAppliedRef.current = true;
+  // ── End-of-game handler ─────────────────────────────────────────────────────
 
-const gameConfig = useGameStore.getState().gameConfig;
-const { mode, category, difficulty } = gameConfig || {};
-if (!mode || !category || !difficulty) return;
+  useEffect(() => {
+    if (phase !== "end" || endProgressAppliedRef.current) return;
+    endProgressAppliedRef.current = true;
 
-if (mode === "multiplayer") {
-  finalizeRankings();
-}
+    const gameConfig = useGameStore.getState().gameConfig;
+    const { mode: cfgMode, category: cfgCategory, difficulty: cfgDifficulty } = gameConfig;
 
-const triviaState = useTriviaStore.getState();
-const userAnswers = triviaState.userAnswers;
-const questionsState = triviaState.questions;
-const correctAnswersCount = questionsState.filter(
-  (q, index) => q.correctAnswer === userAnswers[index]
-).length;
+    if (!cfgMode || !cfgCategory || !cfgDifficulty) {
+      console.error("[QuestionPage] Missing game config at end of session:", gameConfig);
+      setScreen("result");
+      return;
+    }
 
-const fallbackScore = scoreForCorrectAnswers(correctAnswersCount);
-const rankingEntry = triviaState.rankings.find(
-  (entry) => entry.playerId === localPlayerId
-);
-const triviaPlayerScores = triviaState.playerScores;
-const currentPlayerScore =
-  mode === "multiplayer"
-    ? rankingEntry?.score ?? triviaPlayerScores[localPlayerId] ?? fallbackScore
-    : fallbackScore;
+    const triviaState = useTriviaStore.getState();
+    const { userAnswers: finalUserAnswers, questions: finalQuestions, rankings: finalRankings, playerScores: finalPlayerScores, maxStreak } = triviaState;
 
-const playerRank =
-  mode === "multiplayer"
-    ? rankingEntry?.rank ??
-      1 + Object.values(triviaPlayerScores).filter((s) => s > currentPlayerScore).length
-    : 0;
+    const correctAnswersCount = finalQuestions.filter(
+      (q, index) => q.correctAnswer === finalUserAnswers[index]
+    ).length;
 
-const elapsedMs = gameStartTimeRef.current
-  ? Date.now() - gameStartTimeRef.current
-  : 0;
-const elapsedSeconds = Math.max(0, Math.round(elapsedMs / 1000));
-gameElapsedTimeRef.current = elapsedSeconds;
+    const fallbackScore = scoreForCorrectAnswers(correctAnswersCount);
+    const rankingEntry = finalRankings.find((entry) => entry.playerId === localPlayerId);
+    const currentPlayerScore =
+      cfgMode === "multiplayer"
+        ? rankingEntry?.score ?? finalPlayerScores[localPlayerId] ?? fallbackScore
+        : fallbackScore;
 
-const avgTime =
-  totalAnsweredRef.current > 0
-    ? Math.round((totalSessionTimeRef.current / totalAnsweredRef.current) * 10) / 10
-    : 0.0;
-useTriviaStore.setState({ avgTime });
+    const playerRank =
+      cfgMode === "multiplayer"
+        ? rankingEntry?.rank ??
+          1 + Object.values(finalPlayerScores).filter((s) => s > currentPlayerScore).length
+        : 0;
 
-const postUnlockScreen: "result" | "multiplayer-results" =
-  mode === "multiplayer" ? "multiplayer-results" : "result";
+    const elapsedMs = gameStartTimeRef.current ? Date.now() - gameStartTimeRef.current : 0;
+    const elapsedSeconds = Math.max(0, Math.round(elapsedMs / 1000));
 
-const progressionInput: SessionProgressInput = {
-  mode,
-  category,
-  difficulty,
-  totalQuestions: questionsState.length,
-  correctAnswers: correctAnswersCount,
-  score: currentPlayerScore,
-  maxStreak: triviaState.maxStreak,
-  questions: questionsState,
-  userAnswers,
-  timeTaken: elapsedSeconds,
-  mastered: correctAnswersCount === questionsState.length,
-  won: mode === "multiplayer" ? playerRank === 1 : false,
-  topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
-  hostedLobby: mode === "multiplayer" && lobbyRole === "host",
-  fellBehindByHalfAndWon:
-    mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
-};
+    const avgTime =
+      totalAnsweredRef.current > 0
+        ? Math.round((totalSessionTimeRef.current / totalAnsweredRef.current) * 10) / 10
+        : 0;
+    useTriviaStore.setState({ avgTime });
 
-const newlyUnlockedAchievements = applySessionProgress(progressionInput);
+    const progressionInput: SessionProgressInput = {
+      mode: cfgMode,
+      category: cfgCategory,
+      difficulty: cfgDifficulty,
+      totalQuestions: finalQuestions.length,
+      correctAnswers: correctAnswersCount,
+      score: currentPlayerScore,
+      maxStreak,
+      questions: finalQuestions,
+      userAnswers: finalUserAnswers,
+      timeTaken: elapsedSeconds,
+      mastered: correctAnswersCount === finalQuestions.length,
+      won: cfgMode === "multiplayer" ? playerRank === 1 : false,
+      topThreeFinish: cfgMode === "multiplayer" ? playerRank <= 3 : false,
+      hostedLobby: cfgMode === "multiplayer" && lobbyRole === "host",
+      fellBehindByHalfAndWon:
+        cfgMode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
+    };
 
-if (didLevelUpThisSessionRef.current) {
-  endDataRef.current = {
-    achievements: newlyUnlockedAchievements,
-    postUnlockScreen,
-  };
-  triggerReward({
-    score: 0,
-    xp: 0,
-    streak: 0,
-    oldXP: 0,
-    newXP: 0,
-    oldLevel: levelAfterSessionRef.current - 1,
-    newLevel: levelAfterSessionRef.current,
-    xpPerLevel: 1000,
-  });
-} else if (newlyUnlockedAchievements.length > 0) {
-  const gameState = useGameStore.getState();
-  gameState.queueAchievementUnlocks(newlyUnlockedAchievements, postUnlockScreen);
-  gameState.setScreen("achievement-unlock");
-} else {
-  if (mode === "multiplayer") {
-    setTimeout(() => setScreen(postUnlockScreen), 50); // wait for finalizeRankings to settle
-  } else {
-    setScreen(postUnlockScreen);
-  }
-}
-  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen, triggerReward, finalizeRankings]);
+    const newlyUnlockedAchievements = applySessionProgress(progressionInput);
+
+    recordSessionEndLevel();
+
+    if (newlyUnlockedAchievements.length > 0) {
+      queueAchievementUnlocks(newlyUnlockedAchievements, "result");
+      setScreen("achievement-unlock");
+    } else {
+      setScreen("result");
+    }
+  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen,
+      recordSessionEndLevel, queueAchievementUnlocks]);
 
   // ── Derived state ───────────────────────────────────────────────────────────
 
   const currentQuestion = questions[currentIndex];
-  const previousXP = localPlayer.totalXp;
-  const xpEarned = rewardState.data?.xp ?? 0;
-  const currentLevel = localPlayer.level;
 
-  const displayedRankings = useMemo(() => {
-    const byPlayerId = new Map<string, { playerId: string; name: string; score: number }>();
+  const persistedTotalXp = usePlayerStore((s) => s.getPlayer().totalXp);
+  const persistedLevel   = usePlayerStore((s) => s.getPlayer().level);
 
-    rankings.forEach((entry) => {
-      byPlayerId.set(entry.playerId, { playerId: entry.playerId, name: entry.name, score: entry.score });
-    });
-    players.forEach((player) => {
-      if (!byPlayerId.has(player.id)) {
-        byPlayerId.set(player.id, { playerId: player.id, name: player.name, score: playerScores[player.id] ?? 0 });
-      }
-    });
-    if (!byPlayerId.has(localPlayer.id)) {
-      byPlayerId.set(localPlayer.id, { playerId: localPlayer.id, name: localPlayer.name, score: playerScores[localPlayer.id] ?? 0 });
-    }
+  const visualOldXP = persistedTotalXp;
+  const visualNewXP = persistedTotalXp + sessionXpRef.current;
+  const visualLevel = getLevel(visualNewXP);
 
-    return Array.from(byPlayerId.values())
-      .sort((a, b) => b.score - a.score)
-      .map((entry, index) => ({ ...entry, rank: index + 1 }));
-  }, [rankings, players, playerScores, localPlayer.id, localPlayer.name]);
+  const scale = useResponsiveScale();
 
   // ── Answer state helpers ────────────────────────────────────────────────────
 
@@ -794,6 +938,28 @@ if (didLevelUpThisSessionRef.current) {
       : phase === "scoring"
       ? "Reviewing results"
       : undefined;
+
+  // ── Multiplayer display rankings ────────────────────────────────────────────
+
+  const displayedRankings = useMemo(() => {
+    const byPlayerId = new Map<string, { playerId: string; name: string; score: number }>();
+
+    rankings.forEach((entry) => {
+      byPlayerId.set(entry.playerId, { playerId: entry.playerId, name: entry.name, score: entry.score });
+    });
+    players.forEach((player) => {
+      if (!byPlayerId.has(player.id)) {
+        byPlayerId.set(player.id, { playerId: player.id, name: player.name, score: playerScores[player.id] ?? 0 });
+      }
+    });
+    if (!byPlayerId.has(localPlayer.id)) {
+      byPlayerId.set(localPlayer.id, { playerId: localPlayer.id, name: localPlayer.name, score: playerScores[localPlayer.id] ?? 0 });
+    }
+
+    return Array.from(byPlayerId.values())
+      .sort((a, b) => b.score - a.score)
+      .map((entry, index) => ({ ...entry, rank: index + 1 }));
+  }, [rankings, players, playerScores, localPlayer.id, localPlayer.name]);
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -826,120 +992,111 @@ if (didLevelUpThisSessionRef.current) {
   }
 
   return (
-    <GameScreen>
-      {/* ── TOP HUD ──────────────────────────────────────────────────────── */}
-      <HudBar>
-        <ProgressText>
-          {currentIndex + 1}/{questionLimit}
-        </ProgressText>
+    <ScaleWrapper>
+      <GameScreen style={{ transform: scale, position: 'relative' }}>
+        {/* CRT vignette */}
+        <div className="vignette" />
 
-        <CategoryLabel>
-          {category ?? "TRIVIA"}
-        </CategoryLabel>
+        {/* ── TOP HUD ──────────────────────────────────────────────────────── */}
+        <HudBar>
+          <ProgressText>
+            {currentIndex + 1}/{questions.length}
+          </ProgressText>
 
-        <TimerBox>
-          <Clock
-            style={{
-              width: 16,
-              height: 16,
-              color: "#DADADA",
-              flexShrink: 0,
-            }}
+          <CategoryLabel>
+            {category ?? "TRIVIA"}
+          </CategoryLabel>
+
+          <TimerBox>
+            <Clock
+              style={{
+                width: 16,
+                height: 16,
+                color: "#DADADA",
+                flexShrink: 0,
+              }}
+            />
+            <TimerText urgent={isUrgent}>
+              {timer !== undefined ? `${timer}s` : "--"}
+            </TimerText>
+          </TimerBox>
+        </HudBar>
+
+        {/* ── XP BAR ──────────────────────────────────────────────────────── */}
+        <Box sx={{ width: 'calc(100% - 100px)', px: 6, py: 1 }}>
+          <XPBarAnimate
+            oldXP={visualOldXP}
+            newXP={visualNewXP}
+            xpPerLevel={1000}
+            level={visualLevel}
+            animate={rewardState.showXPBar}
           />
-          <TimerText urgent={isUrgent}>
-            {phase === 'asking' || phase === 'readying' 
-              ? "--" 
-              : timer !== undefined ? `${Math.ceil(timer)}s` : "--"}
-          </TimerText>
-        </TimerBox>
-      </HudBar>
-
-      {/* ── XP BAR ──────────────────────────────────────────────────────── */}
-      <Box sx={{ width: 'calc(100% - 100px)', px: 6, py: 1, flexShrink: 0 }}>
-        <XPBarAnimate
-          oldXP={previousXP}
-          newXP={previousXP + xpEarned}
-          xpPerLevel={1000}
-          level={currentLevel}
-          animate={rewardState.showXPBar}
-        />
-      </Box>
-
-      {/* Divider */}
-      <NeonDivider />
-
-      {/* ── QUESTION PANEL ────────────────────────────────────────────────── */}
-      <QuestionPanel>
-        <QuestionText>{currentQuestion.text}</QuestionText>
-      </QuestionPanel>
-
-      {phase === 'readying' && (
-        <Box sx={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 40,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'rgba(0,0,0,0.85)',
-        }}>
-          <Typography sx={{
-            fontFamily: "'Press Start 2P', monospace",
-            fontSize: '40px',
-            color: '#35E52B',
-            textShadow: '0 0 16px #42FF5C',
-            marginBottom: '24px',
-          }}>
-            GET READY
-          </Typography>
-          <Typography sx={{
-            fontFamily: "'Press Start 2P', monospace",
-            fontSize: '80px',
-            color: '#00E5FF',
-            textShadow: '0 0 24px #00E5FF',
-          }}>
-            {Math.ceil(timer)}
-          </Typography>
         </Box>
-      )}
 
-      {/* ── ANSWER GRID ───────────────────────────────────────────────────── */}
-      <AnswerGrid>
-        {currentQuestion.allAnswers.map((answer: string, idx: number) => {
-          const { isSelected, isCorrect, isIncorrect } = getAnswerState(answer);
-          return (
-            <AnswerButton
-              key={answer}
-              ref={isSelected ? (answerButtonRef as any) : undefined}
-              onClick={() => { if (!isAnswered) { handleAnswerClick(answer); playSound("select"); } }}
-              onMouseEnter={() => { if (!isAnswered) playSound("hover"); }}
-              disabled={isAnswered}
-              selected={isSelected && !isRevealed}
-              correct={isCorrect}
-              incorrect={isIncorrect}
-              disableRipple={false}
-            >
-              <AnswerLabel correct={isCorrect} incorrect={isIncorrect}>
-                {ANSWER_LABELS[idx]}.
-              </AnswerLabel>
-              {answer}
-            </AnswerButton>
-          );
-        })}
-      </AnswerGrid>
+        {/* Divider */}
+        <NeonDivider />
 
-      <PhaseBar>
-        {currentHint && <PhaseHint>{currentHint}</PhaseHint>}
-      </PhaseBar>
+        {/* ── QUESTION PANEL ────────────────────────────────────────────────── */}
+        <QuestionPanel>
+          <QuestionText>{currentQuestion.text}</QuestionText>
+        </QuestionPanel>
 
-      {/* ── REWARD OVERLAY ───────────────────────────────────────────────── */}
-      <RewardOverlay
-        rewardState={rewardState}
-        onLevelUpDone={handleLevelUpDone}
-        xpPerLevel={1000}
-      />
-    </GameScreen>
+        {/* ── ANSWER GRID ───────────────────────────────────────────────────── */}
+        <AnswerGrid>
+          {currentQuestion.allAnswers.map((answer: string, idx: number) => {
+            const { isSelected, isCorrect, isIncorrect } = getAnswerState(answer);
+            return (
+              <AnswerButton
+                key={answer}
+                ref={isSelected ? (answerButtonRef as any) : undefined}
+                onClick={() => { if (!isAnswered) { handleAnswerClick(answer); playSound("select"); } }}
+                onMouseEnter={() => { if (!isAnswered) playSound("hover"); }}
+                disabled={isAnswered}
+                selected={isSelected && !isRevealed}
+                correct={isCorrect}
+                incorrect={isIncorrect}
+                disableRipple={false}
+              >
+                <AnswerLabel correct={isCorrect} incorrect={isIncorrect}>
+                  {ANSWER_LABELS[idx]}.
+                </AnswerLabel>
+                {answer}
+              </AnswerButton>
+            );
+          })}
+        </AnswerGrid>
+
+        <PhaseBar>
+          {currentHint && <PhaseHint>{currentHint}</PhaseHint>}
+        </PhaseBar>
+
+        {/* ── RANKING OVERLAY (multiplayer scoring phase) ───────────────────── */}
+        {phase === "scoring" && mode === "multiplayer" && displayedRankings.length > 0 && (
+          <RankingOverlay>
+            <RankingPanel>
+              <RankingTitle>— RANKINGS —</RankingTitle>
+              {displayedRankings.slice(0, 8).map((entry) => (
+                <RankingRow key={entry.playerId} isLocal={entry.playerId === localPlayer.id}>
+                  <RankNumber>#{entry.rank}</RankNumber>
+                  <RankName>
+                    {entry.name}
+                    {entry.playerId === localPlayer.id ? " ◀" : ""}
+                  </RankName>
+                  <RankScore>{entry.score}</RankScore>
+                </RankingRow>
+              ))}
+            </RankingPanel>
+          </RankingOverlay>
+        )}
+
+        {/* ── REWARD OVERLAY ───────────────────────────────────────────────── */}
+        <RewardOverlay
+          rewardState={rewardState}
+          onLevelUpDone={handleLevelUpDone}
+          xpPerLevel={1000}
+        />
+      </GameScreen>
+    </ScaleWrapper>
   );
 };
 

@@ -307,7 +307,7 @@ export default function SettingsPage() {
   const updatePlayer = usePlayerStore((s: PlayerState) => s.updatePlayer);
   const resetPlayer  = usePlayerStore((s: PlayerState) => s.resetPlayer);
 
-  const nameInput = player?.name || "PLAYER_01";
+  const [nameInput, setNameInput] = useState<string>(player?.name ?? "PLAYER_01");
   const avatar = player?.avatar ?? avatars[0];
   const volume = storedSettings.volume ?? 5;
   const sfxEnabled = storedSettings.sfxEnabled ?? true;
@@ -325,8 +325,9 @@ export default function SettingsPage() {
   }
 
   function updatePlayerName(nextName: string) {
+    setNameInput(nextName);
     if (!updatePlayer) return;
-    updatePlayer({ name: nextName.trim() || player?.name || "PLAYER_01" });
+    updatePlayer({ name: nextName || "PLAYER_01" });
   }
 
   function updateAvatar(nextAvatar: string) {
@@ -360,6 +361,7 @@ export default function SettingsPage() {
             <SectionLabel>PLAYER NAME</SectionLabel>
             <div style={{ display: "flex", gap: 8, marginBottom: 28 }}>
               <input
+                aria-label="Player name"
                 value={nameInput}
                 onChange={(e) => updatePlayerName(e.target.value)}
                 style={{
@@ -423,7 +425,7 @@ export default function SettingsPage() {
               ))}
             </div>
             <SectionLabel>EFFECTS</SectionLabel>
-            <PixelToggle value={useCase}   label="CASEMODE"  onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useCase", !useCase); }} />
+            <PixelToggle value={useCase}      label="CASEMODE"  onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useCase", !useCase); }} />
             <PixelToggle value={useFlicker}   label="FLICKER"   onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useFlicker", !useFlicker); }} />
             <PixelToggle value={useScanlines} label="SCANLINES" onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useScanlines", !useScanlines); }} />
             <SaveBar onSave={handleSave} saved={saved} />
@@ -467,7 +469,7 @@ export default function SettingsPage() {
                   resetPlayer();
                 }
               }],
-              ["CLEAR DATA",     () => {
+              ["CLEAR DATA", () => {
                 if (window.confirm("CLEAR ALL DATA?")) {
                   resetPlayer();
                 }

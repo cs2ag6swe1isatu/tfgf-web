@@ -336,6 +336,7 @@ export default function StandingPage() {
           <span style={{ fontFamily: "'Press Start 2P',monospace", fontSize: 10, color: C.cyan, letterSpacing: "0.15em", textShadow: `0 0 8px ${C.cyan}`, opacity: 0.7 }}>{page + 1}/2</span>
           <button className="back-btn" onClick={() => { setScreen("home"); playSound("select"); }} onMouseEnter={() => playSound("hover")} style={{ fontFamily: "'Press Start 2P',monospace", fontSize: "clamp(8px,0.95vw,11px)", color: C.btnText, background: C.btnFill, border: `1.5px solid ${C.green}`, borderRadius: 3, padding: "clamp(8px,1vw,12px) clamp(14px,2vw,28px)", cursor: "pointer", letterSpacing: "0.14em", boxShadow: "0 0 10px rgba(53,229,43,.25)", transition: "background .15s,border-color .15s,color .15s,box-shadow .15s", animation: "navGlow 3s ease-in-out infinite", outline: "none" }}>BACK</button>
         </div>
+
       </main>
     </div>
   );
