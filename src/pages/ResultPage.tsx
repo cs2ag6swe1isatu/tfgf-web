@@ -1,3 +1,5 @@
+import React, { useRef } from 'react';
+import { Box, Typography, Button, LinearProgress, GlobalStyles } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Typography, Button, LinearProgress } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
@@ -6,6 +8,7 @@ import { useTriviaStore } from '../store/triviaStore';
 import { usePlayerStore } from '../store/playerStore';
 import { getLevelProgressPercent } from '../utils/progression';
 import { getLastXpGained } from '../progression/progressionRules';
+import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from '../components/ui/RankIcon';
 import { keyframes, styled } from '@mui/material/styles';
 import { LevelUpPopup } from '../components/rewards/LevelUpPopup';
 
@@ -125,11 +128,11 @@ const ResultPage: React.FC = () => {
     clearLevelUpSession();
   };
 
-  // Pull rank title from player store if available, else default
-  let playerRankTitle = 'STUDENT';
-  try {
-    playerRankTitle = usePlayerStore((s: any) => s?.getPlayer?.()?.rankTitle) ?? 'STUDENT';
-  } catch (_) { /* store may not expose rankTitle */ }
+  // Pull rank name from player store
+  const player = usePlayerStore((s) => s.getPlayer());
+  const playerRankTitle = player.rank.name.toUpperCase();
+  const rankSymbolType = getRankSymbolType(player.rank.name);
+  const rankColors = RANK_COLORS[rankSymbolType];
 
   // Compute layout from the user's stored resolution
   const base = {
@@ -224,6 +227,9 @@ const ResultPage: React.FC = () => {
           },
         }}
       >
+        {/* Rank icon keyframes */}
+        <GlobalStyles styles={{ [RANK_ICON_KEYFRAMES]: {} }} />
+
         {/* Vignette */}
         <Box sx={{
           position: 'absolute', inset: 0,
@@ -417,6 +423,12 @@ const ResultPage: React.FC = () => {
             </Typography>
           </Box>
 
+          {/* Rank title with animated icon */}
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
           <Typography sx={{
             fontFamily: `'Press Start 2P', monospace`,
             color: '#D9E600',
@@ -426,8 +438,24 @@ const ResultPage: React.FC = () => {
             textShadow: '0 0 14px rgba(217,230,0,0.45)',
             animation: `${rankPop} 0.65s cubic-bezier(0.22,1,0.36,1) 1s both`,
           }}>
-            {playerRankTitle}
-          </Typography>
+            <RankIcon
+              type={rankSymbolType}
+              color={rankColors.primary}
+              glow={rankColors.glow}
+              size={Math.max(28, Math.round(L.rankTitle * 1.2))}
+              style={{ flexShrink: 0 }}
+            />
+            <Typography sx={{
+              fontFamily: `'Press Start 2P', monospace`,
+              color: rankColors.primary,
+              fontSize: `${L.rankTitle}px`,
+              textAlign: 'center',
+              letterSpacing: '3px',
+              textShadow: `0 0 14px ${rankColors.glow}, 0 0 28px ${rankColors.glow}`,
+            }}>
+              {playerRankTitle}
+            </Typography>
+          </Box>
         </Box>
 
         {/* ── NAV BUTTONS ──────────────────────────────────────────────── */}

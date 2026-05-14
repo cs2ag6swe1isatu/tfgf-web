@@ -1,10 +1,11 @@
 import { useMemo, useEffect, useCallback, useRef } from "react";
-import { Box } from "@mui/material";
+import { Box, GlobalStyles } from "@mui/material";
 import { Phase, useGameStore, useTriviaStore } from "../store";
 import { getMultiplayerPlayer, usePlayerStore } from "../store/playerStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { Globe, Lock } from "pixelarticons/react";
 import { getAvatarSrc } from "../utils/avatar";
+import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 import { useSoundContext } from "../context/SoundContext";
 
 import type {
@@ -568,6 +569,7 @@ const MultiplayerLobby = () => {
 
   return (
     <Box sx={styles.root}>
+      <GlobalStyles styles={{ [RANK_ICON_KEYFRAMES]: {} }} />
       <Box sx={styles.inner}>
         {/* Top bar */}
         <Box sx={styles.topBar}>
@@ -621,9 +623,18 @@ const MultiplayerLobby = () => {
                   <span style={styles.playerName}>{p.name || "NAME"}</span>
                   {p.isHost && <span style={styles.hostBadge}>HOST</span>}
                 </Box>
-                <span style={styles.playerSub}>
-                  rank · lv.{p.level ?? "—"}
-                </span>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <RankIcon
+                    type={getRankSymbolType(p.rank?.name ?? '')}
+                    color={RANK_COLORS[getRankSymbolType(p.rank?.name ?? '')].primary}
+                    glow={RANK_COLORS[getRankSymbolType(p.rank?.name ?? '')].glow}
+                    size={18}
+                    style={{ flexShrink: 0 }}
+                  />
+                  <span style={styles.playerSub}>
+                    {p.rank?.name ?? 'novice'} · lv.{p.level ?? "—"}
+                  </span>
+                </Box>
               </Box>
               {/* Kick button (host only, not on self) */}
               {lobbyRole === "host" && !p.isHost && (
