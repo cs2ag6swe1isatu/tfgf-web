@@ -74,6 +74,9 @@ export interface Player {
   correctAnswers: number;
   incorrectAnswers: number;
   averageTimePerQuestion: number;
+  
+  rivalDefeats: number;
+  rivalStats: Record<string, number>;
 
   individualStats: Record<Category, Record<Mode, Record<Difficulty, PlayData>>>;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { Box, Typography, Button, Card} from "@mui/material";
 import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
-import { usePlayerStore } from "../store/playerStore";
+import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
@@ -516,6 +516,7 @@ const QuestionPage = () => {
     timer,
     playerScores,
     rankings,
+    questionLimit,
     submitAnswer,
     receiveRemoteAnswer,
     scoreCurrentQuestion,
@@ -524,12 +525,12 @@ const QuestionPage = () => {
   } = useTriviaStore();
 
   const { applySessionProgress } = usePlayerStore();
-  const localPlayerId = usePlayerStore((state) => state.getPlayer().id);
   const localPlayer = usePlayerStore((state) => state.getPlayer());
   const { lobbyRole, players } = useMultiplayerStore();
   const { setScreen } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
   const category = useGameStore((state) => state.gameConfig.category);
+  const localPlayerId = mode === "multiplayer" ? getMultiplayerPlayerId(localPlayer.id) : localPlayer.id;
 
   const multiplayerBridge: MultiplayerBridge | undefined = window.multiplayer;
 
@@ -570,10 +571,12 @@ const QuestionPage = () => {
     if (
       phase !== "readying" &&
       phase !== "answering" &&
-      phase !== "asking" &&
       phase !== "scoring"
     )
       return;
+
+      // In multiplayer, keep timer ticking even after host answers (as fallback until all answer)
+      if (phase === "answering" && selectedAnswer && mode === "solo") return;
 
     let timerInterval: number;
     
@@ -678,12 +681,10 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
   // ── Phase transitions ───────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (phase === "end") {
-      setScreen("result");
-    } else if (phase === "ranking") {
+    if (phase === "ranking") {
       nextPhase();
     }
-  }, [phase, setScreen, nextPhase]);
+  }, [phase, nextPhase]);
 
   // ── Apply session progress at end ──────────────────────────────────────────
 
@@ -769,17 +770,20 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
       topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
       hostedLobby: mode === "multiplayer" && lobbyRole === "host",
       fellBehindByHalfAndWon: mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
-      scoreEarned: undefined,
-      xpEarned: undefined,
-      isWin: undefined,
-      isMastery: undefined,
-      isTopThree: undefined,
-      questionsAnswered: undefined,
-      incorrectAnswers: undefined
     };
 
-    applySessionProgress(progressionInput);
-  }, [phase, applySessionProgress, localPlayerId]);
+    const postUnlockScreen = mode === "multiplayer" ? "multiplayer-results" as const : "result" as const;
+    const newlyUnlockedAchievements = applySessionProgress(progressionInput);
+
+    if (newlyUnlockedAchievements.length > 0) {
+      const gameState = useGameStore.getState();
+      gameState.queueAchievementUnlocks(newlyUnlockedAchievements, postUnlockScreen);
+      gameState.setScreen("achievement-unlock");
+      return;
+    }
+
+    setScreen(postUnlockScreen);
+  }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen]);
 
   // ── Derived state ───────────────────────────────────────────────────────────
 
@@ -1013,7 +1017,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
               </Typography>
             </Card>
 
-            {phase !== 'asking' && currentQuestion && (
+            {currentQuestion && (
               <Box
                 sx={{
                   display: 'grid',
@@ -1068,7 +1072,7 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
         <HudBar>
           {/* Progress: 1/15 */}
           <ProgressText>
-            {currentIndex + 1}/{questions.length}
+            {currentIndex + 1}/{questionLimit}
           </ProgressText>
 
           {/* Category */}
@@ -1087,8 +1091,10 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
               }}
             />
             <TimerText urgent={isUrgent}>
-              {timer !== undefined ? `${timer}s` : "--"}
-            </TimerText>
+  {phase === 'asking' || phase === 'readying' 
+    ? "--" 
+    : timer !== undefined ? `${Math.ceil(timer)}s` : "--"}
+</TimerText>
           </TimerBox>
         </HudBar>
 
@@ -1100,6 +1106,37 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
           <QuestionText>{currentQuestion.text}</QuestionText>
         </QuestionPanel>
 
+        {phase === 'readying' && (
+  <Box sx={{
+    position: 'absolute',
+    inset: 0,
+    zIndex: 40,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,0,0,0.85)',
+  }}>
+    <Typography sx={{
+      fontFamily: "'Press Start 2P', monospace",
+      fontSize: '40px',
+      color: '#35E52B',
+      textShadow: '0 0 16px #42FF5C',
+      marginBottom: '24px',
+    }}>
+      GET READY
+    </Typography>
+    <Typography sx={{
+      fontFamily: "'Press Start 2P', monospace",
+      fontSize: '80px',
+      color: '#00E5FF',
+      textShadow: '0 0 24px #00E5FF',
+    }}>
+      {Math.ceil(timer)}
+    </Typography>
+  </Box>
+)}
+
         {/* ── ANSWER GRID ───────────────────────────────────────────────────── */}
         <AnswerGrid>
           {currentQuestion.allAnswers.map((answer: string, idx: number) => {
@@ -1107,8 +1144,8 @@ const timerTickIntervalMs = 1000; // 1000ms = 1 second
             return (
               <AnswerButton
                 key={answer}
-                onClick={() => { handleAnswerClick(answer); playSound("select"); }}
-                onMouseEnter={() => playSound("hover")}
+                onClick={() => { if (!isAnswered) { handleAnswerClick(answer); playSound("select"); } }}
+                onMouseEnter={() => { if (!isAnswered) playSound("hover"); }}
                 disabled={isAnswered}
                 selected={isSelected && !isRevealed}
                 correct={isCorrect}

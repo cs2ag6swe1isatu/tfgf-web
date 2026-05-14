@@ -37,6 +37,12 @@ export const soloDifficultyStartConfig = {
   answerTimer: 15,
 };
 
+export const multiplayerDifficultyStartConfig = {
+  questionLimit: 10,
+  questionTimer: 10,
+  answerTimer: 15,
+};
+
 // Keep these zeroed for active game session state.
 export const sessionHistoryRuntimeLimits = {
   recentSessionLimitSolo: 0,

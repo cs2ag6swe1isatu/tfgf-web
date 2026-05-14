@@ -474,7 +474,7 @@ export default function SettingsPage() {
 
   return (
     <div style={{
-      width: "100%", height: "100vh", minHeight: 520, display: "flex", flexDirection: "column",
+      width: "100%", height: "100%", minHeight: 520, display: "flex", flexDirection: "column",
       padding: "32px 40px", boxSizing: "border-box", background: BG, color: NEON, fontFamily: font, overflow: "hidden",
     }}>
       {/* Header */}

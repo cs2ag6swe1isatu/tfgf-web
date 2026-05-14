@@ -2,6 +2,7 @@ import { Box, Typography, Avatar, Button } from "@mui/material";
 import { LobbyMember } from "../../types/multiplayer";
 import { UserSharp, Robot, RobotFaceHappy } from "pixelarticons/react";
 import theme from "../../ui/theme";
+import { getAvatarSrc } from "../../utils/avatar";
 
 interface PlayerListProps {
   players: LobbyMember[];
@@ -31,7 +32,7 @@ export const PlayerList = ({ players, isHost, onKick }: PlayerListProps) => {
           <Box sx={{ width:"100%", display: "flex", alignItems: "center", gap: 2}}>
             <Box width={48} height={48} sx={{ display:"flex", justifyContent:"center", alignItems: "center", border: `2px solid ${theme.palette.primary.main}`}}>
               {player.avatar ? (
-                <Avatar src={player.avatar} alt={player.name} sx={{ width: 44, height: 44, imageRendering: 'pixelated' }} />
+                <Avatar src={getAvatarSrc(player.avatar)} alt={player.name} sx={{ width: 44, height: 44, imageRendering: 'pixelated' }} />
               ) : (
                 <UserSharp width={32} height={32}/>
               )}

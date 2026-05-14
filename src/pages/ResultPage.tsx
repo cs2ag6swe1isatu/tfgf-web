@@ -4,6 +4,7 @@ import StarIcon from '@mui/icons-material/Star';
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { usePlayerStore } from '../store/playerStore';
+import { getLastXpGained } from '../progression/progressionRules';
 import { keyframes, styled } from '@mui/material/styles';
 
 // ─── Keyframes ───────────────────────────────────────────────────────────────
@@ -73,28 +74,8 @@ const btnHover = keyframes`
   50%       { box-shadow: 0 0 24px rgba(0,223,255,0.75), 0 0 0 2px #00DFFF, 0 0 48px rgba(0,223,255,0.2); }
 `;
 
-// ─── Layout table — one row per target resolution ────────────────────────────
-
-const LAYOUTS = {
-  '1280x720': { w: 1280, h: 720,  header: 62, stat: 62, label: 15, btn: 18, pad: '34px 52px', statMinH: 168, gap: 22, rankTitle: 32 },
-  '1152x768': { w: 1152, h: 768,  header: 60, stat: 60, label: 15, btn: 17, pad: '38px 48px', statMinH: 180, gap: 24, rankTitle: 30 },
-  '1024x768': { w: 1024, h: 768,  header: 56, stat: 56, label: 14, btn: 16, pad: '36px 44px', statMinH: 170, gap: 22, rankTitle: 28 },
-  '1024x600': { w: 1024, h: 600,  header: 42, stat: 44, label: 11, btn: 13, pad: '22px 40px', statMinH: 128, gap: 16, rankTitle: 22 },
-  '600x600':  { w: 600,  h: 600,  header: 32, stat: 36, label: 10, btn: 11, pad: '20px 26px', statMinH: 108, gap: 14, rankTitle: 18 },
-} as const;
-
-type RatioKey = keyof typeof LAYOUTS;
-
-function detectRatio(): RatioKey {
-  if (typeof window === 'undefined') return '1024x768';
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  if (vw <= 600)                return '600x600';
-  if (vw <= 1024 && vh <= 600)  return '1024x600';
-  if (vw <= 1024)               return '1024x768';
-  if (vw <= 1152)               return '1152x768';
-  return '1280x720';
-}
+// Layout is derived from the user's stored resolution so pages use the
+// actual selected resolution in the `gameStore` rather than an inline table.
 
 // ─── Root wrapper ─────────────────────────────────────────────────────────────
 
@@ -112,6 +93,7 @@ const ScaleRoot = styled(Box)({
 
 const ResultPage: React.FC = () => {
   const setScreen   = useGameStore((s) => s.setScreen);
+  const storedRes   = useGameStore((s) => s.resolution);
   const score       = useTriviaStore((s) => (s as any).score ?? 0);
   const questions   = useTriviaStore((s) => s.questions);
   const userAnswers = useTriviaStore((s) => (s as any).userAnswers ?? {});
@@ -122,7 +104,27 @@ const ResultPage: React.FC = () => {
     playerRankTitle = usePlayerStore((s: any) => s?.getPlayer?.()?.rankTitle) ?? 'STUDENT';
   } catch (_) { /* store may not expose rankTitle */ }
 
-  const L = LAYOUTS[detectRatio()];
+  // Compute layout from the user's stored resolution
+  const base = {
+    w: 1280, h: 720,
+    header: 62, stat: 62, label: 15, btn: 18,
+    padV: 34, padH: 52, statMinH: 168, gap: 22, rankTitle: 32,
+  };
+
+  const layoutScale = Math.min(storedRes.width / base.w, storedRes.height / base.h);
+
+  const L = {
+    w: storedRes.width,
+    h: storedRes.height,
+    header: Math.max(20, Math.round(base.header * layoutScale)),
+    stat: Math.max(20, Math.round(base.stat * layoutScale)),
+    label: Math.max(8, Math.round(base.label * layoutScale)),
+    btn: Math.max(8, Math.round(base.btn * layoutScale)),
+    pad: `${Math.max(10, Math.round(base.padV * layoutScale))}px ${Math.max(15, Math.round(base.padH * layoutScale))}px`,
+    statMinH: Math.max(80, Math.round(base.statMinH * layoutScale)),
+    gap: Math.max(8, Math.round(base.gap * layoutScale)),
+    rankTitle: Math.max(16, Math.round(base.rankTitle * layoutScale)),
+  } as const;
 
   const totalQ    = questions.length;
   const correct   = questions.reduce(
@@ -132,7 +134,7 @@ const ResultPage: React.FC = () => {
   );
   const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
   const rankProg  = accuracy;
-  const xpGained  = score;
+  const xpGained  = getLastXpGained() || score;
 
   return (
     <ScaleRoot>

@@ -5,12 +5,14 @@ import CategoryPage from "./pages/CategoryPage";
 import DifficultyPage from "./pages/DifficultyPage";
 import QuestionPage from "./pages/QuestionPage";
 import SessionSummaryPage from "./pages/SessionSummaryPage";
+import AchievementUnlockPage from "./pages/AchievementUnlockPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import StandingPage from "./pages/StandingPage";
 import MultiplayerMenuPage from "./pages/MultiplayerMenuPage";
 import MultiplayerLobbyPage from "./pages/MultiplayerLobbyPage";
 import MultiplayerDiscoveryPage from "./pages/MultiplayerDiscoveryPage";
+import MultiplayerResults from "./pages/MultiplayerResults";
 import { useGameStore } from "./store/gameStore";
 import { usePlayerStore } from "./store/playerStore";
 import theme from "./ui/theme";
@@ -188,6 +190,7 @@ export default function App() {
     case "difficulty":            screenContent = <DifficultyPage />;            break;
     case "question":              screenContent = <QuestionPage />;              break;
     case "result":                screenContent = <SessionSummaryPage />;        break;
+    case "achievement-unlock":    screenContent = <AchievementUnlockPage />;     break;
     case "profile":               screenContent = <ProfilePage />;               break;
     case "settings":              screenContent = <SettingsPage />;              break;
     case "standing":              screenContent = <StandingPage />;              break;
@@ -202,8 +205,9 @@ export default function App() {
       );
       break;
     case "multiplayer-discovery": screenContent = <MultiplayerDiscoveryPage />; break;
+    case "multiplayer-results":   screenContent = <MultiplayerResults />;        break;
     case "home":
-    default:                      screenContent = <HomePage />;                 break;
+      default:                    screenContent = <HomePage />;                  break;
   }
 
   return (

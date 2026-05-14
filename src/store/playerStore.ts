@@ -3,6 +3,7 @@ import { CATEGORIES, Category, DIFFICULTIES, Difficulty, getRankForLevel, MODES,
 import { evaluateUnlocks } from "../progression/achievementRules";
 import { buildSessionDelta, levelFromXp, rankFromLevel, SessionProgressInput, xpToNextLevel } from "../progression/progressionRules";
 import type { Achievement, GameSession, PlayData, Player } from "../types/player";
+import { getAvatarFileName } from "../utils/avatar";
 import { createId } from "../utils/uuid";
 import { create } from "zustand";
 
@@ -28,7 +29,7 @@ export interface PlayerState {
   initialize: () => Promise<void>;
   generatePlayer: () => Player;
   getPlayer: () => Player;
-  applySessionProgress: (sessionInput: SessionProgressInput) => void;
+  applySessionProgress: (sessionInput: SessionProgressInput) => Achievement[];
   saveGameToHistory: (gameData: Omit<GameSession, "id" | "date">) => void;
   resetPlayer: () => void;
   setAvatar: (avatar: string) => void;
@@ -37,6 +38,47 @@ export interface PlayerState {
 }
 
 export const PLAYER_STORAGE_KEY = "tfgf-player";
+const MULTIPLAYER_INSTANCE_STORAGE_KEY = "tfgf-multiplayer-instance-id";
+
+let cachedMultiplayerInstanceId: string | null = null;
+
+const getSessionStorage = (): Storage | null => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+};
+
+export const getMultiplayerInstanceId = (): string => {
+  if (cachedMultiplayerInstanceId) return cachedMultiplayerInstanceId;
+
+  const storage = getSessionStorage();
+  if (storage) {
+    const existing = storage.getItem(MULTIPLAYER_INSTANCE_STORAGE_KEY);
+    if (existing) {
+      cachedMultiplayerInstanceId = existing;
+      return existing;
+    }
+
+    const generated = createId();
+    storage.setItem(MULTIPLAYER_INSTANCE_STORAGE_KEY, generated);
+    cachedMultiplayerInstanceId = generated;
+    return generated;
+  }
+
+  cachedMultiplayerInstanceId = createId();
+  return cachedMultiplayerInstanceId;
+};
+
+export const getMultiplayerPlayerId = (playerId: string): string => `${playerId}::${getMultiplayerInstanceId()}`;
+
+export const getMultiplayerPlayer = (player: Player): Player => ({
+  ...player,
+  id: getMultiplayerPlayerId(player.id),
+});
 
 export const createEmptyPlayData = (): PlayData => ({
   xpGained: 0,
@@ -217,6 +259,8 @@ const createDefaultPlayer = (): Player => ({
   correctAnswers: 0,
   incorrectAnswers: 0,
   averageTimePerQuestion: 0,
+  rivalDefeats: 0,
+  rivalStats: {},
   individualStats: createInitialIndividualStats(),
 });
 
@@ -233,7 +277,7 @@ const normalizePlayer = (value: unknown): Player | null => {
     ...createDefaultPlayer(),
     id: typeof value.id === "string" ? value.id : createId(),
     name: typeof value.name === "string" ? value.name : "PLAYER_01",
-    avatar: typeof value.avatar === "string" ? value.avatar : "Detective 1.png",
+    avatar: typeof value.avatar === "string" ? getAvatarFileName(value.avatar) : "Detective 1.png",
     lastActive: readDate(value.lastActive),
     lastPlayedDate: readOptionalDate(value.lastPlayedDate),
     gameHistory: Array.isArray(value.gameHistory) ? trimGameHistory(value.gameHistory.map((entry) => normalizeGameSession(entry))) : [],
@@ -259,6 +303,8 @@ const normalizePlayer = (value: unknown): Player | null => {
     correctAnswers: readNumber(value.correctAnswers, 0),
     incorrectAnswers: readNumber(value.incorrectAnswers, 0),
     averageTimePerQuestion: readNumber(value.averageTimePerQuestion, 0),
+    rivalDefeats: readNumber(value.rivalDefeats, 0),
+    rivalStats: isRecord(value.rivalStats) ? Object.fromEntries(Object.entries(value.rivalStats).map(([k, v]) => [k, readNumber(v, 0)])) : {},
     individualStats: normalizeIndividualStats(value.individualStats),
   };
 };
@@ -387,8 +433,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     return get().generatePlayer();
   },
 
-  applySessionProgress: (sessionInput) => set((state) => {
-    const player = state.player ?? createDefaultPlayer();
+  applySessionProgress: (sessionInput) => {
+    const player = get().player ?? createDefaultPlayer();
     const delta = buildSessionDelta(sessionInput);
     const nextTotalXp = player.totalXp + delta.xpGained;
     const nextLevel = levelFromXp(nextTotalXp);
@@ -482,8 +528,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const finalPlayer = { ...updatedPlayer, achievements };
 
     persistPlayer(finalPlayer);
-    return { player: finalPlayer };
-  }),
+    set({ player: finalPlayer });
+
+    return newlyUnlocked;
+  },
 
   saveGameToHistory: (gameData) => set((state) => {
     const player = state.player ?? createDefaultPlayer();

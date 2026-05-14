@@ -12,6 +12,7 @@ import { usePlayerStore } from "../store/playerStore";
 import type { GameSession, Player, PlayData } from "../types/player";
 import { User } from "pixelarticons/react"; // Assuming you have this
 import { ACHIEVEMENT_RULES, type AchievementCategory, type AchievementScope } from "../progression/achievementRules";
+import { getAvatarSrc } from "../utils/avatar";
 
 // --- Theme Constants based on your design ---
 const themeColors = {
@@ -329,7 +330,7 @@ const ProfilePage = () => {
               }}
             >
               {player.avatar ? (
-                <img src={player.avatar} alt={playerName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={getAvatarSrc(player.avatar)} alt={playerName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
                 <User style={{ fontSize: "3rem" }} />
               )}
