@@ -12,7 +12,8 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
-    "dev": "vite --config vite.renderer.config.mts --host"
+    "dev": "vite --config vite.renderer.config.mts --host",
+    "build": "vite build"
   },
   "keywords": [],
   "author": {
