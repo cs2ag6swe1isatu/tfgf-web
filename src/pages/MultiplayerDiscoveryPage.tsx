@@ -6,7 +6,8 @@ import { getMultiplayerPlayer, usePlayerStore } from "../store/playerStore";
 import type { 
   MultiplayerBridge, 
   MultiplayerDiscoveredPayload, 
-  MultiplayerHostExitPayload 
+  MultiplayerHostExitPayload,
+  MultiplayerJoinAck
 } from "../types/multiplayer";
 
 const COLORS = {
@@ -23,17 +24,23 @@ const MultiplayerDiscovery = () => {
   const autoJoinLan = useGameStore((s) => s.gameConfig.autoJoinLan); // Setting check 
   
   const { 
-    setLobbyId, setLobbyRole, setHostAddress, setCurrentPlayerId,
+    setLobbyId, setLobbyRole, setHostAddress, setCurrentPlayerId, setSessionId,
     addOrUpdatePlayer, addOrUpdateDiscoveredHost, discoveredHosts,
     removeDiscoveredHost, pruneStaleDiscoveredHosts 
   } = useMultiplayerStore();
 
   const player = usePlayerStore((s) => s.getPlayer());
   const multiplayerPlayer = getMultiplayerPlayer(player);
-  const multiplayerBridge = (window as any).multiplayer as MultiplayerBridge;
+  const multiplayerBridge = (window as Window & { multiplayer?: MultiplayerBridge }).multiplayer;
 
-  const [hostIdInput, setHostIdInput] = useState("");
   const [status, setStatus] = useState<string>("");
+  const [directIp, setDirectIp] = useState<string>("");
+
+  const handleDirectJoin = () => {
+    if (!directIp) return;
+    setStatus(`SCANNING ${directIp}...`);
+    multiplayerBridge?.directJoin?.(directIp);
+  };
 
   const handleJoinLobby = (selectedLobbyId: string) => {
     const discovered = discoveredHosts.find((host) => host.lobbyId === selectedLobbyId);
@@ -42,22 +49,43 @@ const MultiplayerDiscovery = () => {
       return;
     }
 
-    // Update global state before transition [cite: 1021]
-    setLobbyId(selectedLobbyId);
-    setLobbyRole("client");
-    setHostAddress(discovered.hostAddress);
-    setCurrentPlayerId(multiplayerPlayer.id);
-    addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
+    setStatus("JOINING LOBBY...");
 
-    // Bridge request to Electron [cite: 1017]
+    const joinTimeout = window.setTimeout(() => {
+      console.warn('[Discovery] join timeout for', selectedLobbyId);
+      setStatus('JOIN TIMED OUT');
+      multiplayerBridge?.offJoinResponse?.('DiscoveryJoin');
+    }, 8000);
+
+    const onJoin = (payload: MultiplayerJoinAck) => {
+      console.log('[Discovery] received join response', payload);
+      if (payload.lobbyId !== selectedLobbyId) return;
+      window.clearTimeout(joinTimeout);
+      multiplayerBridge?.offJoinResponse?.('DiscoveryJoin');
+      if (!payload.accepted) {
+        setStatus(payload.reason ? `JOIN REJECTED: ${payload.reason}` : 'JOIN REJECTED');
+        return;
+      }
+
+      // accepted: update global state and navigate to lobby
+      setLobbyId(selectedLobbyId);
+      setSessionId(payload.sessionId ?? null);
+      setLobbyRole('client');
+      setHostAddress(discovered.hostAddress);
+      setCurrentPlayerId(multiplayerPlayer.id);
+      addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
+      setStatus('JOINED');
+      setScreen('multiplayer-lobby');
+    };
+
+    // Register handler before sending request to avoid race where ack arrives early
+    multiplayerBridge?.onJoinResponse?.('DiscoveryJoin', onJoin);
+    // send join request
     multiplayerBridge?.requestJoin({
       lobbyId: selectedLobbyId,
       hostAddress: discovered.hostAddress,
       player: { ...multiplayerPlayer, isReady: false, isHost: false },
     });
-
-    setStatus("JOINING LOBBY...");
-    setScreen("multiplayer-lobby");
   };
 
   // 1. AUTO-JOIN LOGIC [cite: 975, 976]
@@ -158,6 +186,31 @@ const MultiplayerDiscovery = () => {
             onClick={() => setScreen("multiplayer-menu")}
           >
             BACK
+          </button>
+        </Box>
+
+        {/* Direct Join Section */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', bgcolor: COLORS.surface, p: 2, border: `1px solid ${COLORS.cyan}` }}>
+          <Typography sx={{ color: COLORS.cyan, fontSize: '1rem', whiteSpace: 'nowrap' }}>DIRECT IP:</Typography>
+          <input 
+            type="text" 
+            value={directIp}
+            onChange={(e) => setDirectIp(e.target.value)}
+            placeholder="192.168.1.10"
+            style={{ 
+              background: 'black', color: COLORS.neonGreen, border: `1px solid ${COLORS.cyan}`, 
+              padding: '8px', flex: 1, fontFamily: 'inherit', outline: 'none' 
+            }}
+          />
+          <button 
+            onClick={handleDirectJoin}
+            style={{ 
+              background: COLORS.neonGreen, color: 'black', border: 'none', 
+              padding: '8px 20px', fontFamily: 'inherit', cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            CONNECT
           </button>
         </Box>
 

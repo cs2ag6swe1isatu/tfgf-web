@@ -14,6 +14,7 @@ import type {
   MultiplayerLobbySnapshot,
   LobbyMember,
   MultiplayerGameState,
+  MultiplayerHostExitPayload,
 } from "../types/multiplayer";
 import { defaultGameConfig } from "../config/gameConfig";
 
@@ -60,6 +61,8 @@ const MultiplayerLobby = () => {
   const handleHostExit = useCallback(() => {
     if (hasHandledHostExitRef.current) return;
     hasHandledHostExitRef.current = true;
+    hasConfirmedJoinRef.current = false;
+    isTransitioningToGameRef.current = false;
     multiplayerBridge?.stopDiscovery();
     resetMultiplayer();
     setScreen("multiplayer-menu");
@@ -86,6 +89,7 @@ const MultiplayerLobby = () => {
       const questionLimit = payload.questionLimit ?? currentConfig.questionLimit ?? defaultGameConfig.questionLimit;
       const questionTimer = payload.questionTimer ?? currentConfig.questionTimer ?? defaultGameConfig.questionTimer;
       const answerTimer = payload.answerTimer ?? currentConfig.answerTimer ?? defaultGameConfig.answerTimer;
+      const questionPort = payload.questionPort;
 
       setGameConfig({ category, difficulty, questionLimit, questionTimer, answerTimer, seed: payload.seed });
 
@@ -97,6 +101,7 @@ const MultiplayerLobby = () => {
         questionTimer,
         answerTimer,
         seed: payload.seed,
+        questionPort, // Pass port to startGame for fetching
         recentSessionLimitSolo: 0,
         recentSessionLimitMultiplayer: 0,
         autoJoinLan: false
@@ -130,6 +135,29 @@ const MultiplayerLobby = () => {
     const sessionQuestionTimer = gameConfig.questionTimer ?? defaultGameConfig.questionTimer;
     const sessionAnswerTimer = gameConfig.answerTimer ?? defaultGameConfig.answerTimer;
 
+    // Host: Listen for HTTP server port before broadcasting game-state
+    if (multiplayerBridge?.onHttpServerStarted) {
+      multiplayerBridge.onHttpServerStarted("StartGame", (port) => {
+        console.log(`[Lobby] HTTP server started on port ${port}, broadcasting game-state`);
+        const state = useTriviaStore.getState();
+        multiplayerBridge?.broadcastGameState({
+          phase: state.phase,
+          timer: state.timer,
+          currentIndex: state.currentIndex,
+          seed: gameSessionSeed,
+          category: gameConfig.category ?? undefined,
+          difficulty: gameConfig.difficulty ?? undefined,
+          questionLimit: state.questionLimit,
+          questionTimer: state.questionTimer,
+          answerTimer: state.answerTimer,
+          questionPort: port, // Include the port for clients to fetch questions
+          playerScores: state.playerScores,
+          rankings: state.rankings,
+        });
+        multiplayerBridge.offHttpServerStarted("StartGame");
+      });
+    }
+
     await startGame({
       category: gameConfig.category ?? "General Knowledge",
       difficulty: gameConfig.difficulty ?? "easy",
@@ -141,21 +169,6 @@ const MultiplayerLobby = () => {
       recentSessionLimitSolo: 0,
       recentSessionLimitMultiplayer: 0,
       autoJoinLan: false
-    });
-
-    const state = useTriviaStore.getState();
-    multiplayerBridge?.broadcastGameState({
-      phase: state.phase,
-      timer: state.timer,
-      currentIndex: state.currentIndex,
-      seed: gameSessionSeed,
-      category: gameConfig.category ?? undefined,
-      difficulty: gameConfig.difficulty ?? undefined,
-      questionLimit: state.questionLimit,
-      questionTimer: state.questionTimer,
-      answerTimer: state.answerTimer,
-      playerScores: state.playerScores,
-      rankings: state.rankings,
     });
 
     setScreen("question");
@@ -178,6 +191,7 @@ const MultiplayerLobby = () => {
       lastActive: new Date().toISOString(),
       players: updatedPlayers,
     });
+    multiplayerBridge?.kickPlayer?.({ lobbyId, playerId, sessionId: useMultiplayerStore.getState().sessionId ?? undefined });
   };
 
   const handleLeaveLobby = () => {
@@ -193,6 +207,8 @@ const MultiplayerLobby = () => {
   useEffect(() => {
     if (!multiplayerBridge || lobbyRole !== "client") return;
     hasHandledHostExitRef.current = false;
+    hasConfirmedJoinRef.current = false;
+    isTransitioningToGameRef.current = false;
     const newestTimestampRef = { current: 0 };
 
     const sendLeaveOnUnload = () => {
@@ -212,7 +228,11 @@ const MultiplayerLobby = () => {
 
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
       const currentLobbyId = useMultiplayerStore.getState().lobbyId;
+      const currentSessionId = useMultiplayerStore.getState().sessionId;
+      const lastSnapshotSequence = useMultiplayerStore.getState().lastSnapshotSequence;
       if (currentLobbyId && payload.lobbyId !== currentLobbyId) return;
+      if (currentSessionId && payload.sessionId && payload.sessionId !== currentSessionId) return;
+      if (lastSnapshotSequence !== null && payload.sequence !== undefined && payload.sequence <= lastSnapshotSequence) return;
       if (isTransitioningToGameRef.current) return;
 
       const packetTime = payload.lastSeen;
@@ -241,14 +261,27 @@ const MultiplayerLobby = () => {
       if (hasConfirmedJoinRef.current) handleHostExit();
     };
 
-    const onHostExitCb = (payload: { lobbyId: string }) => {
+    const onHostExitCb = (payload: MultiplayerHostExitPayload) => {
       const currentLobbyId = useMultiplayerStore.getState().lobbyId;
-      if (currentLobbyId && payload.lobbyId === currentLobbyId) handleHostExit();
+      const currentSessionId = useMultiplayerStore.getState().sessionId;
+      if (currentLobbyId && payload.lobbyId === currentLobbyId) {
+        if (currentSessionId && payload.sessionId && payload.sessionId !== currentSessionId) return;
+        handleHostExit();
+      }
+    };
+
+    const onPlayerKickedCb = (payload: { lobbyId: string; playerId: string; sessionId?: string }) => {
+      const state = useMultiplayerStore.getState();
+      if (state.lobbyId !== payload.lobbyId) return;
+      if (state.sessionId && payload.sessionId && state.sessionId !== payload.sessionId) return;
+      if (payload.playerId !== multiplayerPlayer.id) return;
+      handleHostExit();
     };
 
     window.addEventListener("beforeunload", sendLeaveOnUnload);
     multiplayerBridge.onHostFound("Lobby", onHostFoundCb);
     multiplayerBridge.onHostExit("Lobby", onHostExitCb);
+    multiplayerBridge.onPlayerKicked?.("Lobby", onPlayerKickedCb);
     multiplayerBridge.onGameStateSync("Lobby", handleGameStateSync);
 
     const heartbeatInterval = window.setInterval(() => {
@@ -259,17 +292,14 @@ const MultiplayerLobby = () => {
     }, 3000);
 
     return () => {
-  if (joinTimeoutRef.current !== null) {
-    clearTimeout(joinTimeoutRef.current);
-    joinTimeoutRef.current = null;
-  }
-  window.clearInterval(heartbeatInterval);
-  multiplayerBridge.offHostFound?.("Lobby");
-  multiplayerBridge.offHostExit?.("Lobby");
-  multiplayerBridge.stopDiscovery();
-  multiplayerBridge.offGameStateSync?.("Lobby");
-  window.removeEventListener("beforeunload", sendLeaveOnUnload);
-};
+      window.clearInterval(heartbeatInterval);
+      multiplayerBridge.offHostFound?.("Lobby");
+      multiplayerBridge.offHostExit?.("Lobby");
+      multiplayerBridge.offPlayerKicked?.("Lobby");
+      multiplayerBridge.stopDiscovery();
+      multiplayerBridge.offGameStateSync?.("Lobby");
+      window.removeEventListener("beforeunload", sendLeaveOnUnload);
+    };
   }, [lobbyRole, multiplayerBridge, syncLobbySnapshot, handleHostExit, handleGameStateSync, multiplayerPlayer.id]);
 
   // Effect A: register listeners only — stable deps, won't re-run on player changes

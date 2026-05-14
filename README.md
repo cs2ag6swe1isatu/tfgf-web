@@ -5,7 +5,39 @@ G ba guys reactJS + TypeScript ta if web
 [todo]
 
 
-# Vite-Only Multiplayer Testing Guide
+## Cross-Device LAN Testing (mDNS)
+
+To test multiplayer across different devices on the same Wi-Fi/LAN, you must use **Electron** (`npm start`). The app uses mDNS (ZeroConf) for discovery and UDP for communication.
+
+### Platform Setup
+
+#### 🪟 Windows
+1. **Bonjour Service**: Ensure the "Bonjour" service is running. It usually comes with iTunes or "Bonjour Print Services for Windows".
+2. **Firewall**: When you first run the app, Windows will ask to allow access. Ensure **Private Networks** is checked.
+   - If discovery fails, manually allow `UDP Port 5353` (mDNS) and `UDP Port 41234` (Game Data) in Windows Firewall.
+3. **Network Profile**: Your Wi-Fi/Ethernet must be set to **Private**, not Public.
+
+#### 🐧 Linux
+1. **Avahi Daemon**: Most distros use Avahi for mDNS. Ensure it is installed and running:
+   ```bash
+   sudo systemctl enable --now avahi-daemon
+   ```
+2. **Firewall**: If using `ufw`, allow mDNS and the game port:
+   ```bash
+   sudo ufw allow 5353/udp
+   sudo ufw allow 41234/udp
+   ```
+3. **Hostname**: Ensure your machine has a valid hostname (check `/etc/hostname`).
+
+### Troubleshooting LAN Discovery
+
+1. **AP Isolation**: Some routers (especially Guest Wi-Fi) have "AP Isolation" or "Client Isolation" enabled. This prevents devices from talking to each other. Disable this in router settings.
+2. **VPNs/Docker**: Virtual network adapters (from Docker, VMware, or VPN clients) can confuse discovery. The app tries to ignore them, but if discovery fails, try disabling these adapters temporarily.
+3. **Direct Join**: If mDNS discovery fails, you can use the **DIRECT IP** field in the Discovery page to connect manually using the Host's IP address.
+
+---
+
+## Vite-Only Multiplayer Testing Guide
 
 ## Quick Start
 

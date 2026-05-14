@@ -37,6 +37,15 @@ const Overlay: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
+// ── Asset path helper — works in both dev (http) and packaged Electron (file://) ──
+const assetBase = window.location.protocol === "file:"
+  ? window.location.pathname.replace(/[^/\\]*$/, "")  // strip index.html, keep trailing slash
+  : "/";
+
+function assetUrl(rel: string): string {
+  return assetBase + rel;
+}
+
 // ── useAudioEngine — defined OUTSIDE App, at the module level ──
 function useAudioEngine(sfxEnabled: boolean, vol: number) {
   const audioBank = useRef<Partial<Record<SoundType, HTMLAudioElement>>>({});
@@ -45,12 +54,12 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
 
   useEffect(() => {
     const files: Record<SoundType, string> = {
-  hover: "/sounds/hover.mp3",
-  select: "/sounds/select.mp3",
-  tab: "/sounds/tab.mp3",
-  back: "/sounds/back.mp3",
-  error: "/sounds/error.mp3",
-};
+      hover:  assetUrl("sounds/hover.mp3"),
+      select: assetUrl("sounds/select.mp3"),
+      tab:    assetUrl("sounds/tab.mp3"),
+      back:   assetUrl("sounds/back.mp3"),
+      error:  assetUrl("sounds/error.mp3"),
+    };
 
     let loaded = 0;
     (Object.entries(files) as [SoundType, string][]).forEach(([key, src]) => {
@@ -135,7 +144,7 @@ export default function App() {
   const bgmReady = useRef(false);
 
   useEffect(() => {
-    const audio = new Audio("/sounds/bgm/Eric Skiff - A Night Of Dizzy Spells ♫ NO COPYRIGHT 8-bit Music + Background.mp3");
+    const audio = new Audio(assetUrl("sounds/bgm/Eric Skiff - A Night Of Dizzy Spells ♫ NO COPYRIGHT 8-bit Music + Background.mp3"));
     audio.loop = true;
     audio.volume = 0;
     bgmRef.current = audio;
