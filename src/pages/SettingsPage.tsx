@@ -307,43 +307,82 @@ export default function SettingsPage() {
   const updatePlayer = usePlayerStore((s: PlayerState) => s.updatePlayer);
   const resetPlayer  = usePlayerStore((s: PlayerState) => s.resetPlayer);
 
-  const nameInput = player?.name || "PLAYER_01";
-  const avatar = player?.avatar ?? avatars[0];
-  const volume = storedSettings.volume ?? 5;
-  const sfxEnabled = storedSettings.sfxEnabled ?? true;
-  const bgmEnabled = storedSettings.bgmEnabled ?? false;
-  const useCase = storedSettings.useCase ?? false;
-  const useFlicker = storedSettings.useFlicker ?? false;
-  const useScanlines = storedSettings.useScanlines ?? false;
-  const resKey = storedRes.label ?? "XGA";
-  const autoJoinLan = gameConfig.autoJoinLan ?? false;
+  // ── Local draft state — nothing persists until SAVE is clicked ────────────
+  type Draft = {
+    name: string;
+    avatar: string;
+    volume: number;
+    sfxEnabled: boolean;
+    bgmEnabled: boolean;
+    useCase: boolean;
+    useFlicker: boolean;
+    useScanlines: boolean;
+    resKey: string;
+    autoJoinLan: boolean;
+  };
+
+  const [draft, setDraft] = useState<Draft>({
+    name:         player?.name ?? "PLAYER_01",
+    avatar:       player?.avatar ?? avatars[0],
+    volume:       storedSettings.volume ?? 5,
+    sfxEnabled:   storedSettings.sfxEnabled ?? true,
+    bgmEnabled:   storedSettings.bgmEnabled ?? false,
+    useCase:      storedSettings.useCase ?? false,
+    useFlicker:   storedSettings.useFlicker ?? false,
+    useScanlines: storedSettings.useScanlines ?? false,
+    resKey:       storedRes.label ?? "XGA",
+    autoJoinLan:  gameConfig.autoJoinLan ?? false,
+  });
+
+  const { name: nameInput, avatar, volume, sfxEnabled, bgmEnabled,
+          useCase, useFlicker, useScanlines, resKey, autoJoinLan } = draft;
+
+  function setDraftField<K extends keyof Draft>(key: K, value: Draft[K]) {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  }
 
   const { playSound } = useAudioEngine(sfxEnabled, volume);
 
   function updateSetting<T extends keyof SettingsView>(key: T, value: SettingsView[T]) {
-    updateSettings({ [key]: value } as Partial<SettingsView>);
+    setDraftField(key as keyof Draft, value as Draft[keyof Draft]);
   }
 
   function updatePlayerName(nextName: string) {
-    if (!updatePlayer) return;
-    updatePlayer({ name: nextName.trim() || player?.name || "PLAYER_01" });
+    setDraftField("name", nextName);
   }
 
   function updateAvatar(nextAvatar: string) {
-    if (!updatePlayer) return;
-    updatePlayer({ avatar: nextAvatar });
+    setDraftField("avatar", nextAvatar);
   }
 
   function updateResolution(key: string) {
-    const res = resolutions.find((r) => r.key === key);
-    if (res) setResolution(res.w, res.h, res.key);
+    setDraftField("resKey", key);
   }
 
   function updateAutoJoinLan(enabled: boolean) {
-    setGameConfig({ autoJoinLan: enabled });
+    setDraftField("autoJoinLan", enabled);
   }
 
   function handleSave() {
+    // Commit all draft values to stores
+    updateSettings({
+      volume:       draft.volume,
+      sfxEnabled:   draft.sfxEnabled,
+      bgmEnabled:   draft.bgmEnabled,
+      useCase:      draft.useCase,
+      useFlicker:   draft.useFlicker,
+      useScanlines: draft.useScanlines,
+    });
+    if (updatePlayer) {
+      updatePlayer({
+        name:   draft.name.trim() || player?.name || "PLAYER_01",
+        avatar: draft.avatar,
+      });
+    }
+    const res = resolutions.find((r) => r.key === draft.resKey);
+    if (res) setResolution(res.w, res.h, res.key);
+    setGameConfig({ autoJoinLan: draft.autoJoinLan });
+
     playSound("select");
     setSaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
@@ -423,7 +462,7 @@ export default function SettingsPage() {
               ))}
             </div>
             <SectionLabel>EFFECTS</SectionLabel>
-            <PixelToggle value={useCase}   label="CASEMODE"  onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useCase", !useCase); }} />
+            <PixelToggle value={useCase}      label="CASEMODE"  onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useCase", !useCase); }} />
             <PixelToggle value={useFlicker}   label="FLICKER"   onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useFlicker", !useFlicker); }} />
             <PixelToggle value={useScanlines} label="SCANLINES" onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useScanlines", !useScanlines); }} />
             <SaveBar onSave={handleSave} saved={saved} />
