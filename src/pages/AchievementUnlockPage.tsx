@@ -43,7 +43,13 @@ const ConfettiPiece = styled("span")({
   filter: "drop-shadow(0 0 4px rgba(0, 0, 0, 0.45))",
 });
 
-const FrameCorner = styled(Box)<{ top?: boolean; right?: boolean }>(({ top, right }) => ({
+// FIX: Add shouldForwardProp to prevent 'top' and 'right' boolean props from
+// being forwarded to the underlying DOM <div>. Without this, MUI passes them
+// directly to the HTML element, causing the TypeScript / React DOM prop error:
+// "Type 'true' is not assignable to type '((string | number | ...) ...'"
+const FrameCorner = styled(Box, {
+  shouldForwardProp: (prop) => prop !== "top" && prop !== "right",
+})<{ top?: boolean; right?: boolean }>(({ top, right }) => ({
   position: "absolute",
   width: "44px",
   height: "44px",
@@ -113,7 +119,7 @@ const AchievementUnlockPage = () => {
   };
 
   if (!activeAchievement) {
-    return null; 
+    return null;
   }
 
   return (
@@ -160,10 +166,11 @@ const AchievementUnlockPage = () => {
         ))}
       </ConfettiLayer>
 
-      <FrameCorner top />
-      <FrameCorner top right />
+      {/* FIX: Explicit boolean props instead of shorthand to satisfy TypeScript */}
+      <FrameCorner top={true} />
+      <FrameCorner top={true} right={true} />
       <FrameCorner />
-      <FrameCorner right />
+      <FrameCorner right={true} />
 
       <Box
         sx={{
