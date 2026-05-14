@@ -328,14 +328,9 @@ function AllRanksPage({ totalXp }: { totalXp:number }) {
 export default function RankingPage() {
   const [page, setPage] = useState(0);
 
-  const currentRanks = PAGES[page];
-  const totalPages = PAGES.length;
-
   const setScreen      = useGameStore((s) => s.setScreen);
-  const { playSound } = useSoundContext();
-  
-  const setScreen = useGameStore((s)=>s.setScreen);
-  const totalXp: number = useGameStore((s)=>(s as any).player?.xp ?? (s as any).xp ?? 0);
+  const { playSound }  = useSoundContext();
+  const totalXp: number = useGameStore((s) => (s as any).player?.xp ?? (s as any).xp ?? 0);
 
   return (
     <div style={{ position:"relative", width:"100%", minHeight:"100%", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", fontFamily:"'Press Start 2P',monospace" }}>
@@ -376,48 +371,17 @@ export default function RankingPage() {
             STANDING / RANKS
           </h1>
           <p style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(6px,0.78vw,9px)", color:C.cyan, letterSpacing:"0.28em", opacity:0.55, textShadow:`0 0 8px ${C.cyan}`, marginTop:7, marginBottom:0, animation:"fadeUp 0.45s 0.1s both" }}>
-            {page===0?"YOUR CURRENT STANDING":"RANK PROGRESSION TREE"}
+            {page===0 ? "YOUR CURRENT STANDING" : "RANK PROGRESSION TREE"}
           </p>
         </div>
 
-        {/* Grid + arrows row */}
-        <div style={styles.gridRow}>
-
-          <ArrowBtn
-            direction="left"
-            disabled={page === 0}
-            onClick={() => { setPage(p => p - 1); playSound("select"); }}
-          />
-
-          {/* 5-card grid (3 + 2 centered) */}
-          <div style={styles.grid}>
-            {/* Top row: 3 cards */}
-            <div style={styles.topRow}>
-              {currentRanks.slice(0, 3).map((rank, i) => (
-                <div key={rank.title} style={styles.gridCell}>
-                  <RankCard rank={rank} animDelay={`${i * 0.06}s`} />
-                </div>
-              ))}
-            </div>
-            {/* Bottom row: 2 cards centered */}
-            <div style={styles.bottomRow}>
-              {currentRanks.slice(3, 5).map((rank, i) => (
-                <div key={rank.title} style={styles.gridCell}>
-                  <RankCard rank={rank} animDelay={`${(i + 3) * 0.06}s`} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <ArrowBtn
-            direction="right"
-            disabled={page === totalPages - 1}
-            onClick={() => { setPage(p => p + 1); playSound("select"); }}
-          />
         {/* Tab switcher */}
         <div style={{ display:"flex", gap:4, marginBottom:"clamp(10px,1.8vw,22px)", animation:"fadeUp 0.3s 0.1s both" }}>
-          {["MY RANK","ALL RANKS"].map((label,i)=>(
-            <button key={i} className="tab-btn" onClick={()=>setPage(i)} style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(6px,0.7vw,8px)", color:page===i?C.bg:C.cyan, background:page===i?C.cyan:"transparent", border:`1.5px solid ${C.cyan}`, borderRadius:3, padding:"5px clamp(9px,1.3vw,16px)", cursor:"pointer", letterSpacing:"0.12em", transition:"background 0.15s,color 0.15s", boxShadow:page===i?`0 0 14px ${C.cyan}66`:undefined, outline:"none", opacity:page===i?1:0.7 }}>
+          {["MY RANK","ALL RANKS"].map((label,i) => (
+            <button key={i} className="tab-btn"
+              onClick={() => { setPage(i); playSound("select"); }}
+              onMouseEnter={() => playSound("hover")}
+              style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(6px,0.7vw,8px)", color:page===i?C.bg:C.cyan, background:page===i?C.cyan:"transparent", border:`1.5px solid ${C.cyan}`, borderRadius:3, padding:"5px clamp(9px,1.3vw,16px)", cursor:"pointer", letterSpacing:"0.12em", transition:"background 0.15s,color 0.15s", boxShadow:page===i?`0 0 14px ${C.cyan}66`:undefined, outline:"none", opacity:page===i?1:0.7 }}>
               {label}
             </button>
           ))}
@@ -426,7 +390,7 @@ export default function RankingPage() {
         {/* Page content */}
         <div style={{ width:"100%", display:"flex", justifyContent:"center", flex:1 }}>
           {page===0
-            ? <CurrentRankPage totalXp={totalXp} onNext={()=>setPage(1)}/>
+            ? <CurrentRankPage totalXp={totalXp} onNext={() => { setPage(1); playSound("select"); }}/>
             : <AllRanksPage totalXp={totalXp}/>
           }
         </div>
@@ -438,13 +402,13 @@ export default function RankingPage() {
           </span>
           <button
             className="back-btn"
-            onClick={() => { setScreen("home"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
-            style={styles.backBtn}
-          >
-          <button className="back-btn" onClick={()=>setScreen("home")} style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(8px,0.95vw,11px)", color:C.btnText, background:C.btnFill, border:`1.5px solid ${C.green}`, borderRadius:3, padding:"clamp(8px,1vw,12px) clamp(14px,2vw,28px)", cursor:"pointer", letterSpacing:"0.14em", boxShadow:"0 0 10px rgba(53,229,43,.25)", transition:"background .15s,border-color .15s,color .15s,box-shadow .15s", animation:"navGlow 3s ease-in-out infinite", outline:"none" }}>
+            onClick={() => { setScreen("home"); playSound("select"); }}
+            onMouseEnter={() => playSound("hover")}
+            style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(8px,0.95vw,11px)", color:C.btnText, background:C.btnFill, border:`1.5px solid ${C.green}`, borderRadius:3, padding:"clamp(8px,1vw,12px) clamp(14px,2vw,28px)", cursor:"pointer", letterSpacing:"0.14em", boxShadow:"0 0 10px rgba(53,229,43,.25)", transition:"background .15s,border-color .15s,color .15s,box-shadow .15s", animation:"navGlow 3s ease-in-out infinite", outline:"none" }}>
             BACK
           </button>
         </div>
+
       </main>
     </div>
   );

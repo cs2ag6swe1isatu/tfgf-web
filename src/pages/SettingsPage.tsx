@@ -307,7 +307,7 @@ export default function SettingsPage() {
   const updatePlayer = usePlayerStore((s: PlayerState) => s.updatePlayer);
   const resetPlayer  = usePlayerStore((s: PlayerState) => s.resetPlayer);
 
-  const nameInput = player?.name || "PLAYER_01";
+  const [nameInput, setNameInput] = useState<string>(player?.name ?? "PLAYER_01");
   const avatar = player?.avatar ?? avatars[0];
   const volume = storedSettings.volume ?? 5;
   const sfxEnabled = storedSettings.sfxEnabled ?? true;
@@ -325,8 +325,9 @@ export default function SettingsPage() {
   }
 
   function updatePlayerName(nextName: string) {
+    setNameInput(nextName);
     if (!updatePlayer) return;
-    updatePlayer({ name: nextName.trim() || player?.name || "PLAYER_01" });
+    updatePlayer({ name: nextName || "PLAYER_01" });
   }
 
   function updateAvatar(nextAvatar: string) {
@@ -359,8 +360,6 @@ export default function SettingsPage() {
           <div>
             <SectionLabel>PLAYER NAME</SectionLabel>
             <div style={{ display: "flex", gap: 8, marginBottom: 28 }}>
-              {/* FIX: Added aria-label to satisfy accessibility linting (axe/forms).
-                  The input had no label, title, or placeholder — this is the minimal fix. */}
               <input
                 aria-label="Player name"
                 value={nameInput}
