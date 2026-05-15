@@ -741,9 +741,9 @@ const MultiplayerLobby = () => {
             )}
           </Box>
 
-          <Box sx={styles.lobbyIdRow}>
-            <span style={styles.lobbyIdLabel}>LOBBY ID:</span>
-            <span style={styles.lobbyIdBox}>{currentLobbyId}</span>
+          <Box sx={styles.ipRow}>
+            <span style={styles.lobbyIdLabel}>IP:</span>
+            <span style={styles.lobbyIdBox}>{machineIp}</span>
           </Box>
 
           <button style={styles.exitBtn} onClick={() => { handleLeaveLobby(); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
@@ -751,10 +751,8 @@ const MultiplayerLobby = () => {
           </button>
         </Box>
 
-        <Box sx={styles.ipRow}>
-          <span style={styles.lobbyIdLabel}>MACHINE IP:</span>
-          <span style={styles.lobbyIdBox}>{machineIp}</span>
-        </Box>
+        
+
 
         {/* Players panel */}
         <Box sx={styles.panel}>
