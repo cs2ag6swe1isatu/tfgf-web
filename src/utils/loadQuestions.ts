@@ -1,7 +1,14 @@
 import type { Question } from "../types/question";
 import type { JSONQuestion } from "src/types/jsonQuestion";
 
-// no need to convert base64, our devtool already do this
+// Works in both dev (http://) and packaged Electron (file://)
+const assetBase = window.location.protocol === "file:"
+  ? window.location.pathname.replace(/[^/\\]*$/, "")
+  : "/";
+
+function assetUrl(rel: string): string {
+  return assetBase + rel;
+}
 
 // Seeded Random Generator (Mulberry32)
 function mulberry32(a: number) {
@@ -30,7 +37,7 @@ export async function loadQuestions(
   seed?: number
 ): Promise<Question[]> {
   try {
-    const data = await fetch('/data/Questions.json');
+    const data = await fetch(assetUrl("data/Questions.json"));
     const json: JSONQuestion[] = await data.json();
     
     /* ---------- Validation ---------- */
