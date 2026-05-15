@@ -213,6 +213,9 @@ ipcMain.on('multiplayer:start-http-server', (event, data: string) => {
     httpServer.close();
   }
   
+  const startTime = Date.now();
+  console.log(`[main] HTTP server startup requested at ${startTime}`);
+  
   currentQuestionsData = data;
   httpServer = http.createServer((req, res) => {
     if (req.url === '/questions') {
@@ -229,8 +232,14 @@ ipcMain.on('multiplayer:start-http-server', (event, data: string) => {
 
   httpServer.listen(0, '0.0.0.0', () => {
     const port = (httpServer?.address() as any)?.port;
-    console.log(`[main] HTTP server listening on port ${port}`);
+    const elapsedMs = Date.now() - startTime;
+    console.log(`[main] HTTP server listening on port ${port} (${elapsedMs}ms after startup request)`);
     event.reply('multiplayer:http-server-started', port);
+  });
+  
+  // Add error handler to log HTTP server issues
+  httpServer.on('error', (err) => {
+    console.error(`[main] HTTP server error:`, err);
   });
 });
 

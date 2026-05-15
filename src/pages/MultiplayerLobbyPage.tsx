@@ -82,7 +82,10 @@ const MultiplayerLobby = () => {
       if (!syncablePhases.includes(payload.phase)) return;
       if (lobbyRole !== "client") return;
       if (isTransitioningToGameRef.current) return;
+      
+      console.log(`[Lobby Client] Received game-state, phase=${payload.phase}, starting game transition`);
       isTransitioningToGameRef.current = true;
+      const transitionStartTime = Date.now();
 
       const currentConfig = useGameStore.getState().gameConfig;
       const category = payload.category ?? currentConfig.category ?? "General Knowledge";
@@ -92,8 +95,11 @@ const MultiplayerLobby = () => {
       const answerTimer = payload.answerTimer ?? currentConfig.answerTimer ?? defaultGameConfig.answerTimer;
       const questionPort = payload.questionPort;
 
+      console.log(`[Lobby Client] Game config: category=${category}, difficulty=${difficulty}, questionPort=${questionPort}`);
+
       setGameConfig({ category, difficulty, questionLimit, questionTimer, answerTimer, seed: payload.seed });
 
+      const gameStartTime = Date.now();
       await startGame({
         category,
         difficulty,
@@ -107,6 +113,8 @@ const MultiplayerLobby = () => {
         recentSessionLimitMultiplayer: 0,
         autoJoinLan: false
       });
+      const gameElapsedMs = Date.now() - gameStartTime;
+      console.log(`[Lobby Client] startGame completed in ${gameElapsedMs}ms`);
 
       const nextState = {
         phase: payload.phase,
@@ -123,6 +131,8 @@ const MultiplayerLobby = () => {
       };
 
       useTriviaStore.setState(nextState);
+      const totalElapsedMs = Date.now() - transitionStartTime;
+      console.log(`[Lobby Client] Game transition complete, navigating to question page (${totalElapsedMs}ms total)`);
       setScreen("question");
     },
     [lobbyRole, setGameConfig, setScreen, startGame, multiplayerBridge]
@@ -136,10 +146,14 @@ const MultiplayerLobby = () => {
     const sessionQuestionTimer = gameConfig.questionTimer ?? defaultGameConfig.questionTimer;
     const sessionAnswerTimer = gameConfig.answerTimer ?? defaultGameConfig.answerTimer;
 
+    console.log(`[Lobby] Starting game as ${lobbyRole}, seed=${gameSessionSeed}`);
+
     // Host: Listen for HTTP server port before broadcasting game-state
     if (multiplayerBridge?.onHttpServerStarted) {
+      const httpStartTime = Date.now();
       multiplayerBridge.onHttpServerStarted("StartGame", (port) => {
-        console.log(`[Lobby] HTTP server started on port ${port}, broadcasting game-state`);
+        const httpElapsedMs = Date.now() - httpStartTime;
+        console.log(`[Lobby] HTTP server started on port ${port} (${httpElapsedMs}ms after setup), broadcasting game-state`);
         const state = useTriviaStore.getState();
         multiplayerBridge?.broadcastGameState({
           phase: state.phase,
@@ -159,6 +173,8 @@ const MultiplayerLobby = () => {
       });
     }
 
+    console.log(`[Lobby] Host calling startGame...`);
+    const gameStartTime = Date.now();
     await startGame({
       category: gameConfig.category ?? "General Knowledge",
       difficulty: gameConfig.difficulty ?? "easy",
@@ -171,6 +187,8 @@ const MultiplayerLobby = () => {
       recentSessionLimitMultiplayer: 0,
       autoJoinLan: false
     });
+    const gameElapsedMs = Date.now() - gameStartTime;
+    console.log(`[Lobby] startGame completed in ${gameElapsedMs}ms`);
 
     setScreen("question");
   };

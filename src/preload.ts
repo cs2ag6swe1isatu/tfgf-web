@@ -128,16 +128,18 @@ let hostWatchdogInterval: NodeJS.Timeout | null = null;
 function startClientHostWatchdog() {
   if (hostWatchdogInterval) return;
 
+  console.log(`[preload] Starting host watchdog, timeout=${HOST_SILENCE_TIMEOUT_MS}ms, check interval=${HOST_WATCHDOG_INTERVAL_MS}ms`);
   hostWatchdogInterval = setInterval(() => {
     if (activeMode !== "client") return;
     if (!activeClientLobbyId) return;
     if (!lastHostSignalAt) return;
 
-    if (Date.now() - lastHostSignalAt <= HOST_SILENCE_TIMEOUT_MS) return;
+    const silenceMs = Date.now() - lastHostSignalAt;
+    if (silenceMs <= HOST_SILENCE_TIMEOUT_MS) return;
     if (hasEmittedHostTimeout) return;
 
     hasEmittedHostTimeout = true;
-    console.warn('[preload] host silence timeout for lobby', activeClientLobbyId);
+    console.warn(`[preload] host silence timeout for lobby ${activeClientLobbyId} (${silenceMs}ms without host signal, threshold=${HOST_SILENCE_TIMEOUT_MS}ms)`);
     emitHostExit({ lobbyId: activeClientLobbyId });
   }, HOST_WATCHDOG_INTERVAL_MS);
 }
@@ -160,8 +162,16 @@ function markHostSignal(lobbyId?: string) {
   if (!activeClientLobbyId) return;
   if (lobbyId && lobbyId !== activeClientLobbyId) return;
 
-  lastHostSignalAt = Date.now();
+  const now = Date.now();
+  const oldLastSignal = lastHostSignalAt;
+  lastHostSignalAt = now;
   hasEmittedHostTimeout = false;
+  
+  // Only log every few seconds to avoid spam, unless watchdog is close to timeout
+  const silenceMs = oldLastSignal ? now - oldLastSignal : 0;
+  if (silenceMs > 3000 || silenceMs === 0) {
+    console.log(`[preload] Host signal received for lobby ${activeClientLobbyId} (${silenceMs}ms since last signal)`);
+  }
 }
 
 function trackClientLobby(lobbyId: string) {
