@@ -51,10 +51,13 @@ function AvatarImage({ fileName, selected, onClick, onHover }: {
       onMouseLeave={() => setIsHovered(false)}
       onClick={onClick}
       style={{
-        width: 72, height: 72,
+        width: "100%",
+        aspectRatio: "1 / 1",
+        minHeight: 96,
         border: selected ? `2px solid ${NEON}` : "1px solid #3A3A3A",
         background: selected ? "rgba(53,229,43,0.1)" : "#0a0f0a",
         display: "flex", alignItems: "center", justifyContent: "center",
+        boxSizing: "border-box",
         cursor: "pointer", transition: "transform 0.1s, box-shadow 0.2s",
         transform: isHovered ? "scale(1.05)" : selected ? "scale(0.95)" : "scale(1)",
         boxShadow: selected ? `0 0 12px rgba(53,229,43,0.5)` : isHovered ? `0 0 8px rgba(255,255,255,0.3)` : "none",
@@ -68,7 +71,7 @@ function AvatarImage({ fileName, selected, onClick, onHover }: {
           src={`./img/avatars/${encodeURIComponent(fileName)}`}
           alt={fileName}
           onError={() => setImgFailed(true)}
-          style={{ width: 64, height: 64, imageRendering: "pixelated", objectFit: "contain" }}
+          style={{ width: "78%", height: "78%", imageRendering: "pixelated", objectFit: "contain" }}
         />
       )}
     </div>
@@ -180,12 +183,12 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-function SaveBar({ onSave, saved }: { onSave: () => void; saved: boolean }) {
+function SaveBar({ onSave, saved, disabled }: { onSave: () => void; saved: boolean; disabled: boolean }) {
   const font = "'Press Start 2P', monospace";
   return (
     <div style={{
       display: "flex", alignItems: "center", justifyContent: "flex-end",
-      gap: 14, paddingTop: 20, borderTop: `1px solid rgba(0,223,255,0.2)`, marginTop: 20,
+      gap: 14,
     }}>
       {saved && (
         <span style={{ fontFamily: font, fontSize: 8, color: NEON, letterSpacing: 1, opacity: 0.8 }}>
@@ -194,13 +197,15 @@ function SaveBar({ onSave, saved }: { onSave: () => void; saved: boolean }) {
       )}
       <button
         onClick={onSave}
+        disabled={disabled}
         style={{
-          background: NEON, border: "none", color: BG,
+          background: disabled ? "rgba(53,229,43,0.28)" : NEON,
+          border: "none", color: disabled ? "rgba(1,7,7,0.55)" : BG,
           fontFamily: font, fontSize: 9, letterSpacing: 1,
-          padding: "12px 24px", cursor: "pointer",
-          transition: "transform 0.1s, opacity 0.1s",
+          padding: "12px 24px", cursor: disabled ? "not-allowed" : "pointer",
+          transition: "transform 0.1s, opacity 0.1s", opacity: disabled ? 0.55 : 1,
         }}
-        onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.95)")}
+        onMouseDown={(e) => { if (!disabled) e.currentTarget.style.transform = "scale(0.95)"; }}
         onMouseUp={(e)   => (e.currentTarget.style.transform = "scale(1)")}
       >
         SAVE SETTINGS
@@ -379,6 +384,20 @@ export default function SettingsPage() {
   const [draftAutoJoinLan, setDraftAutoJoinLan] = useState<boolean>(gameConfig.autoJoinLan ?? false);
 
   const { playSound } = useAudioEngine(draftSfx, draftVolume);
+  const currentResolutionKey = storedRes.label ?? "XGA";
+  const currentName = player?.name ?? "PLAYER_01";
+  const currentAvatar = player?.avatar ?? avatars[0];
+  const hasUnsavedChanges =
+    nameInput !== currentName ||
+    draftAvatar !== currentAvatar ||
+    draftVolume !== (storedSettings.volume ?? 5) ||
+    draftSfx !== (storedSettings.sfxEnabled ?? true) ||
+    draftBgm !== (storedSettings.bgmEnabled ?? false) ||
+    draftUseCase !== (storedSettings.useCase ?? false) ||
+    draftFlicker !== (storedSettings.useFlicker ?? false) ||
+    draftScanlines !== (storedSettings.useScanlines ?? false) ||
+    draftResKey !== currentResolutionKey ||
+    draftAutoJoinLan !== (gameConfig.autoJoinLan ?? false);
 
   // ── Credits state & refs ───────────────────────────────
   const creditsScrollRef    = useRef<HTMLDivElement>(null);
@@ -554,7 +573,7 @@ export default function SettingsPage() {
               />
             </div>
             <SectionLabel>SELECT AVATAR</SectionLabel>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 72px)", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))", gap: 12, width: "100%", alignItems: "stretch" }}>
               {avatars.map((fileName) => (
                 <AvatarImage
                   key={fileName} fileName={fileName}
@@ -564,7 +583,6 @@ export default function SettingsPage() {
                 />
               ))}
             </div>
-            <SaveBar onSave={handleSave} saved={saved} />
           </div>
         );
 
@@ -577,7 +595,6 @@ export default function SettingsPage() {
               onHover={() => playSound("hover")}
               onToggle={() => { playSound("select"); setDraftAutoJoinLan(!draftAutoJoinLan); }}
             />
-            <SaveBar onSave={handleSave} saved={saved} />
           </div>
         );
 
@@ -607,7 +624,6 @@ export default function SettingsPage() {
             <PixelToggle value={draftUseCase}   label="CASEMODE"  onHover={() => playSound("hover")} onToggle={() => { playSound("select"); setDraftUseCase(!draftUseCase); }} />
             <PixelToggle value={draftFlicker}   label="FLICKER"   onHover={() => playSound("hover")} onToggle={() => { playSound("select"); setDraftFlicker(!draftFlicker); }} />
             <PixelToggle value={draftScanlines} label="SCANLINES" onHover={() => playSound("hover")} onToggle={() => { playSound("select"); setDraftScanlines(!draftScanlines); }} />
-            <SaveBar onSave={handleSave} saved={saved} />
           </div>
         );
 
@@ -632,7 +648,6 @@ export default function SettingsPage() {
               onHover={() => playSound("hover")}
               onToggle={() => { playSound("select"); setDraftBgm(!draftBgm); }}
             />
-            <SaveBar onSave={handleSave} saved={saved} />
           </div>
         );
 
@@ -961,8 +976,8 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Back */}
-      <div style={{ flexShrink: 0, marginTop: 20 }}>
+      {/* Footer actions */}
+      <div style={{ flexShrink: 0, marginTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, minHeight: 64 }}>
         <button
           onMouseEnter={() => playSound("hover")}
           onClick={() => { playSound("back"); setScreen("home"); }}
@@ -977,6 +992,10 @@ export default function SettingsPage() {
           </svg>
           BACK TO MENU
         </button>
+
+        {tab !== "CREDITS" && tab !== "DATA" && (
+          <SaveBar onSave={handleSave} saved={saved} disabled={!hasUnsavedChanges} />
+        )}
       </div>
     </div>
   );
