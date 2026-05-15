@@ -109,6 +109,7 @@ export interface MultiplayerBridge {
   startDiscovery: () => void;
   stopDiscovery: () => void;
   discoveryRequest: () => void;
+  getLocalIp?: () => string;
   onDiscoveryResponse: (id: string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   offDiscoveryResponse: (id:string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   onHostFound: (id: string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;

@@ -6,6 +6,9 @@ import { getMultiplayerPlayer, usePlayerStore } from "../store/playerStore";
 import type { 
   MultiplayerBridge, 
   MultiplayerDiscoveredPayload, 
+  MultiplayerHostExitPayload,
+  MultiplayerJoinAck,
+  DiscoveredHost
   MultiplayerHostExitPayload 
 } from "../types/multiplayer";
 
@@ -35,16 +38,26 @@ const MultiplayerDiscovery = () => {
   const [hostIdInput, setHostIdInput] = useState("");
   const [status, setStatus] = useState<string>("");
   const [directIp, setDirectIp] = useState<string>("");
+  const [pendingDirectIp, setPendingDirectIp] = useState<string | null>(null);
 
-  const handleDirectJoin = () => {
-    if (!directIp) return;
-    setStatus(`SCANNING ${directIp}...`);
-    multiplayerBridge?.directJoin?.(directIp);
+  const normalizeIp = (value: string) => value.trim().toLowerCase();
+
+  const isSameAddress = (a?: string, b?: string): boolean => {
+    if (!a || !b) return false;
+    const alias = (ip: string) => (ip === "localhost" ? "127.0.0.1" : ip);
+    return alias(normalizeIp(a)) === alias(normalizeIp(b));
   };
 
-  const handleJoinLobby = (selectedLobbyId: string) => {
-    const discovered = discoveredHosts.find((host) => host.lobbyId === selectedLobbyId);
-    if (!discovered?.hostAddress) {
+  const handleDirectJoin = () => {
+    const targetIp = normalizeIp(directIp);
+    if (!targetIp) return;
+    setPendingDirectIp(targetIp);
+    setStatus(`SCANNING ${targetIp}...`);
+    multiplayerBridge?.directJoin?.(targetIp);
+  };
+
+  const beginJoin = (selectedLobbyId: string, discoveredHostAddress: string) => {
+    if (!discoveredHostAddress) {
       setStatus("LOBBY NOT FOUND ON LAN.");
       return;
     }
@@ -56,15 +69,39 @@ const MultiplayerDiscovery = () => {
     setCurrentPlayerId(multiplayerPlayer.id);
     addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
 
+      // accepted: update global state and navigate to lobby
+      setLobbyId(selectedLobbyId);
+      setSessionId(payload.sessionId ?? null);
+      setLobbyRole('client');
+      setHostAddress(discoveredHostAddress);
+      setCurrentPlayerId(multiplayerPlayer.id);
+      addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
+      setStatus('JOINED');
+      setScreen('multiplayer-lobby');
+    };
+
+    // Register handler before sending request to avoid race where ack arrives early
+    multiplayerBridge?.onJoinResponse?.('DiscoveryJoin', onJoin);
+    // send join request
     // Bridge request to Electron [cite: 1017]
     multiplayerBridge?.requestJoin({
       lobbyId: selectedLobbyId,
-      hostAddress: discovered.hostAddress,
+      hostAddress: discoveredHostAddress,
       player: { ...multiplayerPlayer, isReady: false, isHost: false },
     });
 
     setStatus("JOINING LOBBY...");
     setScreen("multiplayer-lobby");
+  };
+
+  const handleJoinLobby = (selectedLobbyId: string) => {
+    const discovered = discoveredHosts.find((host) => host.lobbyId === selectedLobbyId);
+    if (!discovered?.hostAddress) {
+      setStatus("LOBBY NOT FOUND ON LAN.");
+      return;
+    }
+
+    beginJoin(selectedLobbyId, discovered.hostAddress);
   };
 
   // 1. AUTO-JOIN LOGIC [cite: 975, 976]
@@ -84,8 +121,31 @@ const MultiplayerDiscovery = () => {
     if (!multiplayerBridge) return;
 
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
-      if (payload.isPrivate) { removeDiscoveredHost(payload.lobbyId); return; }
-      addOrUpdateDiscoveredHost(payload);
+      if (payload.isPrivate) {
+        removeDiscoveredHost(payload.lobbyId);
+        return;
+      }
+      const discoveredEntry: Partial<DiscoveredHost> = {
+        lobbyId: payload.lobbyId,
+        hostId: payload.hostId,
+        hostName: payload.hostName,
+        hostLevel: payload.hostLevel,
+        hostAddress: payload.hostAddress,
+        playerCount: payload.playerCount,
+        maxPlayers: payload.maxPlayers,
+        isPrivate: payload.isPrivate,
+        category: payload.category,
+        difficulty: payload.difficulty,
+        sessionId: payload.sessionId,
+        sequence: payload.sequence,
+      };
+      addOrUpdateDiscoveredHost(discoveredEntry);
+
+      if (pendingDirectIp && payload.hostAddress && isSameAddress(payload.hostAddress, pendingDirectIp)) {
+        setPendingDirectIp(null);
+        setStatus(`HOST FOUND AT ${pendingDirectIp}. JOINING...`);
+        beginJoin(payload.lobbyId, payload.hostAddress);
+      }
     };
 
     const onHostExitCb = (payload: MultiplayerHostExitPayload) => {
@@ -104,7 +164,7 @@ const MultiplayerDiscovery = () => {
       multiplayerBridge.stopDiscovery();
       window.clearInterval(intervalId);
     };
-  }, [multiplayerBridge]);
+  }, [multiplayerBridge, pendingDirectIp]);
 
   // 3. STALE HOST PRUNING [cite: 1020]
   useEffect(() => {

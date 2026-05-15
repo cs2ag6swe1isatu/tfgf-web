@@ -307,6 +307,39 @@ export default function SettingsPage() {
   const updatePlayer = usePlayerStore((s: PlayerState) => s.updatePlayer);
   const resetPlayer  = usePlayerStore((s: PlayerState) => s.resetPlayer);
 
+  // ── Local draft state (not persisted until Save) ───────
+  const [nameInput,      setNameInput]      = useState<string>(player?.name ?? "PLAYER_01");
+  const [draftAvatar,    setDraftAvatar]    = useState<string>(player?.avatar ?? avatars[0]);
+  const [draftVolume,    setDraftVolume]    = useState<number>(storedSettings.volume ?? 5);
+  const [draftSfx,       setDraftSfx]       = useState<boolean>(storedSettings.sfxEnabled ?? true);
+  const [draftBgm,       setDraftBgm]       = useState<boolean>(storedSettings.bgmEnabled ?? false);
+  const [draftUseCase,   setDraftUseCase]   = useState<boolean>(storedSettings.useCase ?? false);
+  const [draftFlicker,   setDraftFlicker]   = useState<boolean>(storedSettings.useFlicker ?? false);
+  const [draftScanlines, setDraftScanlines] = useState<boolean>(storedSettings.useScanlines ?? false);
+  const [draftResKey,    setDraftResKey]    = useState<string>(storedRes.label ?? "XGA");
+  const [draftAutoJoinLan, setDraftAutoJoinLan] = useState<boolean>(gameConfig.autoJoinLan ?? false);
+
+  const { playSound } = useAudioEngine(draftSfx, draftVolume);
+
+  function handleSave() {
+    playSound("select");
+
+    // Persist all draft state to stores only on Save
+    if (updatePlayer) {
+      updatePlayer({ name: nameInput || "PLAYER_01", avatar: draftAvatar });
+    }
+    updateSettings({
+      volume:       draftVolume,
+      sfxEnabled:   draftSfx,
+      bgmEnabled:   draftBgm,
+      useCase:      draftUseCase,
+      useFlicker:   draftFlicker,
+      useScanlines: draftScanlines,
+    } as Partial<SettingsView>);
+    const res = resolutions.find((r) => r.key === draftResKey);
+    if (res) setResolution(res.w, res.h, res.key);
+    setGameConfig({ autoJoinLan: draftAutoJoinLan });
+
   // ── Local draft state — nothing persists until SAVE is clicked ────────────
   type Draft = {
     name: string;
@@ -401,7 +434,7 @@ export default function SettingsPage() {
               <input
                 aria-label="Player name"
                 value={nameInput}
-                onChange={(e) => updatePlayerName(e.target.value)}
+                onChange={(e) => setNameInput(e.target.value)}
                 style={{
                   flex: 1, background: "transparent", border: `2px solid ${NEON}`,
                   color: NEON, fontFamily: font, fontSize: 9,
@@ -415,9 +448,9 @@ export default function SettingsPage() {
                 <AvatarImage
                   key={fileName}
                   fileName={fileName}
-                  selected={avatar === fileName}
+                  selected={draftAvatar === fileName}
                   onHover={() => playSound("hover")}
-                  onClick={() => { playSound("select"); updateAvatar(fileName); }}
+                  onClick={() => { playSound("select"); setDraftAvatar(fileName); }}
                 />
               ))}
             </div>
@@ -430,10 +463,10 @@ export default function SettingsPage() {
           <div>
             <SectionLabel>NETWORK</SectionLabel>
             <PixelToggle
-              value={autoJoinLan}
+              value={draftAutoJoinLan}
               label="AUTO-JOIN LAN"
               onHover={() => playSound("hover")}
-              onToggle={() => { playSound("select"); updateAutoJoinLan(!autoJoinLan); }}
+              onToggle={() => { playSound("select"); setDraftAutoJoinLan(!draftAutoJoinLan); }}
             />
             <SaveBar onSave={handleSave} saved={saved} />
           </div>
@@ -448,11 +481,11 @@ export default function SettingsPage() {
                 <button
                   key={r.key}
                   onMouseEnter={() => playSound("hover")}
-                  onClick={() => { playSound("select"); updateResolution(r.key); }}
+                  onClick={() => { playSound("select"); setDraftResKey(r.key); }}
                   style={{
-                    background: resKey === r.key ? NEON : "transparent",
+                    background: draftResKey === r.key ? NEON : "transparent",
                     border: `2px solid ${NEON}`,
-                    color: resKey === r.key ? BG : NEON,
+                    color: draftResKey === r.key ? BG : NEON,
                     fontFamily: font, padding: "10px 6px", cursor: "pointer",
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
                   }}
@@ -463,9 +496,9 @@ export default function SettingsPage() {
               ))}
             </div>
             <SectionLabel>EFFECTS</SectionLabel>
-            <PixelToggle value={useCase}      label="CASEMODE"  onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useCase", !useCase); }} />
-            <PixelToggle value={useFlicker}   label="FLICKER"   onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useFlicker", !useFlicker); }} />
-            <PixelToggle value={useScanlines} label="SCANLINES" onHover={() => playSound("hover")} onToggle={() => { playSound("select"); updateSetting("useScanlines", !useScanlines); }} />
+            <PixelToggle value={draftUseCase}   label="CASEMODE"  onHover={() => playSound("hover")} onToggle={() => { playSound("select"); setDraftUseCase(!draftUseCase); }} />
+            <PixelToggle value={draftFlicker}   label="FLICKER"   onHover={() => playSound("hover")} onToggle={() => { playSound("select"); setDraftFlicker(!draftFlicker); }} />
+            <PixelToggle value={draftScanlines} label="SCANLINES" onHover={() => playSound("hover")} onToggle={() => { playSound("select"); setDraftScanlines(!draftScanlines); }} />
             <SaveBar onSave={handleSave} saved={saved} />
           </div>
         );
@@ -475,23 +508,23 @@ export default function SettingsPage() {
           <div>
             <SectionLabel>MASTER VOLUME</SectionLabel>
             <VolumeBars
-              level={volume}
+              level={draftVolume}
               onHover={() => playSound("hover")}
-              setLevel={(l) => { playSound("select"); updateSetting("volume", l); }}
+              setLevel={(l) => { playSound("select"); setDraftVolume(l); }}
             />
             <SectionLabel>SOUND EFFECTS</SectionLabel>
             <PixelToggle
-              value={sfxEnabled}
+              value={draftSfx}
               label="UI SOUND EFFECTS"
               onHover={() => playSound("hover")}
-              onToggle={() => { playSound("select"); updateSetting("sfxEnabled", !sfxEnabled); }}
+              onToggle={() => { playSound("select"); setDraftSfx(!draftSfx); }}
             />
             <SectionLabel>MUSIC</SectionLabel>
             <PixelToggle
-              value={bgmEnabled}
+              value={draftBgm}
               label="BACKGROUND MUSIC"
               onHover={() => playSound("hover")}
-              onToggle={() => { playSound("select"); updateSetting("bgmEnabled", !bgmEnabled); }}
+              onToggle={() => { playSound("select"); setDraftBgm(!draftBgm); }}
             />
             <SaveBar onSave={handleSave} saved={saved} />
           </div>
