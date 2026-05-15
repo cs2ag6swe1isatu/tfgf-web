@@ -966,7 +966,7 @@ useEffect(() => {
                 flexShrink: 0,
               }}
             />
-            <TimerText urgent={isUrgent}>
+            <TimerText urgent={isUrgent ? true : undefined}>
               {timer !== undefined ? `${timer}s` : "--"}
             </TimerText>
           </TimerBox>

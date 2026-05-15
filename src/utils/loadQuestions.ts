@@ -1,5 +1,6 @@
 import type { Question } from "../types/question";
 import type { JSONQuestion } from "src/types/jsonQuestion";
+import { AssetPreloader } from "./AssetPreloader";
 
 // Works in both dev (http://) and packaged Electron (file://)
 const assetBase = window.location.protocol === "file:"
@@ -36,49 +37,60 @@ export async function loadQuestions(
   limit: number,
   seed?: number
 ): Promise<Question[]> {
-  try {
-    const data = await fetch(assetUrl("data/Questions.json"));
-    const json: JSONQuestion[] = await data.json();
-    
-    /* ---------- Validation ---------- */
-    if (!Array.isArray(json)) {
-      console.error("Invalid questions data format");
+  let json: JSONQuestion[];
+
+  // ── Try reading from AssetPreloader RAM cache first ──────
+  const preloader = AssetPreloader.getInstance();
+  const cached = preloader.getJSON<JSONQuestion[]>(assetUrl("data/Questions.json"));
+
+  if (cached) {
+    json = cached;
+  } else {
+    // Fallback: fetch directly
+    try {
+      const response = await fetch(assetUrl("data/Questions.json"));
+      json = await response.json();
+    } catch (error) {
+      console.error("Error loading questions:", error);
       return [];
     }
-    const filteredQuestions = json
-      .filter(q => {
-        if (!q.Category || !q.Difficulty || !q.QuestionText || !q.CorrectAnswer || !Array.isArray(q.AllAnswers)) {
-          return false;
-        }
-        return q.Category === category && q.Difficulty === difficulty;
-      });
-    
-    /* ---------- Shuffle ---------- */
-    const randomFunc = seed !== undefined ? mulberry32(seed) : Math.random;
-    const shuffledQuestions = shuffleArray(filteredQuestions, randomFunc);
-    const selectedQuestions = shuffledQuestions.slice(0, limit);
+  }
 
-    /* ---------- Map ---------- */
-    const processedQuestions = selectedQuestions.map((q, index) => {
-      const shuffledAnswers = shuffleArray(q.AllAnswers, randomFunc);
-      return {
-        id: `${q.Category}-${index}`,
-        category: q.Category,
-        difficulty: q.Difficulty,
-        text: q.QuestionText,
-        correctAnswer: q.CorrectAnswer,
-        incorrectAnswers: q.IncorrectAnswers || [],
-        allAnswers: shuffledAnswers
-      };
-    });
-    
-    if (processedQuestions.length === 0) {
-      console.warn(`No questions found for category: ${category}, difficulty: ${difficulty}`);
-    }
-
-    return processedQuestions;
-  } catch (error) {
-    console.error("Error loading questions:", error);
+  /* ---------- Validation ---------- */
+  if (!Array.isArray(json)) {
+    console.error("Invalid questions data format");
     return [];
   }
+  const filteredQuestions = json
+    .filter(q => {
+      if (!q.Category || !q.Difficulty || !q.QuestionText || !q.CorrectAnswer || !Array.isArray(q.AllAnswers)) {
+        return false;
+      }
+      return q.Category === category && q.Difficulty === difficulty;
+    });
+
+  /* ---------- Shuffle ---------- */
+  const randomFunc = seed !== undefined ? mulberry32(seed) : Math.random;
+  const shuffledQuestions = shuffleArray(filteredQuestions, randomFunc);
+  const selectedQuestions = shuffledQuestions.slice(0, limit);
+
+  /* ---------- Map ---------- */
+  const processedQuestions = selectedQuestions.map((q, index) => {
+    const shuffledAnswers = shuffleArray(q.AllAnswers, randomFunc);
+    return {
+      id: `${q.Category}-${index}`,
+      category: q.Category,
+      difficulty: q.Difficulty,
+      text: q.QuestionText,
+      correctAnswer: q.CorrectAnswer,
+      incorrectAnswers: q.IncorrectAnswers || [],
+      allAnswers: shuffledAnswers
+    };
+  });
+
+  if (processedQuestions.length === 0) {
+    console.warn(`No questions found for category: ${category}, difficulty: ${difficulty}`);
+  }
+
+  return processedQuestions;
 }

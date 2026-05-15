@@ -356,7 +356,7 @@ const ProfilePage = () => {
                   size={20}
                   style={{ flexShrink: 0 }}
                 />
-                <Typography sx={{ fontFamily: pixelFont, fontSize: "0.65rem", color: themeColors.neonCyan }}>
+                <Typography sx={{ fontFamily: pixelFont, fontSize: "0.65rem", color: RANK_COLORS[getRankSymbolType(player.rank.name)].primary, textShadow: `0 0 6px ${RANK_COLORS[getRankSymbolType(player.rank.name)].glow}` }}>
                   {player.rank.name}
                 </Typography>
               </Box>

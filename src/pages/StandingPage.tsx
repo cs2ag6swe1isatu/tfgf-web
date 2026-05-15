@@ -18,16 +18,16 @@ type SymType = "novice"|"student"|"scholar"|"professor"|"expert"|"specialist"|"g
 interface RankDef { title:string; tier:string; xpMin:number; xpMax:number; rankIndex:number; symbolType:SymType; colorTheme:{ primary:string; glow:string; secondary:string; ring:string } }
 
 const ALL_RANKS: RankDef[] = [
-  { title:"NOVICE",     tier:"1–10",   xpMin:0,     xpMax:10000,  rankIndex:0, symbolType:"novice",     colorTheme:{ primary:C.cyan,    glow:C.pixelCyan,  secondary:"#003845", ring:"rgba(0,223,255,0.25)" } },
-  { title:"STUDENT",    tier:"11–20",  xpMin:10001, xpMax:20000,  rankIndex:1, symbolType:"student",    colorTheme:{ primary:C.green,   glow:C.greenGlow,  secondary:"#0A2A0A", ring:"rgba(63,255,86,0.25)" } },
-  { title:"SCHOLAR",    tier:"21–30",  xpMin:20001, xpMax:30000,  rankIndex:2, symbolType:"scholar",    colorTheme:{ primary:C.teal,    glow:C.tealGlow,   secondary:"#003530", ring:"rgba(0,229,204,0.25)" } },
-  { title:"PROFESSOR",  tier:"31–40",  xpMin:30001, xpMax:40000,  rankIndex:3, symbolType:"professor",  colorTheme:{ primary:C.purple,  glow:C.purpleGlow, secondary:"#1A0A2A", ring:"rgba(191,95,255,0.25)" } },
-  { title:"EXPERT",     tier:"41–50",  xpMin:40001, xpMax:50000,  rankIndex:4, symbolType:"expert",     colorTheme:{ primary:C.orange,  glow:C.orangeGlow, secondary:"#2A1500", ring:"rgba(255,140,0,0.25)" } },
-  { title:"SPECIALIST", tier:"51–60",  xpMin:50001, xpMax:60000,  rankIndex:5, symbolType:"specialist", colorTheme:{ primary:C.magenta, glow:C.magentaGlow,secondary:"#2A0015", ring:"rgba(255,45,120,0.25)" } },
-  { title:"GENIUS",     tier:"61–70",  xpMin:60001, xpMax:70000,  rankIndex:6, symbolType:"genius",     colorTheme:{ primary:C.cyan,    glow:C.pixelCyan,  secondary:"#003845", ring:"rgba(0,223,255,0.3)" } },
-  { title:"BRAINIAC",   tier:"71–80",  xpMin:70001, xpMax:80000,  rankIndex:7, symbolType:"brainiac",   colorTheme:{ primary:C.magenta, glow:"#FF0050",    secondary:"#1A0010", ring:"rgba(255,0,80,0.3)" } },
-  { title:"SAGE",       tier:"81–90",  xpMin:80001, xpMax:90000,  rankIndex:8, symbolType:"sage",       colorTheme:{ primary:C.purple,  glow:"#E0A0FF",    secondary:"#150020", ring:"rgba(224,160,255,0.3)" } },
-  { title:"ORACLE",     tier:"91–100", xpMin:90001, xpMax:100000, rankIndex:9, symbolType:"oracle",     colorTheme:{ primary:C.gold,    glow:C.goldGlow,   secondary:"#1A1200", ring:"rgba(255,215,0,0.3)" } },
+  { title:"NOVICE",     tier:"1–10",   xpMin:0,     xpMax:10000,  rankIndex:0, symbolType:"novice",     colorTheme:{ primary:"#00F0FF", glow:"#00FFFF",   secondary:"#001A1A", ring:"rgba(0,240,255,0.35)" } },
+  { title:"STUDENT",    tier:"11–20",  xpMin:10001, xpMax:20000,  rankIndex:1, symbolType:"student",    colorTheme:{ primary:"#39FF14", glow:"#7FFF00",   secondary:"#003300", ring:"rgba(57,255,20,0.35)" } },
+  { title:"SCHOLAR",    tier:"21–30",  xpMin:20001, xpMax:30000,  rankIndex:2, symbolType:"scholar",    colorTheme:{ primary:"#00FFCC", glow:"#66FFE0",   secondary:"#00332A", ring:"rgba(0,255,204,0.35)" } },
+  { title:"PROFESSOR",  tier:"31–40",  xpMin:30001, xpMax:40000,  rankIndex:3, symbolType:"professor",  colorTheme:{ primary:"#B366FF", glow:"#D580FF",   secondary:"#1A0033", ring:"rgba(179,102,255,0.35)" } },
+  { title:"EXPERT",     tier:"41–50",  xpMin:40001, xpMax:50000,  rankIndex:4, symbolType:"expert",     colorTheme:{ primary:"#FF6600", glow:"#FF9933",   secondary:"#331500", ring:"rgba(255,102,0,0.35)" } },
+  { title:"SPECIALIST", tier:"51–60",  xpMin:50001, xpMax:60000,  rankIndex:5, symbolType:"specialist", colorTheme:{ primary:"#FF0066", glow:"#FF3388",   secondary:"#330014", ring:"rgba(255,0,102,0.35)" } },
+  { title:"GENIUS",     tier:"61–70",  xpMin:60001, xpMax:70000,  rankIndex:6, symbolType:"genius",     colorTheme:{ primary:"#00E5FF", glow:"#4DF0FF",   secondary:"#002933", ring:"rgba(0,229,255,0.40)" } },
+  { title:"BRAINIAC",   tier:"71–80",  xpMin:70001, xpMax:80000,  rankIndex:7, symbolType:"brainiac",   colorTheme:{ primary:"#FF0055", glow:"#FF3377",   secondary:"#2A0011", ring:"rgba(255,0,85,0.40)" } },
+  { title:"SAGE",       tier:"81–90",  xpMin:80001, xpMax:90000,  rankIndex:8, symbolType:"sage",       colorTheme:{ primary:"#9966FF", glow:"#BB88FF",   secondary:"#150033", ring:"rgba(153,102,255,0.40)" } },
+  { title:"ORACLE",     tier:"91–100", xpMin:90001, xpMax:100000, rankIndex:9, symbolType:"oracle",     colorTheme:{ primary:"#FFD700", glow:"#FFED4A",   secondary:"#332B00", ring:"rgba(255,215,0,0.40)" } },
 ];
 
 function rankIdxFromXp(xp: number) { return Math.min(9, Math.floor(xp / 10000)); }
@@ -363,7 +363,6 @@ export default function RankingPage() {
   return (
     <div style={{ position:"relative", width:"100%", minHeight:"100%", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", fontFamily:"'Press Start 2P',monospace" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         @keyframes floatPx{0%,100%{transform:translateY(0) rotate(0deg);opacity:.45}50%{transform:translateY(-12px) rotate(45deg);opacity:.7}}
         @keyframes titleGlow{0%,100%{text-shadow:0 0 8px #3FFF56,0 0 20px #3FFF56,0 0 40px #35E52B,3px 3px 0 #0A3F0A,-1px -1px 0 #0A3F0A,1px -1px 0 #0A3F0A,-1px 1px 0 #0A3F0A}50%{text-shadow:0 0 16px #3FFF56,0 0 38px #3FFF56,0 0 65px #35E52B,3px 3px 0 #0A3F0A,-1px -1px 0 #0A3F0A,1px -1px 0 #0A3F0A,-1px 1px 0 #0A3F0A}}
         @keyframes heroTitleGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.4)}}

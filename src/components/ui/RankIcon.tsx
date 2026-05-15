@@ -322,18 +322,18 @@ export const RANK_ICON_KEYFRAMES = `
 }
 `;
 
-// ─── Color palettes from StandingPage for each rank type ──────────────────────
+// ─── NEON rank color palettes for every rank (enhanced for visibility) ────────
 export const RANK_COLORS: Record<RankSymbolType, RankColorTheme> = {
-  novice:     { primary: "#00DFFF", glow: "#00DFFF", secondary: "#003845", ring: "rgba(0,223,255,0.25)" },
-  student:    { primary: "#35E52B", glow: "#3FFF56", secondary: "#0A2A0A", ring: "rgba(63,255,86,0.25)" },
-  scholar:    { primary: "#00E5CC", glow: "#4FFFEE", secondary: "#003530", ring: "rgba(0,229,204,0.25)" },
-  professor:  { primary: "#BF5FFF", glow: "#D180FF", secondary: "#1A0A2A", ring: "rgba(191,95,255,0.25)" },
-  expert:     { primary: "#FF8C00", glow: "#FFB347", secondary: "#2A1500", ring: "rgba(255,140,0,0.25)" },
-  specialist: { primary: "#FF2D78", glow: "#FF6FA3", secondary: "#2A0015", ring: "rgba(255,45,120,0.25)" },
-  genius:     { primary: "#00DFFF", glow: "#00DFFF", secondary: "#003845", ring: "rgba(0,223,255,0.3)" },
-  brainiac:   { primary: "#FF2D78", glow: "#FF0050", secondary: "#1A0010", ring: "rgba(255,0,80,0.3)" },
-  sage:       { primary: "#BF5FFF", glow: "#E0A0FF", secondary: "#150020", ring: "rgba(224,160,255,0.3)" },
-  oracle:     { primary: "#FFD700", glow: "#FFE966", secondary: "#1A1200", ring: "rgba(255,215,0,0.3)" },
+  novice:     { primary: "#00F0FF", glow: "#00FFFF", secondary: "#001A1A", ring: "rgba(0,240,255,0.35)" },
+  student:    { primary: "#39FF14", glow: "#7FFF00", secondary: "#003300", ring: "rgba(57,255,20,0.35)" },
+  scholar:    { primary: "#00FFCC", glow: "#66FFE0", secondary: "#00332A", ring: "rgba(0,255,204,0.35)" },
+  professor:  { primary: "#B366FF", glow: "#D580FF", secondary: "#1A0033", ring: "rgba(179,102,255,0.35)" },
+  expert:     { primary: "#FF6600", glow: "#FF9933", secondary: "#331500", ring: "rgba(255,102,0,0.35)" },
+  specialist: { primary: "#FF0066", glow: "#FF3388", secondary: "#330014", ring: "rgba(255,0,102,0.35)" },
+  genius:     { primary: "#00E5FF", glow: "#4DF0FF", secondary: "#002933", ring: "rgba(0,229,255,0.40)" },
+  brainiac:   { primary: "#FF0055", glow: "#FF3377", secondary: "#2A0011", ring: "rgba(255,0,85,0.40)" },
+  sage:       { primary: "#9966FF", glow: "#BB88FF", secondary: "#150033", ring: "rgba(153,102,255,0.40)" },
+  oracle:     { primary: "#FFD700", glow: "#FFED4A", secondary: "#332B00", ring: "rgba(255,215,0,0.40)" },
 };
 
 // ─── Rank name → symbol type mapping ──────────────────────────────────────────

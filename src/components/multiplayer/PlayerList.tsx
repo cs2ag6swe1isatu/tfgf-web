@@ -3,6 +3,7 @@ import { LobbyMember } from "../../types/multiplayer";
 import { UserSharp, Robot, RobotFaceHappy } from "pixelarticons/react";
 import theme from "../../ui/theme";
 import { getAvatarSrc } from "../../utils/avatar";
+import RankIcon, { RANK_COLORS, getRankSymbolType } from "../ui/RankIcon";
 
 interface PlayerListProps {
   players: LobbyMember[];
@@ -43,7 +44,10 @@ export const PlayerList = ({ players, isHost, onKick }: PlayerListProps) => {
                 {player.isHost && " (Host)"}
               </Typography>
               <Typography variant="subtitle1">Level {player.level}</Typography>
-              <Typography variant="subtitle1">Rank {player.rank.name}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <RankIcon type={getRankSymbolType(player.rank.name ?? '')} color={RANK_COLORS[getRankSymbolType(player.rank.name ?? '')].primary} glow={RANK_COLORS[getRankSymbolType(player.rank.name ?? '')].glow} size={16} />
+                <Typography variant="subtitle1" sx={{ color: RANK_COLORS[getRankSymbolType(player.rank.name ?? '')].primary }}>{player.rank.name}</Typography>
+              </Box>
             </Box>
           </Box>
 
