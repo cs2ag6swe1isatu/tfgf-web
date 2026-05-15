@@ -697,8 +697,17 @@ function startBroadcast(snapshot: MultiplayerLobbySnapshot) {
   broadcastSnapshot(activeSnapshot);
 
   if (broadcastInterval) clearInterval(broadcastInterval);
+  let broadcastCount = 0;
   broadcastInterval = setInterval(() => {
-    if (!activeSnapshot) return;
+    if (!activeSnapshot) {
+      console.warn('[preload] Broadcast interval fired but activeSnapshot is null');
+      return;
+    }
+    broadcastCount++;
+    if (broadcastCount % 3 === 1) {
+      // Log every 3rd broadcast to avoid spam (every 6 seconds)
+      console.log('[preload] Broadcast interval firing, count=', broadcastCount, 'lobbyId=', activeSnapshot.lobbyId);
+    }
     pruneStalePlayers(9000);
     broadcastSnapshot(activeSnapshot);
   }, 2000);
@@ -735,8 +744,13 @@ function stopBroadcast() {
 
 function updateLobbySnapshot(snapshot: MultiplayerLobbySnapshot) {
   console.log('[preload] updateLobbySnapshot lobby', snapshot.lobbyId);
-  activeSnapshot = snapshot;
-  broadcastSnapshot(snapshot);
+  // CRITICAL: preserve hostAddress from existing snapshot if not provided
+  const existingHostAddress = activeSnapshot?.hostAddress;
+  activeSnapshot = {
+    ...snapshot,
+    hostAddress: snapshot.hostAddress || existingHostAddress,
+  };
+  broadcastSnapshot(activeSnapshot);
 }
 
 function requestJoin(payload: MultiplayerJoinRequest) {

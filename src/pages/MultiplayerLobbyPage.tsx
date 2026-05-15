@@ -425,7 +425,7 @@ const MultiplayerLobby = () => {
     return () => {
       multiplayerBridge.stopBroadcast?.();
     };
-  }, [lobbyRole, lobbyId, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level]);
+  }, [lobbyRole, lobbyId, multiplayerBridge]);
 
   useEffect(() => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
