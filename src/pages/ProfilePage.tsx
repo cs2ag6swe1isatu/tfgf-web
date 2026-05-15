@@ -140,6 +140,7 @@ const formatHistoryDate = (date: Date): string =>
 const formatHistoryMode = (mode: Mode): string => (mode === "solo" ? "SOLO" : "MULTI");
 
 type HistoryQuestion = GameSession["questions"][number];
+type MultiplayerLeaderboardRow = NonNullable<GameSession["multiplayerLeaderboard"]>[number];
 
 const getQuestionReviewState = (question: HistoryQuestion, userAnswer?: string) => {
   const isAnswered = Boolean(userAnswer);
@@ -288,6 +289,7 @@ const ProfilePage = () => {
   }, [historyMode, player.gameHistory]);
 
   const historyReviewEntry = selectedHistoryEntry;
+  const multiplayerLeaderboard = historyReviewEntry?.multiplayerLeaderboard ?? [];
 
   return (
     <Box
@@ -806,11 +808,14 @@ const ProfilePage = () => {
                       </Button>
                     </Box>
 
-                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
+                    <Box sx={{ display: "grid", gridTemplateColumns: historyReviewEntry.mode === "multiplayer" ? "repeat(4, 1fr)" : "repeat(3, 1fr)", gap: "0.75rem" }}>
                       {[
                         { label: "QUESTIONS", value: historyReviewEntry.questions.length },
                         { label: "CORRECT", value: historyReviewEntry.correctAnswers },
                         { label: "XP", value: `+${historyReviewEntry.score}` },
+                        ...(historyReviewEntry.mode === "multiplayer"
+                          ? [{ label: "PLACE", value: `#${historyReviewEntry.multiplayerPlacement ?? "—"}` }]
+                          : []),
                       ].map((stat) => (
                         <Box
                           key={stat.label}
@@ -832,6 +837,52 @@ const ProfilePage = () => {
                         </Box>
                       ))}
                     </Box>
+
+                    {historyReviewEntry.mode === "multiplayer" && (
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        <Typography sx={{ fontFamily: pixelFont, fontSize: "0.65rem", color: themeColors.neonCyan, letterSpacing: "1px" }}>
+                          LEADERBOARD
+                        </Typography>
+                        {multiplayerLeaderboard.length > 0 ? (
+                          <Box sx={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+                            {multiplayerLeaderboard.map((entry: MultiplayerLeaderboardRow) => {
+                              const isCurrentPlayer = entry.playerId === player.id || entry.playerId.startsWith(`${player.id}::`);
+
+                              return (
+                                <Box
+                                  key={`${entry.playerId}-${entry.rank}`}
+                                  sx={{
+                                    display: "grid",
+                                    gridTemplateColumns: "52px 1fr 88px",
+                                    gap: "0.5rem",
+                                    alignItems: "center",
+                                    border: `1px solid ${isCurrentPlayer ? themeColors.neonGreen : themeColors.textMuted}`,
+                                    backgroundColor: isCurrentPlayer ? "rgba(0, 255, 0, 0.08)" : "rgba(0, 0, 0, 0.18)",
+                                    borderRadius: "6px",
+                                    px: "0.75rem",
+                                    py: "0.5rem",
+                                  }}
+                                >
+                                  <Typography sx={{ fontFamily: pixelFont, fontSize: "0.5rem", color: themeColors.neonYellow }}>
+                                    #{entry.rank}
+                                  </Typography>
+                                  <Typography sx={{ fontFamily: pixelFont, fontSize: "0.5rem", color: isCurrentPlayer ? themeColors.neonGreen : "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {entry.name}
+                                  </Typography>
+                                  <Typography sx={{ fontFamily: pixelFont, fontSize: "0.5rem", color: themeColors.neonCyan, textAlign: "right" }}>
+                                    {entry.score} pts
+                                  </Typography>
+                                </Box>
+                              );
+                            })}
+                          </Box>
+                        ) : (
+                          <Typography sx={{ fontFamily: pixelFont, fontSize: "0.5rem", color: themeColors.textMuted }}>
+                            NO LEADERBOARD DATA
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
 
                     <Box sx={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
                       {historyReviewEntry.questions.map((question, index) => {

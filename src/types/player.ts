@@ -23,6 +23,13 @@ export interface Achievement {
   progress: number;
 }
 
+export interface MultiplayerLeaderboardEntry {
+  playerId: string;
+  name: string;
+  score: number;
+  rank: number;
+}
+
 export interface GameSession {
   id: string;
   date: Date;
@@ -41,6 +48,8 @@ export interface GameSession {
   won: boolean;
   topThreeFinish: boolean;
   incorrectAnswers: number;
+  multiplayerPlacement?: number;
+  multiplayerLeaderboard?: MultiplayerLeaderboardEntry[];
 }
 
 export interface Player {

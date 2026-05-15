@@ -834,6 +834,8 @@ useEffect(() => {
       hostedLobby: cfgMode === "multiplayer" && lobbyRole === "host",
       fellBehindByHalfAndWon:
         cfgMode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
+      multiplayerPlacement: cfgMode === "multiplayer" ? playerRank : undefined,
+      multiplayerLeaderboard: cfgMode === "multiplayer" ? displayedRankings : undefined,
     };
 
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);

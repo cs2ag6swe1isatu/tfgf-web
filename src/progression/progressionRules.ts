@@ -2,6 +2,7 @@ import { Mode, Category, Difficulty, getRankForLevel } from "../constants";
 import { Question } from '../types/question';
 import { calculateXP } from '../utils/progression';
 import { applyXpMultiplier } from "../tests/xpMultiplierTester";
+import type { MultiplayerLeaderboardEntry } from "../types/player";
 
 /** Progression Rules - Game Progression and Player Advancement Logic
   * 
@@ -34,6 +35,8 @@ export interface SessionProgressInput {
     topThreeFinish: boolean; // for multiplayer
     hostedLobby?: boolean; // multiplayer host who completed a saved match
     fellBehindByHalfAndWon?: boolean; // achieved comeback from <=50% of leader score and still won
+    multiplayerPlacement?: number;
+    multiplayerLeaderboard?: MultiplayerLeaderboardEntry[];
 }
 
 export interface SessionDelta {

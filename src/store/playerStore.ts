@@ -2,7 +2,7 @@ import { defaultGameConfig } from "../config/gameConfig";
 import { CATEGORIES, Category, DIFFICULTIES, Difficulty, getRankForLevel, MODES, Mode } from "../constants";
 import { evaluateUnlocks } from "../progression/achievementRules";
 import { buildSessionDelta, levelFromXp, rankFromLevel, SessionProgressInput, xpToNextLevel } from "../progression/progressionRules";
-import type { Achievement, GameSession, PlayData, Player } from "../types/player";
+import type { Achievement, GameSession, MultiplayerLeaderboardEntry, PlayData, Player } from "../types/player";
 import { getAvatarFileName } from "../utils/avatar";
 import { createId } from "../utils/uuid";
 import { create } from "zustand";
@@ -121,6 +121,10 @@ const readNumber = (value: unknown, fallback = 0): number => {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 };
 
+const readOptionalNumber = (value: unknown): number | undefined => {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+};
+
 const readDate = (value: unknown, fallback = new Date()): Date => {
   if (value instanceof Date) return value;
   if (typeof value === "string" || typeof value === "number") {
@@ -204,6 +208,17 @@ const normalizeAchievement = (value: unknown): Achievement => {
   };
 };
 
+const normalizeMultiplayerLeaderboardEntry = (value: unknown): MultiplayerLeaderboardEntry => {
+  const raw = isRecord(value) ? value : {};
+
+  return {
+    playerId: typeof raw.playerId === "string" ? raw.playerId : "",
+    name: typeof raw.name === "string" ? raw.name : "",
+    score: readNumber(raw.score),
+    rank: readNumber(raw.rank),
+  };
+};
+
 const normalizeGameSession = (value: unknown): GameSession => {
   const raw = isRecord(value) ? value : {};
 
@@ -227,6 +242,10 @@ const normalizeGameSession = (value: unknown): GameSession => {
     won: Boolean(raw.won),
     topThreeFinish: Boolean(raw.topThreeFinish),
     incorrectAnswers: readNumber(raw.incorrectAnswers),
+    multiplayerPlacement: readOptionalNumber(raw.multiplayerPlacement),
+    multiplayerLeaderboard: Array.isArray(raw.multiplayerLeaderboard)
+      ? raw.multiplayerLeaderboard.map((entry) => normalizeMultiplayerLeaderboardEntry(entry))
+      : undefined,
   };
 };
 
@@ -483,6 +502,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       won: sessionInput.won,
       topThreeFinish: sessionInput.topThreeFinish,
       incorrectAnswers: delta.incorrectAnswers,
+      multiplayerPlacement: sessionInput.multiplayerPlacement,
+      multiplayerLeaderboard: sessionInput.multiplayerLeaderboard,
     };
 
     const nextGameHistory = trimGameHistory([...player.gameHistory, newHistoryEntry]);
