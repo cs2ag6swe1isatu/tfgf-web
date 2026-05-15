@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { Player } from "../types/player";
-import type { DiscoveredHost, LobbyMember, MultiplayerGameState, MultiplayerLobbySnapshot } from "../types/multiplayer";
+import type { DiscoveredHost, LobbyMember, MultiplayerGameState, MultiplayerLobbySnapshot, PlayerConnectionState } from "../types/multiplayer";
 import { getRankForLevel } from "../constants";
 
 
@@ -34,9 +34,10 @@ export interface MultiplayerActions {
   setHostId: (id: string | null) => void;
   setHostAddress: (address: string | null) => void;
   setPrivate: (isPrivate: boolean) => void;
-  addOrUpdatePlayer: (player: Player | LobbyMember, opts?: { isHost?: boolean; isReady?: boolean }) => void;
+  addOrUpdatePlayer: (player: Player | LobbyMember, opts?: { isHost?: boolean; isReady?: boolean; connectionState?: PlayerConnectionState; lastSeenAt?: number }) => void;
   removePlayer: (playerId: string) => void;
   setPlayerReady: (playerId: string, ready: boolean) => void;
+  setPlayerConnectionState: (playerId: string, connectionState: PlayerConnectionState) => void;
   setCurrentPlayerId: (id: string | null) => void;
   setLobbyState: (state: LobbyState) => void;
   resetMultiplayer: () => void;
@@ -68,14 +69,18 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   ...initialState,
 
   // Selectors
-  isPlayerReady: (playerId: string) => !!get().players.find((p) => p.id === playerId)?.isReady,
+  isPlayerReady: (playerId: string) => {
+    const player = get().players.find((p) => p.id === playerId);
+    return !!player?.isReady && player.connectionState !== "disconnected";
+  },
   isHostReady: () => {
     const hostId = get().hostId;
     if (!hostId) return false;
-    return !!get().players.find((p) => p.id === hostId)?.isReady;
+    const host = get().players.find((p) => p.id === hostId);
+    return !!host?.isReady && host.connectionState !== "disconnected";
   },
   isEveryoneReady: () => {
-    const players = get().players;
+    const players = get().players.filter((player) => player.connectionState !== "disconnected");
     return players.length > 0 && players.every((p) => p.isReady);
   },
   currentPlayer: () => {
@@ -95,11 +100,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   addOrUpdateDiscoveredHost: (host) => {
     if (!host.lobbyId || !host.hostId) return;
     const now = Date.now();
+    const lobbyId = host.lobbyId;
+    const hostId = host.hostId;
     set((state) => {
-      const existingIndex = state.discoveredHosts.findIndex((h) => h.lobbyId === host.lobbyId);
+      const existingIndex = state.discoveredHosts.findIndex((h) => h.lobbyId === lobbyId);
       const entry: DiscoveredHost = {
-        lobbyId: host.lobbyId,
-        hostId: host.hostId,
+        lobbyId,
+        hostId,
         hostName: host.hostName,
         hostLevel: host.hostLevel,
         hostAddress: host.hostAddress,
@@ -144,6 +151,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         rank: getRankForLevel(player.level),
         isReady: opts?.isReady ?? existing?.isReady ?? false,
         isHost: opts?.isHost ?? existing?.isHost ?? false,
+        connectionState: opts?.connectionState ?? existing?.connectionState ?? "connected",
+        lastSeenAt: existing?.lastSeenAt,
+        disconnectedAt: opts?.connectionState === "disconnected" ? existing?.disconnectedAt ?? Date.now() : undefined,
       };
 
       if (existingIndex >= 0) {
@@ -162,6 +172,20 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   setPlayerReady: (playerId, ready) =>
     set((state) => ({ players: state.players.map((p) => (p.id === playerId ? { ...p, isReady: ready } : p)) })),
 
+  setPlayerConnectionState: (playerId, connectionState) =>
+    set((state) => ({
+      players: state.players.map((player) =>
+        player.id === playerId
+          ? {
+              ...player,
+              connectionState,
+              lastSeenAt: Date.now(),
+              disconnectedAt: connectionState === "disconnected" ? player.disconnectedAt ?? Date.now() : undefined,
+            }
+          : player,
+      ),
+    })),
+
   setCurrentPlayerId: (id) => set({ currentPlayerId: id }),
   setLobbyState: (stateValue) => set({ lobbyState: stateValue }),
 
@@ -174,6 +198,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       players: snapshot.players.map((p) => ({
         ...p,
         rank: getRankForLevel(p.level),
+        connectionState: p.connectionState ?? "connected",
+        lastSeenAt: p.lastSeenAt,
+        disconnectedAt: p.disconnectedAt,
       })),
       lobbyState: state.lobbyState,
       isPrivate: snapshot.isPrivate ?? state.isPrivate,

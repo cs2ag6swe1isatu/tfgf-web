@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import * as os from "os"; 
 import type {
   LobbyMember,
+  PlayerConnectionState,
   MultiplayerDiscoveredPayload,
   MultiplayerHostExitPayload,
   MultiplayerJoinRequest,
@@ -109,6 +110,7 @@ const onDiscoveryResponseCbs = new Map<string, (payload: MultiplayerDiscoveredPa
 const onPlayerJoinedCbs = new Map<string, (player: LobbyMember) => void>();
 const onPlayerReadyChangedCbs = new Map<string, (playerId: string, ready: boolean) => void>();
 const onPlayerLeftCbs = new Map<string, (playerId: string) => void>();
+const onPlayerStatusChangedCbs = new Map<string, (playerId: string, connectionState: PlayerConnectionState) => void>();
 const onHostExitCbs = new Map<string, (payload: MultiplayerHostExitPayload) => void>();
 const onGameStateSyncCbs = new Map<string, (payload: MultiplayerGameState) => void>();
 const onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void>();
@@ -332,6 +334,14 @@ function emitHostExit(payload: MultiplayerHostExitPayload) {
   onHostExitCbs.forEach((cb) => cb(payload));
 }
 
+function emitPlayerStatusChanged(playerId: string, connectionState: PlayerConnectionState) {
+  onPlayerStatusChangedCbs.forEach((cb) => cb(playerId, connectionState));
+}
+
+function countConnectedPlayers(players: LobbyMember[]) {
+  return players.filter((player) => player.connectionState !== "disconnected").length;
+}
+
 function broadcastSnapshot(snapshot: MultiplayerLobbySnapshot) {
   const meta = nextPacketMeta();
   const sequencedSnapshot = { ...snapshot, sequence: meta.sequence };
@@ -341,28 +351,54 @@ function broadcastSnapshot(snapshot: MultiplayerLobbySnapshot) {
 }
 
 function pruneStalePlayers(staleMs = 10000) {
-  // mid-game pruning guard
-  if (!activeSnapshot || isGameActive) return;
+  if (!activeSnapshot) return;
 
   const now = Date.now();
-  const stalePlayerIds = activeSnapshot.players
-    .filter((p) => p.id !== activeSnapshot?.hostId)
-    .filter((p) => {
-      const lastSeen = playerHeartbeats.get(p.id);
-      return lastSeen !== undefined && now - lastSeen > staleMs;
-    })
-    .map((p) => p.id);
+  let hasChanges = false;
+  const nextPlayers: LobbyMember[] = activeSnapshot.players.map((player) => {
+    if (player.id === activeSnapshot?.hostId) {
+      if (player.connectionState !== "connected") {
+        hasChanges = true;
+        emitPlayerStatusChanged(player.id, "connected");
+      }
 
-  if (stalePlayerIds.length === 0) return;
+      return {
+        ...player,
+        connectionState: "connected",
+        lastSeenAt: player.lastSeenAt ?? now,
+      };
+    }
 
-  activeSnapshot = {
+    const lastSeen = playerHeartbeats.get(player.id);
+    const nextState =
+      lastSeen === undefined
+        ? (player.connectionState ?? "connected")
+        : now - lastSeen > staleMs
+          ? "disconnected"
+          : "connected";
+
+    if (player.connectionState !== nextState) {
+      hasChanges = true;
+      emitPlayerStatusChanged(player.id, nextState);
+    }
+
+    return {
+      ...player,
+      connectionState: nextState,
+      lastSeenAt: lastSeen ?? player.lastSeenAt ?? now,
+      disconnectedAt: nextState === "disconnected" ? (player.disconnectedAt ?? now) : undefined,
+    };
+  });
+
+  if (!hasChanges) return;
+
+  const nextSnapshot: MultiplayerLobbySnapshot = {
     ...activeSnapshot,
-    players: activeSnapshot.players.filter((p) => !stalePlayerIds.includes(p.id)),
-    playerCount: activeSnapshot.players.filter((p) => !stalePlayerIds.includes(p.id)).length,
+    players: nextPlayers,
+    playerCount: countConnectedPlayers(nextPlayers),
   };
-
-  stalePlayerIds.forEach((playerId) => onPlayerLeftCbs.forEach((cb) => cb(playerId)));
-  broadcastSnapshot(activeSnapshot);
+  activeSnapshot = nextSnapshot;
+  broadcastSnapshot(nextSnapshot);
 }
 
 function sendHostExitMessage(lobbyId: string) {
@@ -394,16 +430,26 @@ function sendDiscoveryResponse(snapshot: MultiplayerLobbySnapshot, address: stri
 
 function upsertLobbyMember(snapshot: MultiplayerLobbySnapshot, member: LobbyMember) {
   const existingIndex = snapshot.players.findIndex((p) => p.id === member.id);
+  const nextMember: LobbyMember = {
+    ...member,
+    connectionState: member.connectionState ?? "connected",
+    lastSeenAt: member.lastSeenAt ?? Date.now(),
+    disconnectedAt: member.connectionState === "disconnected" ? member.disconnectedAt : undefined,
+  };
   if (existingIndex >= 0) {
     const players = [...snapshot.players];
-    players[existingIndex] = { ...players[existingIndex], ...member };
-    return { ...snapshot, players, playerCount: players.length };
+    players[existingIndex] = {
+      ...players[existingIndex],
+      ...nextMember,
+      connectionState: nextMember.connectionState ?? players[existingIndex].connectionState ?? "connected",
+    };
+    return { ...snapshot, players, playerCount: countConnectedPlayers(players) };
   }
 
   return {
     ...snapshot,
-    players: [...snapshot.players, member],
-    playerCount: snapshot.players.length + 1,
+    players: [...snapshot.players, nextMember],
+    playerCount: countConnectedPlayers([...snapshot.players, nextMember]),
   };
 }
 
@@ -546,14 +592,19 @@ function handlePacket(raw: string, senderAddress: string) {
         ...packet.payload.player,
         isHost: false,
         isReady: false,
+        connectionState: "connected",
       }),
     );
+
+    emitPlayerStatusChanged(packet.payload.player.id, "connected");
 
     onPlayerJoinedCbs.forEach((cb) =>
       cb({
         ...packet.payload.player,
         isHost: false,
         isReady: false,
+        connectionState: "connected",
+        lastSeenAt: Date.now(),
       }),
     );
     // acknowledge the join so the requesting client can proceed
@@ -570,10 +621,12 @@ function handlePacket(raw: string, senderAddress: string) {
     updateHostSnapshot((current) => ({
       ...current,
       players: current.players.map((player) =>
-        player.id === packet.payload.playerId ? { ...player, isReady: packet.payload.ready } : player,
+        player.id === packet.payload.playerId ? { ...player, isReady: packet.payload.ready, connectionState: "connected", lastSeenAt: Date.now() } : player,
       ),
-      playerCount: current.players.length,
+      playerCount: countConnectedPlayers(current.players),
     }));
+
+    emitPlayerStatusChanged(packet.payload.playerId, "connected");
 
     onPlayerReadyChangedCbs.forEach((cb) => cb(packet.payload.playerId, packet.payload.ready));
     return;
@@ -588,7 +641,7 @@ function handlePacket(raw: string, senderAddress: string) {
     activeSnapshot = {
       ...activeSnapshot,
       players: activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId),
-      playerCount: activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId).length,
+      playerCount: countConnectedPlayers(activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId)),
     };
     broadcastSnapshot(activeSnapshot);
     onPlayerLeftCbs.forEach((cb) => cb(packet.payload.playerId));
@@ -638,6 +691,8 @@ function startBroadcast(snapshot: MultiplayerLobbySnapshot) {
   activeSnapshot = {
     ...snapshot,
     hostAddress: localIp,   // ← correctly sets hostAddress inside the object
+    players: mergedPlayers,
+    playerCount: countConnectedPlayers(mergedPlayers),
   };
   broadcastSnapshot(activeSnapshot);
 
@@ -753,6 +808,9 @@ contextBridge.exposeInMainWorld("multiplayer", {
   
   onPlayerLeft: (id: string, cb: (playerId: string) => void) => { onPlayerLeftCbs.set(id, cb); },
   offPlayerLeft: (id: string) => { onPlayerLeftCbs.delete(id); },
+
+  onPlayerStatusChanged: (id: string, cb: (playerId: string, connectionState: PlayerConnectionState) => void) => { onPlayerStatusChangedCbs.set(id, cb); },
+  offPlayerStatusChanged: (id: string) => { onPlayerStatusChangedCbs.delete(id); },
   
   onHostExit: (id: string, cb: (payload: MultiplayerHostExitPayload) => void) => { onHostExitCbs.set(id, cb); },
   offHostExit: (id: string) => { onHostExitCbs.delete(id); },

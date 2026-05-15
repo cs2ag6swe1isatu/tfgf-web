@@ -1,6 +1,8 @@
 import { Phase } from "../store";
 import { Category, Difficulty, Rank } from "../constants";
 
+export type PlayerConnectionState = "connected" | "disconnected";
+
 export interface LobbyMember {
   id: string;
   name: string;
@@ -9,6 +11,9 @@ export interface LobbyMember {
   rank: Rank;
   isReady: boolean;
   isHost: boolean;
+  connectionState?: PlayerConnectionState;
+  lastSeenAt?: number;
+  disconnectedAt?: number;
 }
 
 export interface MultiplayerBroadcastPayload {
@@ -120,6 +125,8 @@ export interface MultiplayerBridge {
   offPlayerReadyChanged: (id: string) => void;
   onPlayerLeft: (id: string, cb: (playerId: string) => void) => void;
   offPlayerLeft: (id: string) => void;
+  onPlayerStatusChanged?: (id: string, cb: (playerId: string, connectionState: PlayerConnectionState) => void) => void;
+  offPlayerStatusChanged?: (id: string) => void;
   onPlayerKicked?: (id: string, cb: (lobbyId: string, playerId: string) => void) => void;
   offPlayerKicked?: (id: string) => void;
   onHostExit: (id: string, cb: (payload: MultiplayerHostExitPayload) => void) => void;
