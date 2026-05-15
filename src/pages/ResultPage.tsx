@@ -1,7 +1,5 @@
-import React, { useRef } from 'react';
-import { Box, Typography, Button, LinearProgress, GlobalStyles } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
-import { Box, Typography, Button, LinearProgress } from '@mui/material';
+import { Box, Typography, Button, LinearProgress, GlobalStyles } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
@@ -429,14 +427,6 @@ const ResultPage: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             gap: '12px',
-          <Typography sx={{
-            fontFamily: `'Press Start 2P', monospace`,
-            color: '#D9E600',
-            fontSize: `${L.rankTitle}px`,
-            textAlign: 'center',
-            letterSpacing: '3px',
-            textShadow: '0 0 14px rgba(217,230,0,0.45)',
-            animation: `${rankPop} 0.65s cubic-bezier(0.22,1,0.36,1) 1s both`,
           }}>
             <RankIcon
               type={rankSymbolType}
@@ -452,6 +442,7 @@ const ResultPage: React.FC = () => {
               textAlign: 'center',
               letterSpacing: '3px',
               textShadow: `0 0 14px ${rankColors.glow}, 0 0 28px ${rankColors.glow}`,
+              animation: `${rankPop} 0.65s cubic-bezier(0.22,1,0.36,1) 1s both`,
             }}>
               {playerRankTitle}
             </Typography>
