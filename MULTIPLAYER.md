@@ -33,6 +33,10 @@ Path covered:
 
 Production (Electron): UDP broadcast (`dgram`) on port `41234`, address `255.255.255.255`.
 
+Production transport now fans out broadcast packets to the machine's subnet-directed broadcast addresses as well as the global broadcast address, and client control packets prefer the known host address when available.
+
+Direct-IP discovery requests now receive a unicast `lobby-broadcast` reply back to the requester, which avoids depending on broadcast delivery for the first contact handshake.
+
 Dev (Vite browser): `BroadcastChannel` mock with same packet schema.
 
 Transport bridge exposed to renderer as `window.multiplayer`.
@@ -242,6 +246,12 @@ Any player/config/privacy change triggers `updateLobbySnapshot()` so broadcasted
 ---
 
 ## Failure/Recovery Behaviors
+
+## LAN reliability notes
+- Host discovery and lobby sync are still LAN-scoped, but transport now emits more than one broadcast target when the machine has multiple usable interfaces.
+- Client-to-host packets (`join-request`, `ready-update`, `leave-request`, `heartbeat`, `answer-submission`) go unicast to the discovered host address when possible instead of depending on broadcast reachability.
+- The Electron main process logs selected network targets to help diagnose adapter, subnet, and router issues during playtests.
+- The lobby page surfaces the host machine IP so playtesters can copy the exact address instead of guessing which adapter is active.
 
 ## Host disconnect path
 - Signal path 1: explicit `host-exit` packet on host stop broadcast.

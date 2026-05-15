@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as dgram from 'node:dgram';
 import * as zlib from 'node:zlib';
 import * as http from 'node:http';
@@ -16,6 +17,65 @@ let mainWindow: BrowserWindow | null = null;
 let httpServer: http.Server | null = null;
 let currentQuestionsData: string = "";
 const m = mdns();
+
+function ipv4ToInt(address: string): number {
+  return address
+    .split('.')
+    .reduce((accumulator, part) => ((accumulator << 8) | (Number(part) & 0xff)) >>> 0, 0);
+}
+
+function intToIpv4(value: number): string {
+  return [24, 16, 8, 0].map((shift) => (value >>> shift) & 0xff).join('.');
+}
+
+function getBroadcastAddress(address: string, netmask: string): string {
+  const ip = ipv4ToInt(address);
+  const mask = ipv4ToInt(netmask);
+  return intToIpv4((ip & mask) | (~mask >>> 0));
+}
+
+function getLocalNetworkInterfaces() {
+  const nets = os.networkInterfaces();
+  const candidates: { name: string; address: string; netmask: string; internal: boolean }[] = [];
+
+  for (const name of Object.keys(nets)) {
+    const interfaces = nets[name];
+    if (!interfaces) continue;
+
+    const lowerName = name.toLowerCase();
+    if (
+      lowerName.includes('docker') ||
+      lowerName.includes('vbox') ||
+      lowerName.includes('vmware') ||
+      lowerName.includes('vnet') ||
+      lowerName.includes('virtual') ||
+      lowerName.includes('tun') ||
+      lowerName.includes('tap') ||
+      lowerName.includes('wsl')
+    ) {
+      continue;
+    }
+
+    for (const net of interfaces) {
+      if (net.family !== 'IPv4' || !net.netmask) continue;
+      candidates.push({ name, address: net.address, netmask: net.netmask, internal: net.internal });
+    }
+  }
+
+  return candidates;
+}
+
+function getUdpTargets(address: string): string[] {
+  if (address !== BROADCAST_ADDR) return [address];
+
+  const targets = new Set<string>([BROADCAST_ADDR]);
+  for (const net of getLocalNetworkInterfaces()) {
+    if (net.internal) continue;
+    targets.add(getBroadcastAddress(net.address, net.netmask));
+  }
+
+  return [...targets];
+}
 
 // mDNS Response Listener (for Clients)
 m.on('response', (response) => {
@@ -135,8 +195,15 @@ ipcMain.on('multiplayer:udp-send', (_event, message: string, address: string = B
     }
   }
 
-  udpSocket?.send(data, 0, data.length, BROADCAST_PORT, address, (err) => {
-    if (err) console.warn('[main] UDP send error:', err);
+  const targets = getUdpTargets(address);
+  if (targets.length > 1) {
+    console.log('[main] UDP fanout targets:', targets.join(', '));
+  }
+
+  targets.forEach((target) => {
+    udpSocket?.send(data, 0, data.length, BROADCAST_PORT, target, (err) => {
+      if (err) console.warn('[main] UDP send error:', { target, err });
+    });
   });
 });
 

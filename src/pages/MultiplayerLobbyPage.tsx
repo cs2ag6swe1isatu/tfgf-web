@@ -43,6 +43,7 @@ const MultiplayerLobby = () => {
   const player = usePlayerStore((s) => s.getPlayer());
   const multiplayerPlayer = useMemo(() => getMultiplayerPlayer(player), [player]);
   const multiplayerBridge = (window as unknown as { multiplayer?: MultiplayerBridge }).multiplayer;
+  const machineIp = multiplayerBridge?.getLocalIp?.() ?? hostAddress ?? "127.0.0.1";
   const currentPlayer = useMultiplayerStore((s) => s.currentPlayer());
   const isReady = currentPlayer?.isReady ?? false;
 
@@ -428,6 +429,13 @@ useEffect(() => {
       gap: "10px",
       flex: 1,
     },
+    ipRow: {
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      flexWrap: "wrap" as const,
+      marginTop: "4px",
+    },
     lobbyIdLabel: {
       fontFamily: "'VT323', 'Courier New', monospace",
       fontSize: "18px",
@@ -662,6 +670,11 @@ useEffect(() => {
           <button style={styles.exitBtn} onClick={() => { handleLeaveLobby(); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
             {lobbyRole === "client" ? "EXIT LOBBY" : "BACK"}
           </button>
+        </Box>
+
+        <Box sx={styles.ipRow}>
+          <span style={styles.lobbyIdLabel}>MACHINE IP:</span>
+          <span style={styles.lobbyIdBox}>{machineIp}</span>
         </Box>
 
         {/* Players panel */}

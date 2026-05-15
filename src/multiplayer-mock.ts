@@ -466,6 +466,10 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     this.channel.postMessage(packet);
   }
 
+  getLocalIp(): string {
+    return typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : '127.0.0.1';
+  }
+
   requestJoin(payload: MultiplayerJoinRequest): void {
     console.log('[mock] sending join-request to localhost lobby', payload.lobbyId, 'player', payload.player?.id, 'via broadcast');
     const packet = this.createPacket("join-request", { payload });
