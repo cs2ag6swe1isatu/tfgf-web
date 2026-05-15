@@ -26,7 +26,13 @@ export const defaultGameConfig = {
   
   // Multiplayer settings
   hostPath: 'ws://localhost:8080',  // host connection path
-  clientPath: 'ws://localhost:8081' // client connection path
+  clientPath: 'ws://localhost:8081', // client connection path
+  multiplayerMode: null,  // 'lan' | 'internet' | null
+  // Default relay URL can be provided via Vite env `VITE_RELAY_URL`.
+  // Use `.env` locally and set `VITE_RELAY_URL` on your hosting provider.
+  relayUrl: (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_RELAY_URL)
+    ? (import.meta as any).env.VITE_RELAY_URL
+    : null,
 };
 
 // Solo defaults used when launching directly from difficulty selection. 

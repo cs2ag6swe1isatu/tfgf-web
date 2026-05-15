@@ -1,0 +1,16 @@
+{
+  "name": "tfgf-web-relay",
+  "private": true,
+  "version": "1.0.0",
+  "description": "WebSocket relay for TFGF internet multiplayer.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node relay.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -4,6 +4,7 @@ import { useMultiplayerStore } from "../store/multiplayerStore";
 import { Globe, MapPin } from "pixelarticons/react";
 import { keyframes, styled } from "@mui/material/styles";
 import { useSoundContext } from "../context/SoundContext";
+import { setMultiplayerMode, initBridgeManager } from "../utils/multiplayerBridgeManager";
 
 // ─── Keyframes ───────────────────────────────────────────────────────────────
 
@@ -272,6 +273,32 @@ const MultiplayerMenuPage = () => {
   const setScreen = useGameStore((state) => state.setScreen);
   const setLobbyRole = useMultiplayerStore((state) => state.setLobbyRole);
   const { playSound } = useSoundContext();
+  
+  // Multiplayer mode settings
+  const multiplayerMode = useGameStore((s) => s.gameConfig.multiplayerMode);
+  const relayUrl = useGameStore((s) => s.gameConfig.relayUrl);
+  const setMultiplayerModeStore = useGameStore((s) => s.setMultiplayerMode);
+
+  const handleSetLanMode = async () => {
+    initBridgeManager();
+    setMultiplayerModeStore('lan');
+    playSound("select");
+  };
+
+  const handleSetInternetMode = async () => {
+    const url = relayUrl;
+    if (!url || !url.trim()) {
+      alert('No relay URL configured. Set the relay URL via environment or settings before using Internet mode.');
+      return;
+    }
+    const success = await setMultiplayerMode('internet', url);
+    if (success) {
+      setMultiplayerModeStore('internet', url);
+      playSound("select");
+    } else {
+      alert('Failed to connect to relay server. Check the URL and try again.');
+    }
+  };
 
   // 1. Hook up the layout from the stored resolution (do not duplicate a
   //    per-page config) — compute scaled values based on the stored
@@ -365,6 +392,69 @@ const MultiplayerMenuPage = () => {
             MULTIPLAYER
           </Typography>
         </Box>
+
+        {/* --- MODE SELECTOR --- */}
+        <Box sx={{
+          position: "relative",
+          zIndex: 10,
+          display: "flex",
+          gap: "12px",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "16px 24px",
+          borderRadius: "12px",
+          border: "1px solid rgba(0,229,255,0.4)",
+          background: "rgba(0,5,15,0.5)",
+          fontSize: `${Math.max(8, Math.round(layout.btnLabelPx * 0.7))}px`,
+          color: "#00E5FF",
+          fontFamily: `'Press Start 2P', monospace`,
+        }}>
+          <Typography sx={{ fontSize: "inherit" }}>MODE:</Typography>
+          <Button
+            onClick={handleSetLanMode}
+            onMouseEnter={() => playSound("hover")}
+            sx={{
+              padding: "8px 16px",
+              borderRadius: "6px",
+              border: `2px solid ${multiplayerMode === 'lan' ? '#35E52B' : '#00DFFF'}`,
+              background: multiplayerMode === 'lan' ? 'rgba(53,229,43,0.2)' : 'rgba(0,5,15,0.6)',
+              color: multiplayerMode === 'lan' ? '#35E52B' : '#00E5FF',
+              fontSize: "inherit",
+              fontFamily: "inherit",
+              fontWeight: "bold",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              "&:hover": {
+                background: multiplayerMode === 'lan' ? 'rgba(53,229,43,0.3)' : 'rgba(0,20,30,0.8)',
+              }
+            }}
+          >
+            LAN
+          </Button>
+          <Button
+            onClick={() => { handleSetInternetMode(); playSound("select"); }}
+            onMouseEnter={() => playSound("hover")}
+            sx={{
+              padding: "8px 16px",
+              borderRadius: "6px",
+              border: `2px solid ${multiplayerMode === 'internet' ? '#35E52B' : '#00DFFF'}`,
+              background: multiplayerMode === 'internet' ? 'rgba(53,229,43,0.2)' : 'rgba(0,5,15,0.6)',
+              color: multiplayerMode === 'internet' ? '#35E52B' : '#00E5FF',
+              fontSize: "inherit",
+              fontFamily: "inherit",
+              fontWeight: "bold",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              "&:hover": {
+                background: multiplayerMode === 'internet' ? 'rgba(53,229,43,0.3)' : 'rgba(0,20,30,0.8)',
+              }
+            }}
+          >
+            INTERNET
+          </Button>
+        </Box>
+
+        
 
         {/* --- ACTION PANELS --- */}
         <Box sx={{

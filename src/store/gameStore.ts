@@ -33,6 +33,8 @@ export interface GameConfig {
   seed?: number;
   questionPort?: number;
   autoJoinLan: boolean;
+  multiplayerMode: 'lan' | 'internet' | null;
+  relayUrl: string | null;
 }
 
 export interface Settings {
@@ -110,6 +112,7 @@ interface GameState {
   setQuestionTimer: (seconds: number) => void;
   setAnswerTimer: (seconds: number) => void;
   setAutoJoinLan: (enabled: boolean) => void;
+  setMultiplayerMode: (mode: 'lan' | 'internet' | null, relayUrl?: string | null) => void;
 }
 
 const DEFAULT_LEVEL_UP_SESSION: LevelUpSession = {
@@ -142,6 +145,8 @@ export const useGameStore = create<GameState>()(
       gameConfig: {
         ...defaultGameConfig,
         autoJoinLan: false,
+        multiplayerMode: null,
+        relayUrl: null,
       },
 
       getPlayer: (): Player => usePlayerStore.getState().getPlayer(),
@@ -229,8 +234,14 @@ export const useGameStore = create<GameState>()(
       setAnswerTimer: (seconds: number) =>
         set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, answerTimer: seconds } })),
       setAutoJoinLan: (enabled: boolean) =>
-        set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, autoJoinLan: enabled } })),
-    }),
+        set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, autoJoinLan: enabled } })),      setMultiplayerMode: (mode: 'lan' | 'internet' | null, relayUrl: string | null = null) =>
+        set((s: WithGameConfig) => ({
+          gameConfig: {
+            ...s.gameConfig,
+            multiplayerMode: mode,
+            relayUrl: mode === 'internet' ? relayUrl : null,
+          },
+        })),    }),
     {
       name: "game-store",
       // levelUpSession is intentionally excluded — it must not survive a page reload
