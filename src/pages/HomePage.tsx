@@ -175,8 +175,6 @@ export default function HomePage() {
     <div style={styles.root}>
       {/* ── Global keyframes ── */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
         @keyframes floatPx {
           0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.35; }
           50%       { transform: translateY(-14px) rotate(45deg); opacity: 0.6; }

@@ -363,7 +363,6 @@ export default function RankingPage() {
   return (
     <div style={{ position:"relative", width:"100%", minHeight:"100%", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden", fontFamily:"'Press Start 2P',monospace" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         @keyframes floatPx{0%,100%{transform:translateY(0) rotate(0deg);opacity:.45}50%{transform:translateY(-12px) rotate(45deg);opacity:.7}}
         @keyframes titleGlow{0%,100%{text-shadow:0 0 8px #3FFF56,0 0 20px #3FFF56,0 0 40px #35E52B,3px 3px 0 #0A3F0A,-1px -1px 0 #0A3F0A,1px -1px 0 #0A3F0A,-1px 1px 0 #0A3F0A}50%{text-shadow:0 0 16px #3FFF56,0 0 38px #3FFF56,0 0 65px #35E52B,3px 3px 0 #0A3F0A,-1px -1px 0 #0A3F0A,1px -1px 0 #0A3F0A,-1px 1px 0 #0A3F0A}}
         @keyframes heroTitleGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.4)}}

@@ -565,7 +565,6 @@ const s: Record<string, React.CSSProperties> = {
 };
 
 const globalCSS = `
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: auto !important; min-height: 100%; overflow: 'hidden', !important; overflow-x: hidden; }
 @keyframes pred {
