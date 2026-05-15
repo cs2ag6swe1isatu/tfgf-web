@@ -57,7 +57,7 @@ const theme = createTheme({
         body: {
           imageRendering: 'pixelated',
           backgroundColor: '#000',
-        },
+21        },
       },
     },
     MuiButton: {
