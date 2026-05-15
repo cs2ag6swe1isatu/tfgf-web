@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useGameStore } from "../store/gameStore";
-import { useSoundContext } from "../context/SoundContext";
-import { levelFromXp } from "../progression/progressionRules";
+import { usePlayerStore } from "../store/playerStore";import { useSoundContext } from "../context/SoundContext";
+import { getLevel } from "../utils/progression";
 
 const C = {
   bg: "#010707",
@@ -194,8 +194,7 @@ function CurrentRankPage({ totalXp, onNext }: { totalXp: number; onNext: () => v
   const xpRange = rank.xpMax - rank.xpMin;
   const xpInRank = Math.max(0, totalXp - rank.xpMin);
   const pct = isMax ? 100 : Math.min(100, Math.floor((xpInRank / xpRange) * 100));
-  const level = levelFromXp(totalXp);
-  const xpToGo = isMax ? 0 : rank.xpMax - totalXp + 1;
+  const level = getLevel(totalXp);  const xpToGo = isMax ? 0 : rank.xpMax - totalXp + 1;
   const nextRank = isMax ? null : ALL_RANKS[rankIdx + 1];
 
   return (
@@ -275,7 +274,7 @@ function AllRanksPage({ totalXp }: { totalXp: number }) {
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
         {Array.from({ length: totalSlides }).map((_, i) => (
-          <button key={i} onClick={() => setSlide(i)} style={{ width: i === slide ? 18 : 8, height: 8, borderRadius: 4, background: i === slide ? C.cyan : `${C.cyan}44`, border: "none", cursor: "pointer", transition: "width 0.2s,background 0.2s", padding: 0, outline: "none" }} />
+          <button key={i} onClick={() => setSlide(i)} aria-label={`Go to page ${i + 1}`} style={{ width: i === slide ? 18 : 8, height: 8, borderRadius: 4, background: i === slide ? C.cyan : `${C.cyan}44`, border: "none", cursor: "pointer", transition: "width 0.2s,background 0.2s", padding: 0, outline: "none" }} />
         ))}
       </div>
     </div>
@@ -285,8 +284,7 @@ function AllRanksPage({ totalXp }: { totalXp: number }) {
 export default function StandingPage() {
   const { playSound } = useSoundContext();
   const setScreen = useGameStore((s) => s.setScreen);
-  const player = useGameStore((s) => (s as { player?: { totalXp?: number } }).player ?? null);
-  const totalXp = player?.totalXp ?? 0;
+const totalXp = usePlayerStore((s) => s.getPlayer().totalXp);
   const [page, setPage] = useState(0);
 
   const pageLabel = useMemo(() => (page === 0 ? "YOUR CURRENT STANDING" : "RANK PROGRESSION TREE"), [page]);

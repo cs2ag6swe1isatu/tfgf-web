@@ -4,9 +4,9 @@ import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
 import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
+import { scoreIncrementForAnswer } from "../rules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
 import type { TriviaState } from "../store";
-import { scoreForCorrectAnswers, scoreIncrementForAnswer } from "../rules";
 import { defaultGameConfig } from "../config/gameConfig";
 import { styled, keyframes } from "@mui/material/styles";
 import { useSoundContext } from "../context/SoundContext";
@@ -16,7 +16,7 @@ import {
   RewardOverlay,
   XPBarAnimate,
 } from '../components/rewards/RewardSystem';
-import { calculateXP, getLevel } from "../utils/progression";
+import { calculateSoloXP, getLevel } from "../utils/progression";
 import type { Achievement } from "../types/player";
 
 // ─── Keyframe Animations ────────────────────────────────────────────────────
@@ -577,54 +577,75 @@ const QuestionPage = () => {
     });
   }, [mode, lobbyRole, multiplayerBridge]);
 
-  // ── Answer handler ──────────────────────────────────────────────────────────
+ 
+// ─── CHANGE 2: Replace handleAnswerClick ─────────────────────────────────────
+//
+// Root cause of the off-by-one streak bug:
+//
+//   submitAnswer(answer) is called first. Inside the store, submitAnswer()
+//   increments currentStreak when the answer is correct.
+//
+//   The old code then read:
+//     useTriviaStore.getState().currentStreak + 1
+//
+//   That +1 was meant to "predict" the post-increment value, but submitAnswer()
+//   had ALREADY incremented it. The result: streak was always 1 too high,
+//   causing ×2.0 to appear to fire late (it was actually firing with the wrong
+//   streak count, producing the right visual only by accident on some rounds).
+//
+// Fix: call submitAnswer() first, then read currentStreak with no manual +1.
+// The store value IS the updated streak.
 
-  const handleAnswerClick = useCallback(
-    (answer: string) => {
-      submitAnswer(answer);
+const handleAnswerClick = useCallback(
+  (answer: string) => {
+    // 1. Submit — this increments currentStreak inside the store if correct.
+    submitAnswer(answer);
 
-      const currentQuestion = questions[currentIndex];
-      if (!currentQuestion) return;
+    const currentQuestion = questions[currentIndex];
+    if (!currentQuestion) return;
 
-      const isCorrect = answer === currentQuestion.correctAnswer;
-      if (!isCorrect) return;
+    const isCorrect = answer === currentQuestion.correctAnswer;
+    if (!isCorrect) return;
 
-      const timeTaken = 15 - (timer ?? 0);
-      totalSessionTimeRef.current += timeTaken;
-      totalAnsweredRef.current += 1;
+    const timeTaken = 15 - (timer ?? 0);
+    totalSessionTimeRef.current += timeTaken;
+    totalAnsweredRef.current += 1;
 
-      const finalScore = scoreIncrementForAnswer(
-        true,
-        useGameStore.getState().gameConfig.difficulty ?? 'easy',
-        timer ?? 0,
-        answerTimer,
-      );
+    const finalScore = scoreIncrementForAnswer(
+      true,
+      useGameStore.getState().gameConfig.difficulty ?? "easy",
+      timer ?? 0,
+      answerTimer,
+    );
 
-      const streakAfterThisAnswer = useTriviaStore.getState().currentStreak + 1;
-      const xpEarned = calculateXP(finalScore, streakAfterThisAnswer);
+    // 2. Read streak AFTER submitAnswer() — no manual +1 needed.
+    //    The store has already applied the increment.
+    const newStreak = useTriviaStore.getState().currentStreak;
 
-      sessionXpRef.current += xpEarned;
+    // 3. Calculate XP with the correct, already-updated streak.
+    const xpEarned = calculateSoloXP(finalScore, newStreak);
 
-      const persistedTotalXp = usePlayerStore.getState().getPlayer().totalXp;
-      const oldXP = persistedTotalXp + (sessionXpRef.current - xpEarned);
-      const newXP = persistedTotalXp + sessionXpRef.current;
+    sessionXpRef.current += xpEarned;
 
-      const visualLevel = getLevel(newXP);
+    const persistedTotalXp = usePlayerStore.getState().getPlayer().totalXp;
+    const oldXP = persistedTotalXp + (sessionXpRef.current - xpEarned);
+    const newXP = persistedTotalXp + sessionXpRef.current;
+    const visualLevel = getLevel(newXP);
 
-      triggerReward({
-        score: finalScore,
-        xp: xpEarned,
-        streak: streakAfterThisAnswer,
-        oldXP,
-        newXP,
-        oldLevel: visualLevel,
-        newLevel: visualLevel,
-        xpPerLevel: 1000,
-        buttonRef: answerButtonRef,
-      });
-    },
-    [submitAnswer, questions, currentIndex, timer, answerTimer, triggerReward]
-  );
+    triggerReward({
+      score: finalScore,
+      xp: xpEarned,
+      streak: newStreak,
+      oldXP,
+      newXP,
+      oldLevel: visualLevel,
+      newLevel: visualLevel,
+      xpPerLevel: 1000,
+      buttonRef: answerButtonRef,
+    });
+  },
+  [submitAnswer, questions, currentIndex, timer, answerTimer, triggerReward],
+);
 
   // ── Timer tick ──────────────────────────────────────────────────────────────
 
@@ -847,12 +868,9 @@ useEffect(() => {
       (q, index) => q.correctAnswer === finalUserAnswers[index]
     ).length;
 
-    const fallbackScore = scoreForCorrectAnswers(correctAnswersCount);
     const rankingEntry = finalRankings.find((entry) => entry.playerId === localPlayerId);
     const currentPlayerScore =
-      cfgMode === "multiplayer"
-        ? rankingEntry?.score ?? finalPlayerScores[localPlayerId] ?? fallbackScore
-        : fallbackScore;
+      rankingEntry?.score ?? finalPlayerScores[localPlayerId] ?? 0;
 
     const playerRank =
       cfgMode === "multiplayer"
@@ -877,6 +895,7 @@ useEffect(() => {
       correctAnswers: correctAnswersCount,
       score: currentPlayerScore,
       maxStreak,
+      placement: cfgMode === "multiplayer" ? playerRank : undefined, // ← add this
       questions: finalQuestions,
       userAnswers: finalUserAnswers,
       timeTaken: elapsedSeconds,
@@ -886,14 +905,14 @@ useEffect(() => {
       hostedLobby: cfgMode === "multiplayer" && lobbyRole === "host",
       fellBehindByHalfAndWon:
         cfgMode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
-    };
+};
 
-    const newlyUnlockedAchievements = applySessionProgress(progressionInput);
+    const { unlockedAchievements, xpGained } = applySessionProgress(progressionInput);
 
-    recordSessionEndLevel();
+    recordSessionEndLevel(xpGained);
 
-    if (newlyUnlockedAchievements.length > 0) {
-      queueAchievementUnlocks(newlyUnlockedAchievements, "result");
+    if (unlockedAchievements.length > 0) {
+      queueAchievementUnlocks(unlockedAchievements, "result");
       setScreen("achievement-unlock");
     } else {
       setScreen("result");

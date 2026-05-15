@@ -1,11 +1,18 @@
 import { defaultGameConfig } from "../config/gameConfig";
 import { CATEGORIES, Category, DIFFICULTIES, Difficulty, getRankForLevel, MODES, Mode } from "../constants";
 import { evaluateUnlocks } from "../progression/achievementRules";
-import { buildSessionDelta, levelFromXp, rankFromLevel, SessionProgressInput, xpToNextLevel } from "../progression/progressionRules";
-import type { Achievement, GameSession, PlayData, Player } from "../types/player";
+import {
+  buildSessionDelta,
+  SessionProgressInput,
+} from "../progression/progressionRules";
+import {
+  getLevel,
+  getXpToNextLevel,
+} from "../utils/progression";
 import { getAvatarFileName } from "../utils/avatar";
 import { createId } from "../utils/uuid";
 import { create } from "zustand";
+import type { Player, Achievement, GameSession, PlayData } from "../types/player";
 
 interface PlayerStorageResult {
   success: boolean;
@@ -29,7 +36,7 @@ export interface PlayerState {
   initialize: () => Promise<void>;
   generatePlayer: () => Player;
   getPlayer: () => Player;
-  applySessionProgress: (sessionInput: SessionProgressInput) => Achievement[];
+  applySessionProgress: (sessionInput: SessionProgressInput) => { unlockedAchievements: Achievement[]; xpGained: number };
   saveGameToHistory: (gameData: Omit<GameSession, "id" | "date">) => void;
   resetPlayer: () => void;
   setAvatar: (avatar: string) => void;
@@ -238,7 +245,7 @@ const createDefaultPlayer = (): Player => ({
   lastPlayedDate: undefined,
   gameHistory: [],
   totalXp: 0,
-  xpToNextLevel: 100,
+  getXpToNextLevel: 100,
   level: 1,
   rank: getRankForLevel(1),
   achievements: [],
@@ -282,7 +289,7 @@ const normalizePlayer = (value: unknown): Player | null => {
     lastPlayedDate: readOptionalDate(value.lastPlayedDate),
     gameHistory: Array.isArray(value.gameHistory) ? trimGameHistory(value.gameHistory.map((entry) => normalizeGameSession(entry))) : [],
     totalXp,
-    xpToNextLevel: readNumber(value.xpToNextLevel, xpToNextLevel(totalXp)),
+    getXpToNextLevel: readNumber(value.getXpToNextLevel, getXpToNextLevel(totalXp)),
     level,
     rank: isRecord(value.rank) ? (value.rank as unknown as Player["rank"]) : getRankForLevel(level),
     achievements: Array.isArray(value.achievements) ? value.achievements.map((entry) => normalizeAchievement(entry)) : [],
@@ -437,8 +444,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const player = get().player ?? createDefaultPlayer();
     const delta = buildSessionDelta(sessionInput);
     const nextTotalXp = player.totalXp + delta.xpGained;
-    const nextLevel = levelFromXp(nextTotalXp);
-    const nextRank = rankFromLevel(nextLevel);
+    const nextLevel = getLevel(nextTotalXp);
+    const nextRank = getRankForLevel(nextLevel);
 
     const currentCategoryStats = player.individualStats[sessionInput.category];
     const currentModeStats = currentCategoryStats[sessionInput.mode];
@@ -490,7 +497,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const updatedPlayer: Player = {
       ...player,
       totalXp: nextTotalXp,
-      xpToNextLevel: xpToNextLevel(nextTotalXp),
+      getXpToNextLevel: getXpToNextLevel(nextTotalXp),
       level: nextLevel,
       rank: nextRank,
       totalScore: player.totalScore + delta.scoreGained,
@@ -530,7 +537,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     persistPlayer(finalPlayer);
     set({ player: finalPlayer });
 
-    return newlyUnlocked;
+    return { unlockedAchievements: newlyUnlocked, xpGained: delta.xpGained };
   },
 
   saveGameToHistory: (gameData) => set((state) => {

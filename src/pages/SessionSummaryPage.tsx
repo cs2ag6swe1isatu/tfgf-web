@@ -5,8 +5,7 @@ import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { useResponsiveScale } from '../hooks/useResponsiveScale';
 import { usePlayerStore } from '../store/playerStore';
-import { calculateXP, getLevelProgressPercent } from '../utils/progression';
-import { getLastXpGained } from '../progression/progressionRules';
+import { getLevelProgressPercent } from '../utils/progression';
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from '../components/ui/RankIcon';
 
 import XPProgressBar from '../components/progression/XPProgressBar';
@@ -139,13 +138,14 @@ const SessionSummaryPage: React.FC = () => {
   const accuracy = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
 
   // FIX 5: Correct rank progress formula.
-  // Previous formula: totalXp / (totalXp + xpToNextLevel) — this is wrong because
-  // xpToNextLevel is remaining XP, making the denominator equal to totalXp at level
+  // Previous formula: totalXp / (totalXp + getXpToNextLevel) — this is wrong because
+  // getXpToNextLevel is remaining XP, making the denominator equal to totalXp at level
   // boundaries and giving inflated percentages.
   // Correct formula: XP within the current level (mod 1000) divided by 1000.
-  const rankProg = Math.round((playerTotalXp % 1000) / 1000 * 100);
+  const rankProg = getLevelProgressPercent(playerTotalXp);
 
-  const xpGained = getLastXpGained() || score;
+  const levelUpSession = useGameStore((s) => s.levelUpSession);
+const xpGained = levelUpSession.xpGained || score;
 
   const avgTime = useTriviaStore((s) => s.avgTime);
   const avgTimeDisplay =

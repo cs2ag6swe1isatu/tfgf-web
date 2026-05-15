@@ -194,7 +194,7 @@ const ProfilePage = () => {
   const playerName = player.name;
   const level = player.level;
   const xp = player.totalXp;
-  const xpToNextLevel = player.xpToNextLevel;
+  const getXpToNextLevel = player.getXpToNextLevel;
   const displayedTopScore = historyView === "all"
     ? Math.max(player.soloTopScore ?? 0, player.multiplayerTopScore ?? 0)
     : historyView === "solo"

@@ -19,7 +19,7 @@ const XPProgressBar: React.FC = () => {
   const { totalXp, level } = player;
 
   // FIX 4: Always use 1000 as the level size (fixed by spec).
-  // Previously used player.xpToNextLevel as the denominator, which is the
+  // Previously used player.getXpToNextLevel as the denominator, which is the
   // *remaining* XP to next level — a shrinking number — giving wrong percentages.
   const XP_PER_LEVEL = 1000;
   const currentLevelXP = totalXp % XP_PER_LEVEL;

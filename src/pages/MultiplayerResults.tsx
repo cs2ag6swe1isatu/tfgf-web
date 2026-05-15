@@ -3,9 +3,12 @@ import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
 import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { getAvatarSrc } from "../utils/avatar";
 import type { Player } from "../types/player";
+import type { Category, Difficulty } from "../constants";
+import { calculateMultiplayerXP } from "../utils/progression";
 
 // ─── SCORING ────────────────────────────────────────────────────────────────────
-const DMULT: Record<string, number> = { Easy: 1.0, Medium: 1.5, Hard: 2.0 };
+// REMOVED: DMULT — was only used in the broken local XP formula. Deleted.
+// XP is now calculated via calculateMultiplayerXP() from utils/progression.ts.
 
 interface RankTier {
   rank: number;
@@ -87,14 +90,16 @@ interface LobbyMemberInfo {
 }
 
 // ─── PLAYER DATA BUILDER ────────────────────────────────────────────────────────
+// CHANGED: removed `difficulty` param — was only used for the broken local XP formula.
+// CHANGED: xp now uses calculateMultiplayerXP(score, placement, streak=0).
+//   streak=0 is intentional for leaderboard display rows — we only have maxStreak
+//   for the local player. The local player's true XP (with real maxStreak) is
+//   persisted separately via applySessionProgress in the main component.
 function buildPlayerResults(
   rankings: RankingEntry[],
   lobbyMembers: LobbyMemberInfo[],
   localPlayerId: string,
-  difficulty: string,
 ): PlayerResult[] {
-  const m = DMULT[difficulty] ?? 1.0;
-
   const playerMap = new Map<string, { name: string; avatar: string; isHost: boolean }>();
   lobbyMembers.forEach((p) => {
     playerMap.set(p.id, { name: p.name, avatar: p.avatar ?? "Detective.png", isHost: p.isHost });
@@ -108,11 +113,15 @@ function buildPlayerResults(
       const info = playerMap.get(entry.playerId);
       if (!info) return null;
 
-      const estimatedCorrect = Math.round(entry.score / (m * 12));
+      // estimatedCorrect: best approximation without per-player answer data in rankings.
+      const estimatedCorrect = Math.round(entry.score / 12);
       const correctCount = Math.min(estimatedCorrect, 999);
       const qAnswered = rankings.length > 0 ? rankings.length : 1;
       const acc = Math.round((correctCount / qAnswered) * 100);
-      const xp = entry.score + (acc === 100 ? 50 : 0);
+
+      // FIXED: was `entry.score + (acc === 100 ? 50 : 0)` — hardcoded local formula.
+      // Now uses canonical calculateMultiplayerXP. streak=0 for display (see note above).
+      const xp = calculateMultiplayerXP(entry.score, entry.rank, 0);
 
       return {
         id: entry.playerId,
@@ -278,9 +287,15 @@ export default function MultiplayerResults() {
 
   const triviaRankings = useTriviaStore((s) => s.rankings);
   const triviaQuestions = useTriviaStore((s) => s.questions);
+  const triviaUserAnswers = useTriviaStore((s) => s.userAnswers);
+  const triviaAvgTime = useTriviaStore((s) => s.avgTime);
+  // ADDED: maxStreak — used for accurate local player XP in applySessionProgress.
+  const maxStreak = useTriviaStore((s) => s.maxStreak);
 
   const gameConfig = useGameStore((s) => s.gameConfig);
   const localPlayer = usePlayerStore((s) => s.getPlayer());
+  // ADDED: applySessionProgress — persists local player XP/level after multiplayer game.
+  const applySessionProgress = usePlayerStore((s) => s.applySessionProgress);
   const lobbyPlayers = useMultiplayerStore((s) => s.players);
 
   const setScreen = useGameStore((s) => s.setScreen);
@@ -293,11 +308,11 @@ export default function MultiplayerResults() {
   const difficulty = gameConfig?.difficulty ?? "medium";
   const totalQuestions = triviaQuestions.length || gameConfig?.questionLimit || 15;
 
+  // CHANGED: removed `difficulty` arg — no longer needed after XP formula fix.
   const players = buildPlayerResults(
     triviaRankings,
     lobbyPlayers,
     localMpId,
-    difficulty,
   );
 
   const you = players.find((p) => p.id === localMpId);
@@ -308,7 +323,9 @@ export default function MultiplayerResults() {
   const medals = ["🥇", "🥈", "🥉"];
 
   const scoreDisplay = useCountUp(you?.score || 0, 1800, ready);
-  const xpDisplay = useCountUp(you?.xp || 0, 2000, ready);
+  // CHANGED: xpDisplay uses true local XP with real maxStreak (not display-row value).
+  const trueLocalXp = calculateMultiplayerXP(you?.score ?? 0, you?.rank ?? 1, maxStreak);
+  const xpDisplay = useCountUp(trueLocalXp, 2000, ready);
   const accDisplay = useCountUp(you?.acc || 0, 1400, ready);
 
   useEffect(() => {
@@ -318,6 +335,36 @@ export default function MultiplayerResults() {
     }, 480);
     return () => clearTimeout(t);
   }, [rankPct]);
+
+  // ADDED: persist the local player's session progress once when ready fires.
+  // Uses real maxStreak for accurate XP. eslint-disable prevents exhaustive-deps
+  // warning — intentionally runs once on ready, not on every dependency change.
+  const recordSessionEndLevel = useGameStore((s) => s.recordSessionEndLevel);
+
+  useEffect(() => {
+    if (!you || !ready) return;
+
+    const { xpGained } = applySessionProgress({
+      mode: "multiplayer",
+      category: category as Category,
+      difficulty: (difficulty ?? "easy") as Difficulty,
+      score: you.score,
+      placement: you.rank,
+      maxStreak,
+      totalQuestions,
+      correctAnswers: you.correctCount,
+      timeTaken: triviaAvgTime * totalQuestions,
+      questions: triviaQuestions,
+      userAnswers: triviaUserAnswers,
+      mastered: you.correctCount === totalQuestions,
+      won: you.rank === 1,
+      topThreeFinish: you.rank <= 3,
+      timePerQuestion: undefined,
+    });
+
+    recordSessionEndLevel(xpGained);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   const handleBackToLobby = () => {
     resetTrivia();
@@ -461,19 +508,19 @@ export default function MultiplayerResults() {
 // ─── STYLES ─────────────────────────────────────────────────────────────────────
 const s: Record<string, React.CSSProperties> = {
   root: {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  width: '100%',
-  height: '100%',
-  overflowY: 'auto' as const,
-  background: "linear-gradient(155deg,#041D49 0%,#031533 35%,#08235A 65%,#062B2B 100%)",
-  fontFamily: "'Press Start 2P', monospace",
-  color: "#E5E5E5",
-  overflowX: "hidden",
-  padding: "24px 14px 52px",
-  zIndex: 999,
-},
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    overflowY: 'auto' as const,
+    background: "linear-gradient(155deg,#041D49 0%,#031533 35%,#08235A 65%,#062B2B 100%)",
+    fontFamily: "'Press Start 2P', monospace",
+    color: "#E5E5E5",
+    overflowX: "hidden",
+    padding: "24px 14px 52px",
+    zIndex: 999,
+  },
   scanlines: {
     position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
     background: "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.055) 2px,rgba(0,0,0,0.055) 4px)",
@@ -558,7 +605,7 @@ const s: Record<string, React.CSSProperties> = {
   progTrack: { height: 16, background: "#041D4955", border: "1px solid #D9E60033", position: "relative", overflow: "visible", marginBottom: 8 },
   progBar: { height: "100%", width: 0, background: "linear-gradient(90deg,#D9E600aa,#D9E600)", boxShadow: "0 0 10px #D9E600", transition: "width 1.5s cubic-bezier(.4,0,.2,1)" },
   progGem: { position: "absolute", top: -5, color: "#D9E600", fontSize: 16, textShadow: "0 0 7px #D9E600", lineHeight: 1, transition: "left 1.5s cubic-bezier(.4,0,.2,1)" },
-  rankSub: { fontSize: "10px ", color: "#8ecfda", letterSpacing: ".08em", fontFamily: "'Press Start 2P', monospace" },
+  rankSub: { fontSize: "10px", color: "#8ecfda", letterSpacing: ".08em", fontFamily: "'Press Start 2P', monospace" },
 };
 
 const globalCSS = `

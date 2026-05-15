@@ -51,14 +51,12 @@ type WithAchievementQueue = {
   postUnlockScreen: Screen | null;
 };
 
-// ─── Level-up session state (NOT persisted — lives only for this session) ────
 export interface LevelUpSession {
-  /** Player level at the START of the match (captured before applySessionProgress) */
   sessionStartLevel: number;
-  /** Player level at the END of the match (captured after applySessionProgress) */
   sessionEndLevel: number;
-  /** Whether the popup should be shown on the result screen */
   showLevelUpPopup: boolean;
+  /** XP earned this session — populated by applySessionProgress via recordSessionEndLevel */
+  xpGained: number;
 }
 
 interface GameState {
@@ -95,7 +93,7 @@ interface GameState {
    * Call this AFTER applySessionProgress when the game ends.
    * Compares end level to start level and arms the popup if the player levelled up.
    */
-  recordSessionEndLevel: () => void;
+  recordSessionEndLevel: (xpGained: number) => void;
 
   /**
    * Dismiss the popup and reset the session tracking state.
@@ -116,6 +114,7 @@ const DEFAULT_LEVEL_UP_SESSION: LevelUpSession = {
   sessionStartLevel: 1,
   sessionEndLevel: 1,
   showLevelUpPopup: false,
+  xpGained: 0,
 };
 
 export const useGameStore = create<GameState>()(
@@ -187,26 +186,27 @@ export const useGameStore = create<GameState>()(
 
       // ── Level-up deferred popup actions ──────────────────────────────────
 
-      recordSessionStartLevel: () => {
+     recordSessionStartLevel: () => {
         const currentLevel = usePlayerStore.getState().getPlayer().level;
         set({
           levelUpSession: {
             sessionStartLevel: currentLevel,
             sessionEndLevel: currentLevel,
             showLevelUpPopup: false,
+            xpGained: 0,
           },
         });
       },
 
-      recordSessionEndLevel: () => {
+      recordSessionEndLevel: (xpGained: number) => {
         const endLevel = usePlayerStore.getState().getPlayer().level;
         const startLevel = get().levelUpSession.sessionStartLevel;
         set({
           levelUpSession: {
             sessionStartLevel: startLevel,
             sessionEndLevel: endLevel,
-            // Only show the popup when the player actually gained at least one level
             showLevelUpPopup: endLevel > startLevel,
+            xpGained,
           },
         });
       },

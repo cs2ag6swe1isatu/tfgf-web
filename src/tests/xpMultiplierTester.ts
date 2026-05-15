@@ -29,10 +29,6 @@ export function resetXpMultiplier(): void {
   console.log("⚡ XP multiplier reset to 1 (normal)");
 }
 
-/** Apply the multiplier to a raw XP value. Used by progressionRules. */
-export function applyXpMultiplier(baseXp: number): number {
-  return Math.round(baseXp * _currentMultiplier);
-}
 
 // Expose to window for console access
 if (typeof window !== "undefined") {

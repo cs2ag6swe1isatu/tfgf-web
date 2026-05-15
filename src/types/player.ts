@@ -52,7 +52,7 @@ export interface Player {
   gameHistory: GameSession[];
 
   totalXp: number;
-  xpToNextLevel: number;
+  getXpToNextLevel: number;
   level: number;
   rank: Rank;
   achievements: Achievement[];

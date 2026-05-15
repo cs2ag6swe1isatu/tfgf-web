@@ -1,4 +1,4 @@
-import { calculateScore, calculateXP, getStreakMultiplier } from "../utils/progression";
+import { calculateScore } from "../utils/progression";
 import { Difficulty } from "../constants";
 
 export interface PlayerRoundAnswer {
@@ -26,25 +26,6 @@ export function scoreIncrementForAnswer(
 ): number {
   if (!isCorrect) return 0;
   return calculateScore(difficulty, remainingTime, totalTime);
-}
-
-export function scoreForCorrectAnswers(
-  correctAnswers: number,
-  pointsPerCorrect = 10,
-): number {
-  if (correctAnswers <= 0) return 0;
-  return correctAnswers * pointsPerCorrect;
-}
-
-export function getStreakMultiplierForQuestion(streak: number): number {
-  return getStreakMultiplier(streak);
-}
-
-export function calculateXpForAnswer(
-  finalScore: number,
-  streak: number,
-): number {
-  return calculateXP(finalScore, streak);
 }
 
 export function applyRoundScores(input: RoundScoreInput): Record<string, number> {
