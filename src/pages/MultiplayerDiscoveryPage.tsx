@@ -9,6 +9,7 @@ import type {
   MultiplayerHostExitPayload,
   MultiplayerJoinAck,
   DiscoveredHost
+  MultiplayerHostExitPayload 
 } from "../types/multiplayer";
 
 const COLORS = {
@@ -25,15 +26,16 @@ const MultiplayerDiscovery = () => {
   const autoJoinLan = useGameStore((s) => s.gameConfig.autoJoinLan); // Setting check 
   
   const { 
-    setLobbyId, setLobbyRole, setHostAddress, setCurrentPlayerId, setSessionId,
+    setLobbyId, setLobbyRole, setHostAddress, setCurrentPlayerId,
     addOrUpdatePlayer, addOrUpdateDiscoveredHost, discoveredHosts,
     removeDiscoveredHost, pruneStaleDiscoveredHosts 
   } = useMultiplayerStore();
 
   const player = usePlayerStore((s) => s.getPlayer());
   const multiplayerPlayer = getMultiplayerPlayer(player);
-  const multiplayerBridge = (window as Window & { multiplayer?: MultiplayerBridge }).multiplayer;
+  const multiplayerBridge = (window as any).multiplayer as MultiplayerBridge;
 
+  const [hostIdInput, setHostIdInput] = useState("");
   const [status, setStatus] = useState<string>("");
   const [directIp, setDirectIp] = useState<string>("");
   const [pendingDirectIp, setPendingDirectIp] = useState<string | null>(null);
@@ -60,23 +62,12 @@ const MultiplayerDiscovery = () => {
       return;
     }
 
-    setStatus("JOINING LOBBY...");
-
-    const joinTimeout = window.setTimeout(() => {
-      console.warn('[Discovery] join timeout for', selectedLobbyId);
-      setStatus('JOIN TIMED OUT');
-      multiplayerBridge?.offJoinResponse?.('DiscoveryJoin');
-    }, 8000);
-
-    const onJoin = (payload: MultiplayerJoinAck) => {
-      console.log('[Discovery] received join response', payload);
-      if (payload.lobbyId !== selectedLobbyId) return;
-      window.clearTimeout(joinTimeout);
-      multiplayerBridge?.offJoinResponse?.('DiscoveryJoin');
-      if (!payload.accepted) {
-        setStatus(payload.reason ? `JOIN REJECTED: ${payload.reason}` : 'JOIN REJECTED');
-        return;
-      }
+    // Update global state before transition [cite: 1021]
+    setLobbyId(selectedLobbyId);
+    setLobbyRole("client");
+    setHostAddress(discovered.hostAddress);
+    setCurrentPlayerId(multiplayerPlayer.id);
+    addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
 
       // accepted: update global state and navigate to lobby
       setLobbyId(selectedLobbyId);
@@ -92,11 +83,15 @@ const MultiplayerDiscovery = () => {
     // Register handler before sending request to avoid race where ack arrives early
     multiplayerBridge?.onJoinResponse?.('DiscoveryJoin', onJoin);
     // send join request
+    // Bridge request to Electron [cite: 1017]
     multiplayerBridge?.requestJoin({
       lobbyId: selectedLobbyId,
       hostAddress: discoveredHostAddress,
       player: { ...multiplayerPlayer, isReady: false, isHost: false },
     });
+
+    setStatus("JOINING LOBBY...");
+    setScreen("multiplayer-lobby");
   };
 
   const handleJoinLobby = (selectedLobbyId: string) => {
