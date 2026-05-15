@@ -584,7 +584,7 @@ const MultiplayerLobby = () => {
       gap: "12px",
       padding: "10px 12px",
       borderRadius: "7px",
-      background: active ? "#0D7B89" : "#6A7373",
+      background: active ? "#022f36" : "#6A7373",
       marginBottom: "8px",
     }),
     avatar: {
