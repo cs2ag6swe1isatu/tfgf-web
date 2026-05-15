@@ -8,8 +8,7 @@ import type {
   MultiplayerDiscoveredPayload, 
   MultiplayerHostExitPayload,
   MultiplayerJoinAck,
-  DiscoveredHost
-  MultiplayerHostExitPayload 
+  DiscoveredHost,
 } from "../types/multiplayer";
 
 const COLORS = {
@@ -62,28 +61,12 @@ const MultiplayerDiscovery = () => {
       return;
     }
 
-    // Update global state before transition [cite: 1021]
     setLobbyId(selectedLobbyId);
     setLobbyRole("client");
-    setHostAddress(discovered.hostAddress);
+    setHostAddress(discoveredHostAddress);
     setCurrentPlayerId(multiplayerPlayer.id);
     addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
 
-      // accepted: update global state and navigate to lobby
-      setLobbyId(selectedLobbyId);
-      setSessionId(payload.sessionId ?? null);
-      setLobbyRole('client');
-      setHostAddress(discoveredHostAddress);
-      setCurrentPlayerId(multiplayerPlayer.id);
-      addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
-      setStatus('JOINED');
-      setScreen('multiplayer-lobby');
-    };
-
-    // Register handler before sending request to avoid race where ack arrives early
-    multiplayerBridge?.onJoinResponse?.('DiscoveryJoin', onJoin);
-    // send join request
-    // Bridge request to Electron [cite: 1017]
     multiplayerBridge?.requestJoin({
       lobbyId: selectedLobbyId,
       hostAddress: discoveredHostAddress,

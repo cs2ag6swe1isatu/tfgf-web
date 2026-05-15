@@ -144,8 +144,8 @@ const SessionSummaryPage: React.FC = () => {
   // Correct formula: XP within the current level (mod 1000) divided by 1000.
   const rankProg = getLevelProgressPercent(playerTotalXp);
 
-  const levelUpSession = useGameStore((s) => s.levelUpSession);
-const xpGained = levelUpSession.xpGained || score;
+const xpGained = useGameStore((s) => s.lastSessionXpGained) ?? 0;
+
 
   const avgTime = useTriviaStore((s) => s.avgTime);
   const avgTimeDisplay =
@@ -259,7 +259,7 @@ const xpGained = levelUpSession.xpGained || score;
                 XP GAINED
               </Typography>
               <Typography sx={{ fontSize: `${L.stat}px`, color: '#fff', lineHeight: 1 }}>
-                {xpGained}
+                {Number(xpGained.toFixed(2))}
               </Typography>
             </Box>
             <Box

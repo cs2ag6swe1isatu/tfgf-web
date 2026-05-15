@@ -54,6 +54,7 @@ export interface TriviaState {
   questionTimer: number;
   answerTimer: number;
   score: number;
+  sessionXP: number;
   phase: Phase;
   mode: Mode | null;
   category: Category | null;
@@ -92,6 +93,7 @@ const initialState: TriviaState = {
   questionTimer: defaultGameConfig.questionTimer,
   answerTimer: defaultGameConfig.answerTimer,
   score: 0,
+  sessionXP: 0,
   phase: 'loading',
   mode: 'solo',
   category: null,
@@ -217,6 +219,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         selectedAnswer: "",
         selectedAnswerRemainingTime: 0,
         score: 0,
+        sessionXP: 0,
         userAnswers: [],
         questionLimit,
         playerScores: {},

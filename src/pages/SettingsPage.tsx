@@ -7,47 +7,19 @@ const CYAN = "#00E5FF";
 const BG   = "#010707";
 
 const avatars = [
-  "Boy.png",
-  "Boy2.png",
-  "Detective.png",
-  "FarmerBoy.png",
-  "Girl.png",
-  "Girl2.png",
-  "Glasses.png",
-  "Goblin.png",
-  "Kid1.png",
-  "Kid2.png",
-  "Knight.png",
-  "Lady.png",
-  "Lumberjack.png",
-  "old_man.png",
-  "old_man2.png",
-  "Punk.png",
-  "Viking.png",
-  "Wizard1.png",
-  "Wizard2.png",
+  "Boy.png", "Boy2.png", "Detective.png", "FarmerBoy.png",
+  "Girl.png", "Girl2.png", "Glasses.png", "Goblin.png",
+  "Kid1.png", "Kid2.png", "Knight.png", "Lady.png",
+  "Lumberjack.png", "old_man.png", "old_man2.png", "Punk.png",
+  "Viking.png", "Wizard1.png", "Wizard2.png",
 ];
 
 const fallbackEmoji: Record<string, string> = {
-  "Boy.png":"0",
-  "Boy2.png":"1",
-  "Detective.png":"2",
-  "FarmerBoy.png":"3",
-  "Girl.png":"4",
-  "Girl2.png":"5",
-  "Glasses.png":"6",
-  "Goblin.png":"7",
-  "Kid1.png":"8",
-  "Kid2.png":"9",
-  "Knight.png":"10",
-  "Lady.png":"11",
-  "Lumberjack.png":"12",
-  "old_man.png":"13",
-  "old_man2.png":"14",
-  "Punk.png":"15",
-  "Viking.png":"16",
-  "Wizard1.png":"17",
-  "Wizard2.png":"18",
+  "Boy.png":"0", "Boy2.png":"1", "Detective.png":"2", "FarmerBoy.png":"3",
+  "Girl.png":"4", "Girl2.png":"5", "Glasses.png":"6", "Goblin.png":"7",
+  "Kid1.png":"8", "Kid2.png":"9", "Knight.png":"10", "Lady.png":"11",
+  "Lumberjack.png":"12", "old_man.png":"13", "old_man2.png":"14", "Punk.png":"15",
+  "Viking.png":"16", "Wizard1.png":"17", "Wizard2.png":"18",
 };
 
 type DataAction  = [string, () => void];
@@ -308,15 +280,15 @@ export default function SettingsPage() {
   const resetPlayer  = usePlayerStore((s: PlayerState) => s.resetPlayer);
 
   // ── Local draft state (not persisted until Save) ───────
-  const [nameInput,      setNameInput]      = useState<string>(player?.name ?? "PLAYER_01");
-  const [draftAvatar,    setDraftAvatar]    = useState<string>(player?.avatar ?? avatars[0]);
-  const [draftVolume,    setDraftVolume]    = useState<number>(storedSettings.volume ?? 5);
-  const [draftSfx,       setDraftSfx]       = useState<boolean>(storedSettings.sfxEnabled ?? true);
-  const [draftBgm,       setDraftBgm]       = useState<boolean>(storedSettings.bgmEnabled ?? false);
-  const [draftUseCase,   setDraftUseCase]   = useState<boolean>(storedSettings.useCase ?? false);
-  const [draftFlicker,   setDraftFlicker]   = useState<boolean>(storedSettings.useFlicker ?? false);
-  const [draftScanlines, setDraftScanlines] = useState<boolean>(storedSettings.useScanlines ?? false);
-  const [draftResKey,    setDraftResKey]    = useState<string>(storedRes.label ?? "XGA");
+  const [nameInput,        setNameInput]        = useState<string>(player?.name ?? "PLAYER_01");
+  const [draftAvatar,      setDraftAvatar]      = useState<string>(player?.avatar ?? avatars[0]);
+  const [draftVolume,      setDraftVolume]      = useState<number>(storedSettings.volume ?? 5);
+  const [draftSfx,         setDraftSfx]         = useState<boolean>(storedSettings.sfxEnabled ?? true);
+  const [draftBgm,         setDraftBgm]         = useState<boolean>(storedSettings.bgmEnabled ?? false);
+  const [draftUseCase,     setDraftUseCase]     = useState<boolean>(storedSettings.useCase ?? false);
+  const [draftFlicker,     setDraftFlicker]     = useState<boolean>(storedSettings.useFlicker ?? false);
+  const [draftScanlines,   setDraftScanlines]   = useState<boolean>(storedSettings.useScanlines ?? false);
+  const [draftResKey,      setDraftResKey]      = useState<string>(storedRes.label ?? "XGA");
   const [draftAutoJoinLan, setDraftAutoJoinLan] = useState<boolean>(gameConfig.autoJoinLan ?? false);
 
   const { playSound } = useAudioEngine(draftSfx, draftVolume);
@@ -324,7 +296,6 @@ export default function SettingsPage() {
   function handleSave() {
     playSound("select");
 
-    // Persist all draft state to stores only on Save
     if (updatePlayer) {
       updatePlayer({ name: nameInput || "PLAYER_01", avatar: draftAvatar });
     }
@@ -340,83 +311,6 @@ export default function SettingsPage() {
     if (res) setResolution(res.w, res.h, res.key);
     setGameConfig({ autoJoinLan: draftAutoJoinLan });
 
-  // ── Local draft state — nothing persists until SAVE is clicked ────────────
-  type Draft = {
-    name: string;
-    avatar: string;
-    volume: number;
-    sfxEnabled: boolean;
-    bgmEnabled: boolean;
-    useCase: boolean;
-    useFlicker: boolean;
-    useScanlines: boolean;
-    resKey: string;
-    autoJoinLan: boolean;
-  };
-
-  const [draft, setDraft] = useState<Draft>({
-    name:         player?.name ?? "PLAYER_01",
-    avatar:       player?.avatar ?? avatars[0],
-    volume:       storedSettings.volume ?? 5,
-    sfxEnabled:   storedSettings.sfxEnabled ?? true,
-    bgmEnabled:   storedSettings.bgmEnabled ?? false,
-    useCase:      storedSettings.useCase ?? false,
-    useFlicker:   storedSettings.useFlicker ?? false,
-    useScanlines: storedSettings.useScanlines ?? false,
-    resKey:       storedRes.label ?? "XGA",
-    autoJoinLan:  gameConfig.autoJoinLan ?? false,
-  });
-
-  const { name: nameInput, avatar, volume, sfxEnabled, bgmEnabled,
-          useCase, useFlicker, useScanlines, resKey, autoJoinLan } = draft;
-
-  function setDraftField<K extends keyof Draft>(key: K, value: Draft[K]) {
-    setDraft((prev) => ({ ...prev, [key]: value }));
-  }
-
-  const { playSound } = useAudioEngine(sfxEnabled, volume);
-
-  function updateSetting<T extends keyof SettingsView>(key: T, value: SettingsView[T]) {
-    setDraftField(key as keyof Draft, value as Draft[keyof Draft]);
-  }
-
-  function updatePlayerName(nextName: string) {
-    setDraftField("name", nextName);
-  }
-
-  function updateAvatar(nextAvatar: string) {
-    setDraftField("avatar", nextAvatar);
-  }
-
-  function updateResolution(key: string) {
-    setDraftField("resKey", key);
-  }
-
-  function updateAutoJoinLan(enabled: boolean) {
-    setDraftField("autoJoinLan", enabled);
-  }
-
-  function handleSave() {
-    // Commit all draft values to stores
-    updateSettings({
-      volume:       draft.volume,
-      sfxEnabled:   draft.sfxEnabled,
-      bgmEnabled:   draft.bgmEnabled,
-      useCase:      draft.useCase,
-      useFlicker:   draft.useFlicker,
-      useScanlines: draft.useScanlines,
-    });
-    if (updatePlayer) {
-      updatePlayer({
-        name:   draft.name.trim() || player?.name || "PLAYER_01",
-        avatar: draft.avatar,
-      });
-    }
-    const res = resolutions.find((r) => r.key === draft.resKey);
-    if (res) setResolution(res.w, res.h, res.key);
-    setGameConfig({ autoJoinLan: draft.autoJoinLan });
-
-    playSound("select");
     setSaved(true);
     if (savedTimer.current) clearTimeout(savedTimer.current);
     savedTimer.current = setTimeout(() => setSaved(false), 2000);
@@ -536,14 +430,10 @@ export default function SettingsPage() {
             <SectionLabel>MANAGE DATA</SectionLabel>
             {([
               ["RESET PROGRESS", () => {
-                if (window.confirm("RESET PROGRESS?")) {
-                  resetPlayer();
-                }
+                if (window.confirm("RESET PROGRESS?")) { resetPlayer(); }
               }],
               ["CLEAR DATA", () => {
-                if (window.confirm("CLEAR ALL DATA?")) {
-                  resetPlayer();
-                }
+                if (window.confirm("CLEAR ALL DATA?")) { resetPlayer(); }
               }],
             ] as DataAction[]).map(([label, fn]) => (
               <button key={label}

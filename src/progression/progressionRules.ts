@@ -1,18 +1,21 @@
-import { Mode, Category, Difficulty } from "../constants";
-import { Question } from '../types/question';
-import { calculateSoloXP, calculateMultiplayerXP } from '../utils/progression';
+import { Mode, Category, Difficulty, getRankForLevel } from "../constants";
+import type { Question } from "../types/question";
+import { calculateSoloXP, calculateMultiplayerXP } from "../utils/progression";
+import { getXpMultiplier } from "../tests/xpMultiplierTester";
 
-/** Progression Rules - Game Progression and Player Advancement Logic
-  *
-  * RESPONSIBILITIES:
-  * - Define the shape of a game session result (SessionProgressInput)
-  * - Produce a SessionDelta that playerStore applies to persisted player data
-  *
-  * SEPARATION OF CONCERNS:
-  * This module contains no XP/level/rank formulas — those all live in
-  * utils/progression.ts. This file is responsible only for translating a
-  * completed session into a delta that the store can apply.
- **/
+/** Progression Rules – Game Progression and Player Advancement Logic
+ *
+ * RESPONSIBILITIES:
+ * - Calculate XP gains and score increases based on game performance
+ * - Provide level / rank derivation functions
+ * - Keep all formula implementations in utils/progression.ts
+ *
+ * IMPORTANT: _lastXpGained has been REMOVED.
+ * The XP gained for a session is now part of SessionDelta.xpGained and is
+ * stored directly in gameStore.lastSessionXpGained so it survives navigation.
+ */
+
+// ─── Input / Output types ─────────────────────────────────────────────────────
 
 export interface SessionProgressInput {
   mode: Mode;
@@ -21,17 +24,18 @@ export interface SessionProgressInput {
   totalQuestions: number;
   correctAnswers: number;
   score: number;
+  /** The player's final placement in a multiplayer game (1-indexed). Solo: omit. */
+  placement?: number;
   maxStreak?: number;
-  placement?: number;        // numeric finish position (1-indexed); multiplayer only
   questions: Question[];
   userAnswers: string[];
-  timeTaken: number;         // in seconds
+  timeTaken: number; // seconds
   timePerQuestion?: number[];
-  mastered: boolean;         // perfect score
-  won: boolean;              // for multiplayer
-  topThreeFinish: boolean;   // for multiplayer
-  hostedLobby?: boolean;     // multiplayer host who completed a saved match
-  fellBehindByHalfAndWon?: boolean; // comeback from <=50% of leader score and still won
+  mastered: boolean;
+  won: boolean;
+  topThreeFinish: boolean;
+  hostedLobby?: boolean;
+  fellBehindByHalfAndWon?: boolean;
 }
 
 export interface SessionDelta {
@@ -42,52 +46,59 @@ export interface SessionDelta {
   totalQuestionsAnswered: number;
   correctAnswers: number;
   incorrectAnswers: number;
-  averageTimePerQuestion?: number; // in seconds
+  averageTimePerQuestion?: number; // seconds
   topThreeFinishes: number;
   gamesWon: number;
 }
 
-/**
- * Translates a completed session into a delta for playerStore to apply.
- *
- * XP is mode-aware:
- *   Solo        → calculateSoloXP(score, maxStreak)
- *   Multiplayer → calculateMultiplayerXP(score, placement, maxStreak)
- *
- * Callers read xpGained directly from the returned delta — there is no
- * separate getLastXpGained() function.
- */
+// ─── Session delta builder ────────────────────────────────────────────────────
+
 export function buildSessionDelta(input: SessionProgressInput): SessionDelta {
-  const streak = input.maxStreak ?? 0;
+  let rawXp: number;
 
-  let xpGained: number;
-
-  if (input.mode === "multiplayer") {
-    const placement = input.placement ?? 4; // default to 4th+ bonus if missing
-    xpGained = calculateMultiplayerXP(input.score, placement, streak);
+  if (input.mode === "multiplayer" && input.placement !== undefined) {
+    // Multiplayer: XP = (Score + Placement Bonus + Win Bonus) × Streak Multiplier
+    rawXp = calculateMultiplayerXP(
+      input.score,
+      input.placement,
+      input.maxStreak ?? 0,
+    );
   } else {
-    xpGained = calculateSoloXP(input.score, streak);
+    // Solo: XP = Score × 1.5 × Streak Multiplier
+    rawXp = calculateSoloXP(input.score, input.maxStreak ?? 0);
   }
 
-  const averageTimePerQuestion =
+  const finalXp = Math.round(rawXp * getXpMultiplier());
+
+  const avgTime: number | undefined =
     input.timePerQuestion && input.timePerQuestion.length > 0
-      ? Math.round(
-          (input.timePerQuestion.reduce((a, b) => a + b, 0) /
-            input.timePerQuestion.length) *
-            10,
-        ) / 10
+      ? input.timePerQuestion.reduce((a, b) => a + b, 0) / input.timePerQuestion.length
       : undefined;
 
   return {
-    xpGained,
-    scoreGained: input.score,
-    gamesPlayed: 1,
-    gamesMastered: input.mastered ? 1 : 0,
+    xpGained:               finalXp,
+    scoreGained:            input.score,
+    gamesPlayed:            1,
+    gamesMastered:          input.mastered ? 1 : 0,
     totalQuestionsAnswered: input.totalQuestions,
-    correctAnswers: input.correctAnswers,
-    incorrectAnswers: input.totalQuestions - input.correctAnswers,
-    averageTimePerQuestion,
-    topThreeFinishes: input.topThreeFinish ? 1 : 0,
-    gamesWon: input.won ? 1 : 0,
+    correctAnswers:         input.correctAnswers,
+    incorrectAnswers:       input.totalQuestions - input.correctAnswers,
+    averageTimePerQuestion: avgTime,
+    topThreeFinishes:       input.topThreeFinish ? 1 : 0,
+    gamesWon:               input.won ? 1 : 0,
   };
+}
+
+// ─── Level / rank helpers ─────────────────────────────────────────────────────
+
+export function levelFromXp(totalXp: number): number {
+  return Math.floor(Math.max(0, totalXp) / 1000) + 1;
+}
+
+export function xpToNextLevel(totalXp: number): number {
+  return 1000 - (Math.max(0, totalXp) % 1000);
+}
+
+export function rankFromLevel(level: number) {
+  return getRankForLevel(level);
 }

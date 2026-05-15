@@ -2,45 +2,10 @@ import { useState, useEffect } from "react";
 import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
 import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { getAvatarSrc } from "../utils/avatar";
+import { calculateMultiplayerXP, getLevelProgressPercent } from "../utils/progression";
+import { formatScore, formatXP, formatAccuracy } from "../utils/formatters";
+import { getRankForLevel } from "../constants";
 import type { Player } from "../types/player";
-import type { Category, Difficulty } from "../constants";
-import { calculateMultiplayerXP } from "../utils/progression";
-
-// ─── SCORING ────────────────────────────────────────────────────────────────────
-// REMOVED: DMULT — was only used in the broken local XP formula. Deleted.
-// XP is now calculated via calculateMultiplayerXP() from utils/progression.ts.
-
-interface RankTier {
-  rank: number;
-  name: string;
-  minXp: number;
-  maxXp: number;
-  minLevel: number;
-  maxLevel: number;
-}
-
-const RANK_TIERS: RankTier[] = [
-  { rank: 1,  name: "Novice",     minXp: 0,      maxXp: 10000,  minLevel: 1,  maxLevel: 10  },
-  { rank: 2,  name: "Student",    minXp: 10001,  maxXp: 20000,  minLevel: 11, maxLevel: 20  },
-  { rank: 3,  name: "Scholar",    minXp: 20001,  maxXp: 30000,  minLevel: 21, maxLevel: 30  },
-  { rank: 4,  name: "Professor",  minXp: 30001,  maxXp: 40000,  minLevel: 31, maxLevel: 40  },
-  { rank: 5,  name: "Expert",     minXp: 40001,  maxXp: 50000,  minLevel: 41, maxLevel: 50  },
-  { rank: 6,  name: "Specialist", minXp: 50001,  maxXp: 60000,  minLevel: 51, maxLevel: 60  },
-  { rank: 7,  name: "Genius",     minXp: 60001,  maxXp: 70000,  minLevel: 61, maxLevel: 70  },
-  { rank: 8,  name: "Brainiac",   minXp: 70001,  maxXp: 80000,  minLevel: 71, maxLevel: 80  },
-  { rank: 9,  name: "Sage",       minXp: 80001,  maxXp: 90000,  minLevel: 81, maxLevel: 90  },
-  { rank: 10, name: "Oracle",     minXp: 90001,  maxXp: 100000, minLevel: 91, maxLevel: 100 },
-];
-
-function getRankTier(xp: number): { tier: RankTier; pct: number } {
-  const tier =
-    [...RANK_TIERS].reverse().find((t) => xp >= t.minXp) ?? RANK_TIERS[0];
-  const range = tier.maxXp - tier.minXp;
-  const pct = range > 0
-    ? Math.min(Math.round(((xp - tier.minXp) / range) * 100), 100)
-    : 100;
-  return { tier, pct };
-}
 
 // ─── COUNT-UP HOOK ──────────────────────────────────────────────────────────────
 function useCountUp(target: number, duration = 1700, active = false): number {
@@ -90,15 +55,23 @@ interface LobbyMemberInfo {
 }
 
 // ─── PLAYER DATA BUILDER ────────────────────────────────────────────────────────
-// CHANGED: removed `difficulty` param — was only used for the broken local XP formula.
-// CHANGED: xp now uses calculateMultiplayerXP(score, placement, streak=0).
-//   streak=0 is intentional for leaderboard display rows — we only have maxStreak
-//   for the local player. The local player's true XP (with real maxStreak) is
-//   persisted separately via applySessionProgress in the main component.
+
+/**
+ * Build per-player result rows.
+ *
+ * XP formula (from spec):
+ *   XP = (Score + Placement Bonus + Win Bonus) × Streak Multiplier
+ *
+ * We use calculateMultiplayerXP() from utils/progression which implements
+ * that formula. maxStreak is passed from the trivia store.
+ */
 function buildPlayerResults(
   rankings: RankingEntry[],
   lobbyMembers: LobbyMemberInfo[],
   localPlayerId: string,
+  totalQuestions: number,
+  maxStreak: number,
+  localXpGained: number,
 ): PlayerResult[] {
   const playerMap = new Map<string, { name: string; avatar: string; isHost: boolean }>();
   lobbyMembers.forEach((p) => {
@@ -113,27 +86,37 @@ function buildPlayerResults(
       const info = playerMap.get(entry.playerId);
       if (!info) return null;
 
-      // estimatedCorrect: best approximation without per-player answer data in rankings.
-      const estimatedCorrect = Math.round(entry.score / 12);
-      const correctCount = Math.min(estimatedCorrect, 999);
-      const qAnswered = rankings.length > 0 ? rankings.length : 1;
-      const acc = Math.round((correctCount / qAnswered) * 100);
+      // correctCount: the ranking entry's score divided by the known minimum
+      // per-question base (10 pts for easy with 0 time remaining).
+      // We keep a best-effort estimate here since the store doesn't expose
+      // per-player correct counts directly.
+      const minPointsPerQuestion = 10;
+      const estimatedCorrect = Math.min(
+        Math.round(entry.score / minPointsPerQuestion),
+        totalQuestions,
+      );
+      const correctCount = Math.max(0, estimatedCorrect);
+      const acc = totalQuestions > 0
+        ? (correctCount / totalQuestions) * 100
+        : 0;
 
-      // FIXED: was `entry.score + (acc === 100 ? 50 : 0)` — hardcoded local formula.
-      // Now uses canonical calculateMultiplayerXP. streak=0 for display (see note above).
-      const xp = calculateMultiplayerXP(entry.score, entry.rank, 0);
+      // XP: use the centralized formula — placement=entry.rank, streak=maxStreak
+      // For local player, use the authoritative value from the session delta
+      const xp = entry.playerId === localPlayerId
+        ? localXpGained
+        : calculateMultiplayerXP(entry.score, entry.rank, maxStreak);
 
       return {
-        id: entry.playerId,
-        name: info.name,
-        avatar: info.avatar,
-        isHost: info.isHost,
-        score: entry.score,
+        id:           entry.playerId,
+        name:         info.name,
+        avatar:       info.avatar,
+        isHost:       info.isHost,
+        score:        entry.score,
         acc,
-        avg: null as number | null,
+        avg:          null as number | null,
         xp,
         correctCount,
-        rank: entry.rank,
+        rank:         entry.rank,
       };
     })
     .filter((p): p is PlayerResult => p !== null)
@@ -214,10 +197,10 @@ function PlayerRow({ player, isYou, medals, delay, ready }: {
           {player.isHost ? "HOST" : "CLIENT"}
         </span>
       </span>
-      <span style={{ width: 62, textAlign: "right", color: isFirst ? "#C9562E" : "#35E52B" }}>{player.score}</span>
-      <span style={{ width: 50, textAlign: "right", color: "#D9E600" }}>{player.acc}%</span>
+      <span style={{ width: 62, textAlign: "right", color: isFirst ? "#C9562E" : "#35E52B" }}>{formatScore(player.score)}</span>
+      <span style={{ width: 50, textAlign: "right", color: "#D9E600" }}>{formatAccuracy(player.acc)}</span>
       <span style={{ width: 50, textAlign: "right", color: "#00DFFF" }}>{player.avg !== null ? `${player.avg}s` : "—"}</span>
-      <span style={{ width: 50, textAlign: "right", color: "#35E52B88" }}>{player.xp}</span>
+      <span style={{ width: 50, textAlign: "right", color: "#35E52B88" }}>{formatXP(player.xp)}</span>
     </div>
   );
 }
@@ -285,86 +268,62 @@ export default function MultiplayerResults() {
   const [ready, setReady] = useState(false);
   const [progWidth, setProgWidth] = useState(0);
 
-  const triviaRankings = useTriviaStore((s) => s.rankings);
+  const triviaRankings  = useTriviaStore((s) => s.rankings);
   const triviaQuestions = useTriviaStore((s) => s.questions);
-  const triviaUserAnswers = useTriviaStore((s) => s.userAnswers);
-  const triviaAvgTime = useTriviaStore((s) => s.avgTime);
-  // ADDED: maxStreak — used for accurate local player XP in applySessionProgress.
-  const maxStreak = useTriviaStore((s) => s.maxStreak);
+  const maxStreak       = useTriviaStore((s) => s.maxStreak ?? 0);
 
-  const gameConfig = useGameStore((s) => s.gameConfig);
-  const localPlayer = usePlayerStore((s) => s.getPlayer());
-  // ADDED: applySessionProgress — persists local player XP/level after multiplayer game.
-  const applySessionProgress = usePlayerStore((s) => s.applySessionProgress);
-  const lobbyPlayers = useMultiplayerStore((s) => s.players);
+  const gameConfig    = useGameStore((s) => s.gameConfig);
+  const localPlayer   = usePlayerStore((s) => s.getPlayer());
+  const lobbyPlayers  = useMultiplayerStore((s) => s.players);
 
-  const setScreen = useGameStore((s) => s.setScreen);
-  const resetTrivia = useTriviaStore((s) => s.resetGame);
-  const resetMultiplayer = useMultiplayerStore((s) => s.resetMultiplayer);
+  const setScreen         = useGameStore((s) => s.setScreen);
+  const resetTrivia       = useTriviaStore((s) => s.resetGame);
+  const resetMultiplayer  = useMultiplayerStore((s) => s.resetMultiplayer);
 
   const localMpId = getMultiplayerPlayerId(localPlayer.id);
 
-  const category = gameConfig?.category ?? "TRIVIA";
-  const difficulty = gameConfig?.difficulty ?? "medium";
+  const category       = gameConfig?.category ?? "TRIVIA";
+  const difficulty     = gameConfig?.difficulty ?? "medium";
   const totalQuestions = triviaQuestions.length || gameConfig?.questionLimit || 15;
 
-  // CHANGED: removed `difficulty` arg — no longer needed after XP formula fix.
+  // ── XP from gameStore (set by QuestionPage end handler via buildSessionDelta) ─
+  // The leaderboard XP column is also computed via calculateMultiplayerXP so it
+  // matches what was actually saved — no separate formula here.
+  const localXpGained = useGameStore((s) => s.lastSessionXpGained);
+
   const players = buildPlayerResults(
     triviaRankings,
     lobbyPlayers,
     localMpId,
+    totalQuestions,
+    maxStreak,
+    localXpGained,
   );
 
   const you = players.find((p) => p.id === localMpId);
 
-  const localXp = localPlayer?.totalXp ?? 0;
-  const { tier, pct: rankPct } = getRankTier(localXp);
+  // ── Rank progress uses player's real totalXp from store ──────────────────────
+  const localXp  = localPlayer.totalXp ?? 0;
+  const rankProg = getLevelProgressPercent(localXp);
+  const rank     = getRankForLevel(localPlayer.level);
 
   const medals = ["🥇", "🥈", "🥉"];
 
-  const scoreDisplay = useCountUp(you?.score || 0, 1800, ready);
-  // CHANGED: xpDisplay uses true local XP with real maxStreak (not display-row value).
-  const trueLocalXp = calculateMultiplayerXP(you?.score ?? 0, you?.rank ?? 1, maxStreak);
-  const xpDisplay = useCountUp(trueLocalXp, 2000, ready);
-  const accDisplay = useCountUp(you?.acc || 0, 1400, ready);
+  const scoreDisplay = useCountUp(formatScore(you?.score || 0), 1800, ready);
+  // Use the authoritative XP from the store for the stat card, not the
+  // per-row estimate, so it matches what was saved to the player profile.
+  const xpDisplay    = useCountUp(formatXP(localXpGained || 0), 2000, ready);
+  // Accuracy count-up uses the raw float so it can animate up to the correct value
+  const accRaw       = you?.acc ?? 0;
+  const accDisplay   = useCountUp(accRaw, 1400, ready);
 
   useEffect(() => {
     const t = setTimeout(() => {
       setReady(true);
-      setTimeout(() => setProgWidth(rankPct), 300);
+      setTimeout(() => setProgWidth(rankProg), 300);
     }, 480);
     return () => clearTimeout(t);
-  }, [rankPct]);
-
-  // ADDED: persist the local player's session progress once when ready fires.
-  // Uses real maxStreak for accurate XP. eslint-disable prevents exhaustive-deps
-  // warning — intentionally runs once on ready, not on every dependency change.
-  const recordSessionEndLevel = useGameStore((s) => s.recordSessionEndLevel);
-
-  useEffect(() => {
-    if (!you || !ready) return;
-
-    const { xpGained } = applySessionProgress({
-      mode: "multiplayer",
-      category: category as Category,
-      difficulty: (difficulty ?? "easy") as Difficulty,
-      score: you.score,
-      placement: you.rank,
-      maxStreak,
-      totalQuestions,
-      correctAnswers: you.correctCount,
-      timeTaken: triviaAvgTime * totalQuestions,
-      questions: triviaQuestions,
-      userAnswers: triviaUserAnswers,
-      mastered: you.correctCount === totalQuestions,
-      won: you.rank === 1,
-      topThreeFinish: you.rank <= 3,
-      timePerQuestion: undefined,
-    });
-
-    recordSessionEndLevel(xpGained);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
+  }, [rankProg]);
 
   const handleBackToLobby = () => {
     resetTrivia();
@@ -402,10 +361,10 @@ export default function MultiplayerResults() {
           <div style={s.matchPanel}>
             <div style={s.matchGrid}>
               {[
-                ["CATEGORY", category.toUpperCase()],
+                ["CATEGORY",   category.toUpperCase()],
                 ["DIFFICULTY", difficulty.toUpperCase()],
-                ["PLAYERS", players.length],
-                ["QUESTIONS", totalQuestions],
+                ["PLAYERS",    players.length],
+                ["QUESTIONS",  totalQuestions],
               ].map(([lbl, val]) => (
                 <div key={lbl} style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                   <span style={s.miLbl}>{lbl}</span>
@@ -456,10 +415,10 @@ export default function MultiplayerResults() {
         <div>
           <SectionTitle>▶ YOUR PERFORMANCE</SectionTitle>
           <div style={s.statsGrid}>
-            <StatCard label="YOUR SCORE" value={ready ? scoreDisplay : 0} unit="pts" accent="#00DFFF" />
-            <StatCard label="XP GAINED"  value={ready ? xpDisplay   : 0} unit="xp"  accent="#35E52B" />
-            <StatCard label="ACCURACY"   value={ready ? accDisplay   : 0} unit="%"   accent="#D9E600" />
-            <StatCard label="CORRECT"    value={ready ? (you?.correctCount ?? 0) : 0} unit={`/${totalQuestions}`} accent="#C9562E" />
+            <StatCard label="YOUR SCORE" value={ready ? scoreDisplay : 0}                                unit="pts" accent="#00DFFF" />
+            <StatCard label="XP GAINED"  value={ready ? xpDisplay   : 0}                                unit="xp"  accent="#35E52B" />
+            <StatCard label="ACCURACY"   value={ready ? formatAccuracy(accDisplay) : "0.00%"}            unit=""    accent="#D9E600" />
+            <StatCard label="CORRECT"    value={ready ? (you?.correctCount ?? 0) : 0}                    unit={`/${totalQuestions}`} accent="#C9562E" />
           </div>
         </div>
 
@@ -467,28 +426,20 @@ export default function MultiplayerResults() {
         <div>
           <SectionTitle>▶ RANK PROGRESS</SectionTitle>
           <div style={s.rankPanel}>
-            {/* Tier badge row */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={s.rankTierBadge}>RANK {tier.rank}</span>
-                <span style={s.rankName}>{tier.name.toUpperCase()}</span>
+                <span style={s.rankTierBadge}>LV {localPlayer.level}</span>
+                <span style={s.rankName}>{rank.name.toUpperCase()}</span>
               </div>
-              <span style={s.rankPct}>{rankPct}%</span>
+              <span style={s.rankPct}>{rankProg}%</span>
             </div>
-            {/* Level range */}
-            <div style={{ marginBottom: 10 }}>
-              <span style={s.rankSub}>
-                LEVELS {tier.minLevel}–{tier.maxLevel} &nbsp;·&nbsp; {tier.minXp.toLocaleString()}–{tier.maxXp.toLocaleString()} XP
-              </span>
-            </div>
-            {/* Progress bar */}
             <div style={s.progTrack}>
               <div style={{ ...s.progBar, width: `${progWidth}%` }} />
               <div style={{ ...s.progGem, left: `calc(${progWidth}% - 7px)` }}>⬟</div>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
               <span style={s.rankSub}>XP: {localXp.toLocaleString()}</span>
-              <span style={s.rankSub}>NEXT RANK: {tier.maxXp.toLocaleString()} XP</span>
+              <span style={s.rankSub}>NEXT LV: {localXp + (1000 - (localXp % 1000))} XP</span>
             </div>
           </div>
         </div>
@@ -496,7 +447,7 @@ export default function MultiplayerResults() {
         {/* BUTTONS */}
         <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap", paddingTop: 4, paddingBottom: 20 }}>
           <CyberButton label="◀ BACK TO LOBBY" onClick={handleBackToLobby} />
-          <CyberButton label="EXIT LOBBY ✕" onClick={handleExitLobby} red />
+          <CyberButton label="EXIT LOBBY ✕"   onClick={handleExitLobby} red />
         </div>
       </div>
 
@@ -508,12 +459,12 @@ export default function MultiplayerResults() {
 // ─── STYLES ─────────────────────────────────────────────────────────────────────
 const s: Record<string, React.CSSProperties> = {
   root: {
-    position: 'fixed',
+    position: "fixed",
     top: 0,
     left: 0,
-    width: '100%',
-    height: '100%',
-    overflowY: 'auto' as const,
+    width: "100%",
+    height: "100%",
+    overflowY: "auto" as const,
     background: "linear-gradient(155deg,#041D49 0%,#031533 35%,#08235A 65%,#062B2B 100%)",
     fontFamily: "'Press Start 2P', monospace",
     color: "#E5E5E5",
@@ -601,17 +552,17 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: "'Press Start 2P', monospace",
   },
   rankName: { fontSize: "clamp(10px,1.4vw,12px)", color: "#D9E600", textShadow: "0 0 8px #D9E600", fontFamily: "'Press Start 2P', monospace" },
-  rankPct: { fontSize: "clamp(10px,1.4vw,12px)", color: "#35E52B", fontFamily: "'Press Start 2P', monospace" },
+  rankPct:  { fontSize: "clamp(10px,1.4vw,12px)", color: "#35E52B", fontFamily: "'Press Start 2P', monospace" },
   progTrack: { height: 16, background: "#041D4955", border: "1px solid #D9E60033", position: "relative", overflow: "visible", marginBottom: 8 },
-  progBar: { height: "100%", width: 0, background: "linear-gradient(90deg,#D9E600aa,#D9E600)", boxShadow: "0 0 10px #D9E600", transition: "width 1.5s cubic-bezier(.4,0,.2,1)" },
-  progGem: { position: "absolute", top: -5, color: "#D9E600", fontSize: 16, textShadow: "0 0 7px #D9E600", lineHeight: 1, transition: "left 1.5s cubic-bezier(.4,0,.2,1)" },
-  rankSub: { fontSize: "10px", color: "#8ecfda", letterSpacing: ".08em", fontFamily: "'Press Start 2P', monospace" },
+  progBar:   { height: "100%", width: 0, background: "linear-gradient(90deg,#D9E600aa,#D9E600)", boxShadow: "0 0 10px #D9E600", transition: "width 1.5s cubic-bezier(.4,0,.2,1)" },
+  progGem:   { position: "absolute", top: -5, color: "#D9E600", fontSize: 16, textShadow: "0 0 7px #D9E600", lineHeight: 1, transition: "left 1.5s cubic-bezier(.4,0,.2,1)" },
+  rankSub:   { fontSize: "10px", color: "#8ecfda", letterSpacing: ".08em", fontFamily: "'Press Start 2P', monospace" },
 };
 
 const globalCSS = `
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body, #root { height: auto !important; min-height: 100%; overflow: 'hidden', !important; overflow-x: hidden; }
+html, body, #root { height: auto !important; min-height: 100%; overflow-x: hidden; }
 @keyframes pred {
   0%,100% { text-shadow: 0 0 8px #E33232, 0 0 24px #E33232, 3px 3px 0 #7a0000; }
   50% { text-shadow: 0 0 18px #E33232, 0 0 50px #E33232, 0 0 80px #E3323277, 3px 3px 0 #7a0000; }

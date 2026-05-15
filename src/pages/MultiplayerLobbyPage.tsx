@@ -195,15 +195,14 @@ const MultiplayerLobby = () => {
           const httpElapsedMs = Date.now() - httpStartTime;
           console.log(`[Lobby] HTTP server callback fired with port ${port} (${httpElapsedMs}ms)`);
           safeResolve(port);
-          multiplayerBridge.offHttpServerStarted("StartGame");
-        });
+          multiplayerBridge?.offHttpServerStarted?.("StartGame");   
+     });
         
         // Safety timeout: if HTTP server doesn't start within 10 seconds, proceed anyway
         timeoutHandle = setTimeout(() => {
           console.warn(`[Lobby] HTTP server startup timeout after 10 seconds, proceeding with port=undefined`);
           safeResolve(0);
-          multiplayerBridge?.offHttpServerStarted("StartGame");
-        }, 10000);
+          multiplayerBridge?.offHttpServerStarted?.("StartGame");        }, 10000);
       } else {
         console.warn(`[Lobby] multiplayerBridge.onHttpServerStarted not available`);
         resolve(0);

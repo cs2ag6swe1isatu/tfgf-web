@@ -44,20 +44,25 @@ export interface Settings {
   useFlicker: boolean;
 }
 
-type WithSettings = { settings: Settings };
-type WithGameConfig = { gameConfig: GameConfig };
+type WithSettings       = { settings: Settings };
+type WithGameConfig     = { gameConfig: GameConfig };
 type WithAchievementQueue = {
   achievementUnlockQueue: Achievement[];
   postUnlockScreen: Screen | null;
 };
 
+// ─── Level-up session state (NOT persisted) ───────────────────────────────────
+
 export interface LevelUpSession {
+  /** Level at the START of the match (captured before applySessionProgress) */
   sessionStartLevel: number;
+  /** Level at the END of the match (captured after applySessionProgress) */
   sessionEndLevel: number;
+  /** Whether the popup should be shown on the result screen */
   showLevelUpPopup: boolean;
-  /** XP earned this session — populated by applySessionProgress via recordSessionEndLevel */
-  xpGained: number;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface GameState {
   screen: Screen;
@@ -71,6 +76,14 @@ interface GameState {
   // ── Deferred level-up popup state ──────────────────────────────────────────
   levelUpSession: LevelUpSession;
 
+  /**
+   * XP actually gained in the most recent session.
+   * Stored here (not as a module-level variable) so it survives the navigation
+   * from QuestionPage → ResultPage / MultiplayerResults without resetting.
+   * Reset to 0 when a new game starts.
+   */
+  lastSessionXpGained: number;
+
   getPlayer: () => Player;
 
   setScreen: (screen: Screen) => void;
@@ -83,21 +96,23 @@ interface GameState {
   dismissCurrentAchievementUnlock: () => void;
   clearAchievementUnlocks: () => void;
 
+  /** Record XP gained at end of session so result screens can display it. */
+  setLastSessionXpGained: (xp: number) => void;
+
   /**
-   * Call this BEFORE applySessionProgress at the start of a match.
+   * Call BEFORE applySessionProgress at the start of a match.
    * Records the player's current level as the session-start baseline.
    */
   recordSessionStartLevel: () => void;
 
   /**
-   * Call this AFTER applySessionProgress when the game ends.
+   * Call AFTER applySessionProgress when the game ends.
    * Compares end level to start level and arms the popup if the player levelled up.
    */
-  recordSessionEndLevel: (xpGained: number) => void;
+  recordSessionEndLevel: () => void;
 
   /**
-   * Dismiss the popup and reset the session tracking state.
-   * Call from LevelUpPopup's onClose / CONTINUE button.
+   * Dismiss the popup and reset session tracking state.
    */
   clearLevelUpSession: () => void;
 
@@ -114,7 +129,6 @@ const DEFAULT_LEVEL_UP_SESSION: LevelUpSession = {
   sessionStartLevel: 1,
   sessionEndLevel: 1,
   showLevelUpPopup: false,
-  xpGained: 0,
 };
 
 export const useGameStore = create<GameState>()(
@@ -126,8 +140,9 @@ export const useGameStore = create<GameState>()(
       postUnlockScreen: null,
       resolution: { width: 1024, height: 768, label: "XGA" },
 
-      // Not persisted — always starts clean
+      // ── Not persisted — always starts clean ────────────────────────────────
       levelUpSession: DEFAULT_LEVEL_UP_SESSION,
+      lastSessionXpGained: 0,
 
       settings: {
         bgmEnabled: true,
@@ -184,29 +199,33 @@ export const useGameStore = create<GameState>()(
       clearAchievementUnlocks: () =>
         set({ achievementUnlockQueue: [], postUnlockScreen: null }),
 
+      // ── XP gained this session ────────────────────────────────────────────
+
+      setLastSessionXpGained: (xp: number) =>
+        set({ lastSessionXpGained: Math.max(0, xp) }),
+
       // ── Level-up deferred popup actions ──────────────────────────────────
 
-     recordSessionStartLevel: () => {
+      recordSessionStartLevel: () => {
         const currentLevel = usePlayerStore.getState().getPlayer().level;
         set({
+          lastSessionXpGained: 0, // reset at session start
           levelUpSession: {
             sessionStartLevel: currentLevel,
-            sessionEndLevel: currentLevel,
-            showLevelUpPopup: false,
-            xpGained: 0,
+            sessionEndLevel:   currentLevel,
+            showLevelUpPopup:  false,
           },
         });
       },
 
-      recordSessionEndLevel: (xpGained: number) => {
-        const endLevel = usePlayerStore.getState().getPlayer().level;
+      recordSessionEndLevel: () => {
+        const endLevel   = usePlayerStore.getState().getPlayer().level;
         const startLevel = get().levelUpSession.sessionStartLevel;
         set({
           levelUpSession: {
             sessionStartLevel: startLevel,
-            sessionEndLevel: endLevel,
-            showLevelUpPopup: endLevel > startLevel,
-            xpGained,
+            sessionEndLevel:   endLevel,
+            showLevelUpPopup:  endLevel > startLevel,
           },
         });
       },
@@ -214,7 +233,7 @@ export const useGameStore = create<GameState>()(
       clearLevelUpSession: () =>
         set({ levelUpSession: DEFAULT_LEVEL_UP_SESSION, modalScreen: null }),
 
-      // ── Convenience config setters (unchanged) ────────────────────────────
+      // ── Convenience config setters ────────────────────────────────────────
 
       setMode: (mode: Mode) =>
         set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, mode } })),
@@ -233,9 +252,9 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: "game-store",
-      // levelUpSession is intentionally excluded — it must not survive a page reload
+      // levelUpSession and lastSessionXpGained must NOT survive a page reload
       partialize: (state: GameState) => ({
-        settings: state.settings,
+        settings:   state.settings,
         resolution: state.resolution,
         gameConfig: state.gameConfig,
       }),
