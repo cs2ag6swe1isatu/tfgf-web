@@ -17,7 +17,7 @@ export interface MultiplayerStateData {
   isPrivate: boolean;
   currentPlayerId: string | null;
   discoveredHosts: DiscoveredHost[];
-  joinStatus: 'idle' | 'joining' | 'joined'; // set grace period for joining to prevent multiple join attempts in quick succession / receiving stale snapshots
+  joinStatus: 'idle' | 'joining' | 'joined';
   knownPlayers: Record<string, LobbyMember>;
 }
 
@@ -41,7 +41,6 @@ export interface MultiplayerActions {
   setLobbyState: (state: LobbyState) => void;
   resetMultiplayer: () => void;
   syncLobbySnapshot: (snapshot: MultiplayerLobbySnapshot, hostAddress?: string | null) => void;
-  // Discovered hosts management
   addOrUpdateDiscoveredHost: (host: Partial<DiscoveredHost>) => void;
   removeDiscoveredHost: (lobbyId: string) => void;
   pruneStaleDiscoveredHosts: (ttlMs: number) => void;
@@ -132,17 +131,19 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   clearDiscoveredHosts: () => set({ discoveredHosts: [] }),
 
   addOrUpdatePlayer: (player, opts) => {
-    // console.log('[multiplayer] Adding/updating player:', player.id, player.name);
     set((state) => {
       const existingIndex = state.players.findIndex((p) => p.id === player.id);
+      const existing = existingIndex >= 0 ? state.players[existingIndex] : null;
+      // FIX: preserve avatar from existing player if incoming value is empty,
+      // and preserve isReady/isHost from existing if opts don't explicitly set them.
       const member: LobbyMember = {
         id: player.id,
         name: player.name,
-        avatar: player.avatar,
+        avatar: player.avatar || existing?.avatar || "",
         level: player.level,
         rank: getRankForLevel(player.level),
-        isReady: opts?.isReady ?? false,
-        isHost: opts?.isHost ?? false,
+        isReady: opts?.isReady ?? existing?.isReady ?? false,
+        isHost: opts?.isHost ?? existing?.isHost ?? false,
       };
 
       if (existingIndex >= 0) {

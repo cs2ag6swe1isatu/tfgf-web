@@ -15,7 +15,6 @@ import { getLevelProgressPercent } from '../utils/progression';
 import type { GameSession, Player, PlayData } from "../types/player";
 import { User } from "pixelarticons/react"; // Assuming you have this
 import { ACHIEVEMENT_RULES, type AchievementCategory, type AchievementScope } from "../progression/achievementRules";
-import { getAvatarSrc } from "../utils/avatar";
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 
 // --- Theme Constants based on your design ---
@@ -338,7 +337,11 @@ const ProfilePage = () => {
               }}
             >
               {player.avatar ? (
-                <img src={getAvatarSrc(player.avatar)} alt={playerName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img
+                  src={`./img/avatars/${encodeURIComponent(player.avatar)}`}
+                  alt={playerName}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", imageRendering: "pixelated" }}
+                />
               ) : (
                 <User style={{ fontSize: "3rem" }} />
               )}

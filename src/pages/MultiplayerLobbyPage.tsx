@@ -98,7 +98,7 @@ const MultiplayerLobby = () => {
         questionTimer,
         answerTimer,
         seed: payload.seed,
-        questionPort, // Pass port to startGame for fetching
+        questionPort,
         recentSessionLimitSolo: 0,
         recentSessionLimitMultiplayer: 0,
         autoJoinLan: false
@@ -132,7 +132,6 @@ const MultiplayerLobby = () => {
     const sessionQuestionTimer = gameConfig.questionTimer ?? defaultGameConfig.questionTimer;
     const sessionAnswerTimer = gameConfig.answerTimer ?? defaultGameConfig.answerTimer;
 
-    // Host: Listen for HTTP server port before broadcasting game-state
     if (multiplayerBridge?.onHttpServerStarted) {
       multiplayerBridge.onHttpServerStarted("StartGame", (port) => {
         console.log(`[Lobby] HTTP server started on port ${port}, broadcasting game-state`);
@@ -147,7 +146,7 @@ const MultiplayerLobby = () => {
           questionLimit: state.questionLimit,
           questionTimer: state.questionTimer,
           answerTimer: state.answerTimer,
-          questionPort: port, // Include the port for clients to fetch questions
+          questionPort: port,
           playerScores: state.playerScores,
           rankings: state.rankings,
         });
@@ -215,10 +214,10 @@ const MultiplayerLobby = () => {
     multiplayerBridge.startDiscovery();
 
     joinTimeoutRef.current = window.setTimeout(() => {
-  if (!hasConfirmedJoinRef.current) {
-    handleHostExit(); // never got confirmed by host, bail out
-  }
-}, 8000);
+      if (!hasConfirmedJoinRef.current) {
+        handleHostExit();
+      }
+    }, 8000);
 
     const onHostFoundCb = (payload: MultiplayerDiscoveredPayload) => {
       const currentLobbyId = useMultiplayerStore.getState().lobbyId;
@@ -232,13 +231,13 @@ const MultiplayerLobby = () => {
       const amIStillInLobby = payload.players.some((p) => p.id === multiplayerPlayer.id);
       if (amIStillInLobby) {
         if (!hasConfirmedJoinRef.current) {
-  hasConfirmedJoinRef.current = true;
-  if (joinTimeoutRef.current !== null) {
-    clearTimeout(joinTimeoutRef.current);
-    joinTimeoutRef.current = null;
-  }
-}
-        
+          hasConfirmedJoinRef.current = true;
+          if (joinTimeoutRef.current !== null) {
+            clearTimeout(joinTimeoutRef.current);
+            joinTimeoutRef.current = null;
+          }
+        }
+
         syncLobbySnapshot(payload, payload.hostAddress);
         const currentConfig = useGameStore.getState().gameConfig;
         const nextCategory = payload.category ?? undefined;
@@ -278,73 +277,69 @@ const MultiplayerLobby = () => {
     };
   }, [lobbyRole, multiplayerBridge, syncLobbySnapshot, handleHostExit, handleGameStateSync, multiplayerPlayer.id]);
 
-  // Effect A: register listeners only — stable deps, won't re-run on player changes
   useEffect(() => {
-  if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
+    if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
-  const handlePlayerJoined = (p: LobbyMember) => addOrUpdatePlayer(p, { isHost: false, isReady: false });
-  const handlePlayerReadyChanged = (playerId: string, ready: boolean) => setPlayerReady(playerId, ready);
-  const handlePlayerLeft = (playerId: string) => removePlayer(playerId);
+    const handlePlayerJoined = (p: LobbyMember) => addOrUpdatePlayer(p, { isHost: false, isReady: false });
+    const handlePlayerReadyChanged = (playerId: string, ready: boolean) => setPlayerReady(playerId, ready);
+    const handlePlayerLeft = (playerId: string) => removePlayer(playerId);
 
-  multiplayerBridge.onPlayerJoined("Lobby", handlePlayerJoined);
-  multiplayerBridge.onPlayerReadyChanged("Lobby", handlePlayerReadyChanged);
-  multiplayerBridge.onPlayerLeft("Lobby", handlePlayerLeft);
+    multiplayerBridge.onPlayerJoined("Lobby", handlePlayerJoined);
+    multiplayerBridge.onPlayerReadyChanged("Lobby", handlePlayerReadyChanged);
+    multiplayerBridge.onPlayerLeft("Lobby", handlePlayerLeft);
 
-  return () => {
-    multiplayerBridge.offPlayerJoined?.("Lobby");
-    multiplayerBridge.offPlayerReadyChanged?.("Lobby");
-    multiplayerBridge.offPlayerLeft?.("Lobby");
-  };
-}, [lobbyRole, lobbyId, multiplayerBridge, addOrUpdatePlayer, setPlayerReady, removePlayer]);
+    return () => {
+      multiplayerBridge.offPlayerJoined?.("Lobby");
+      multiplayerBridge.offPlayerReadyChanged?.("Lobby");
+      multiplayerBridge.offPlayerLeft?.("Lobby");
+    };
+  }, [lobbyRole, lobbyId, multiplayerBridge, addOrUpdatePlayer, setPlayerReady, removePlayer]);
 
-// Effect B: start broadcast once on mount, stop on unmount
-useEffect(() => {
-  if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
+  useEffect(() => {
+    if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
-  
+    // FIX: include host (with avatar) in the initial players array so clients
+    // receive the host's avatar from the very first broadcast packet.
+    const initialPayload: MultiplayerLobbySnapshot = {
+      lobbyId,
+      hostId: multiplayerPlayer.id,
+      hostName: multiplayerPlayer.name,
+      hostLevel: multiplayerPlayer.level,
+      playerCount: 1,
+      maxPlayers: defaultGameConfig.maxPlayers,
+      category: undefined,
+      difficulty: undefined,
+      isPrivate: false,
+      lastActive: new Date().toISOString(),
+      players: [{ ...multiplayerPlayer, isHost: true, isReady: true }], // ← FIX: was []
+    };
 
-  // Minimal seed payload — updateLobbySnapshot effect keeps it current
-  const initialPayload: MultiplayerLobbySnapshot = {
-    lobbyId,
-    hostId: multiplayerPlayer.id,
-    hostName: multiplayerPlayer.name,
-    hostLevel: multiplayerPlayer.level,
-    playerCount: 1,
-    maxPlayers: defaultGameConfig.maxPlayers,
-    category: undefined,
-    difficulty: undefined,
-    isPrivate: false,
-    lastActive: new Date().toISOString(),
-    players: [],
-  };
+    multiplayerBridge.startBroadcast(initialPayload);
 
-  multiplayerBridge.startBroadcast(initialPayload);
+    return () => {
+      multiplayerBridge.stopBroadcast?.();
+    };
+  }, [lobbyRole, lobbyId, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level]);
 
-  return () => {
-    multiplayerBridge.stopBroadcast?.();
-  };
-}, [lobbyRole, lobbyId, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level]);
-
-useEffect(() => {
-  if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
-  const payload: MultiplayerLobbySnapshot = {
-    lobbyId,
-    hostId: multiplayerPlayer.id,
-    hostName: multiplayerPlayer.name,
-    hostLevel: multiplayerPlayer.level,
-    playerCount: players.length || 1,
-    maxPlayers: defaultGameConfig.maxPlayers,
-    category: gameConfig.category ?? undefined,
-    difficulty: gameConfig.difficulty ?? undefined,
-    isPrivate,
-    lastActive: new Date().toISOString(),
-    players,
-  };
-  if (typeof multiplayerBridge.updateLobbySnapshot === "function") {
-    multiplayerBridge.updateLobbySnapshot(payload);
-  }
-}, [players, gameConfig, lobbyId, lobbyRole, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level, isPrivate]);
-
+  useEffect(() => {
+    if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
+    const payload: MultiplayerLobbySnapshot = {
+      lobbyId,
+      hostId: multiplayerPlayer.id,
+      hostName: multiplayerPlayer.name,
+      hostLevel: multiplayerPlayer.level,
+      playerCount: players.length || 1,
+      maxPlayers: defaultGameConfig.maxPlayers,
+      category: gameConfig.category ?? undefined,
+      difficulty: gameConfig.difficulty ?? undefined,
+      isPrivate,
+      lastActive: new Date().toISOString(),
+      players,
+    };
+    if (typeof multiplayerBridge.updateLobbySnapshot === "function") {
+      multiplayerBridge.updateLobbySnapshot(payload);
+    }
+  }, [players, gameConfig, lobbyId, lobbyRole, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level, isPrivate]);
 
   const handleReadyToggle = (playerId: string, ready: boolean) => {
     const targetPlayer = players.find((p) => p.id === playerId);
@@ -360,16 +355,15 @@ useEffect(() => {
   const isDifficultySelected = Boolean(gameConfig.difficulty);
   const canStart = isCategorySelected && isDifficultySelected && allPlayers.length > 1 && allPlayers.every((p) => p.isReady);
 
- useEffect(() => {
-  if (lobbyRole === "host" && players.length === 0) {
-    handleCreateLobby();
-    return;
-  }
-  if (lobbyRole === "client" && players.length === 0) {
-    // Don't pre-add — wait for host snapshot to confirm us via syncLobbySnapshot
-    setCurrentPlayerId(multiplayerPlayer.id);
-  }
-}, [lobbyRole, players.length, multiplayerPlayer, setCurrentPlayerId, handleCreateLobby]);
+  useEffect(() => {
+    if (lobbyRole === "host" && players.length === 0) {
+      handleCreateLobby();
+      return;
+    }
+    if (lobbyRole === "client" && players.length === 0) {
+      setCurrentPlayerId(multiplayerPlayer.id);
+    }
+  }, [lobbyRole, players.length, multiplayerPlayer, setCurrentPlayerId, handleCreateLobby]);
 
   // ─── Styles ──────────────────────────────────────────────────────────────
   const styles = {
@@ -391,7 +385,6 @@ useEffect(() => {
       flexDirection: "column" as const,
       gap: "16px",
     },
-    // Top bar
     topBar: {
       display: "flex",
       alignItems: "center",
@@ -452,7 +445,6 @@ useEffect(() => {
       whiteSpace: "nowrap" as const,
       transition: "all 0.15s",
     },
-    // Player panel
     panel: {
       border: "2px solid #00E5FF",
       borderRadius: "10px",
@@ -478,7 +470,6 @@ useEffect(() => {
       color: "#DADADA",
       letterSpacing: "1px",
     },
-    // Player row
     playerRow: (active: boolean) => ({
       display: "flex",
       alignItems: "center",
@@ -560,7 +551,6 @@ useEffect(() => {
       marginTop: "4px",
       opacity: 0.7,
     },
-    // Bottom action buttons
     bottomRow: {
       display: "grid",
       gridTemplateColumns: "1fr 1fr 1fr",
@@ -610,31 +600,24 @@ useEffect(() => {
       <Box sx={styles.inner}>
         {/* Top bar */}
         <Box sx={styles.topBar}>
-          {/* Left: visibility toggle (host only) */}
           <Box sx={{ minWidth: "120px" }}>
             {lobbyRole === "host" && (
               <button
-  style={styles.visibilityBtn(isPrivate)}
-  onClick={() => { setPrivate(!isPrivate); playSound("select"); }}
-  onMouseEnter={() => playSound("hover")}
+                style={styles.visibilityBtn(isPrivate)}
+                onClick={() => { setPrivate(!isPrivate); playSound("select"); }}
+                onMouseEnter={() => playSound("hover")}
               >
-                {isPrivate ? (
-                  <Lock width={14} height={14} />
-                ) : (
-                  <Globe width={14} height={14} />
-                )}
+                {isPrivate ? <Lock width={14} height={14} /> : <Globe width={14} height={14} />}
                 {isPrivate ? "PRIVATE" : "PUBLIC"}
               </button>
             )}
           </Box>
 
-          {/* Center: lobby ID */}
           <Box sx={styles.lobbyIdRow}>
             <span style={styles.lobbyIdLabel}>LOBBY ID:</span>
             <span style={styles.lobbyIdBox}>{currentLobbyId}</span>
           </Box>
 
-          {/* Right: exit button */}
           <button style={styles.exitBtn} onClick={() => { handleLeaveLobby(); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
             {lobbyRole === "client" ? "EXIT LOBBY" : "BACK"}
           </button>
@@ -649,7 +632,6 @@ useEffect(() => {
             </span>
           </Box>
 
-          {/* Player rows */}
           {allPlayers.map((p) => (
             <Box key={p.id} sx={styles.playerRow(true)}>
               <Box sx={styles.avatar}>
@@ -673,18 +655,15 @@ useEffect(() => {
                   </span>
                 </Box>
               </Box>
-              {/* Kick button (host only, not on self) */}
               {lobbyRole === "host" && !p.isHost && (
                 <button style={styles.kickBtn} onClick={() => { handleKick(p.id); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
                   KICK
                 </button>
               )}
-              {/* Ready status dot */}
               <Box sx={styles.statusDot(p.isReady ?? false)} />
             </Box>
           ))}
 
-          {/* Empty slots */}
           {Array.from({ length: Math.max(0, (defaultGameConfig.maxPlayers ?? 4) - allPlayers.length) }).map((_, i) => (
             <Box key={`empty-${i}`} sx={styles.playerRow(false)}>
               <Box sx={styles.avatar} />
@@ -702,50 +681,43 @@ useEffect(() => {
 
         {/* Bottom action buttons */}
         <Box sx={styles.bottomRow}>
-          {/* Category */}
           <button
-  style={{
-    ...styles.sideBtn,
-    ...(lobbyRole === "client" ? styles.sideBtnDisabled : {}),
-  }}
-  onClick={() => { if (lobbyRole === "host") { setModalScreen("category"); playSound("select"); } }}
-  onMouseEnter={() => { if (lobbyRole !== "client") playSound("hover"); }}
-  disabled={lobbyRole === "client"}
->
+            style={{ ...styles.sideBtn, ...(lobbyRole === "client" ? styles.sideBtnDisabled : {}) }}
+            onClick={() => { if (lobbyRole === "host") { setModalScreen("category"); playSound("select"); } }}
+            onMouseEnter={() => { if (lobbyRole !== "client") playSound("hover"); }}
+            disabled={lobbyRole === "client"}
+          >
             {gameConfig.category ? gameConfig.category.toUpperCase() : "CATEGORY"}
           </button>
 
-          {/* Play / Ready */}
+
           {lobbyRole === "host" ? (
             <button
-  style={styles.primaryBtn(!canStart)}
-  onClick={canStart ? () => { handleStartGame(); playSound("select"); } : undefined}
-  onMouseEnter={() => { if (canStart) playSound("hover"); }}
-  disabled={!canStart}
->
+              style={styles.primaryBtn(!canStart)}
+              onClick={canStart ? () => { handleStartGame(); playSound("select"); } : undefined}
+              onMouseEnter={() => { if (canStart) playSound("hover"); }}
+              disabled={!canStart}
+            >
               PLAY
             </button>
           ) : (
             <button
-  style={styles.primaryBtn(!currentPlayer)}
-  onClick={() => { if (currentPlayer) { handleReadyToggle(currentPlayer.id, !isReady); playSound("select"); } }}
-  onMouseEnter={() => { if (currentPlayer) playSound("hover"); }}
-  disabled={!currentPlayer}
->
+              style={styles.primaryBtn(!currentPlayer)}
+              onClick={() => { if (currentPlayer) { handleReadyToggle(currentPlayer.id, !isReady); playSound("select"); } }}
+              onMouseEnter={() => { if (currentPlayer) playSound("hover"); }}
+              disabled={!currentPlayer}
+            >
               {isReady ? "UNREADY" : "READY"}
             </button>
           )}
 
-          {/* Difficulty */}
+
           <button
-  style={{
-    ...styles.sideBtn,
-    ...(lobbyRole === "client" ? styles.sideBtnDisabled : {}),
-  }}
-  onClick={() => { if (lobbyRole === "host") { setModalScreen("difficulty"); playSound("select"); } }}
-  onMouseEnter={() => { if (lobbyRole !== "client") playSound("hover"); }}
-  disabled={lobbyRole === "client"}
->
+            style={{ ...styles.sideBtn, ...(lobbyRole === "client" ? styles.sideBtnDisabled : {}) }}
+            onClick={() => { if (lobbyRole === "host") { setModalScreen("difficulty"); playSound("select"); } }}
+            onMouseEnter={() => { if (lobbyRole !== "client") playSound("hover"); }}
+            disabled={lobbyRole === "client"}
+          >
             {gameConfig.difficulty ? gameConfig.difficulty.toUpperCase() : "DIFFICULTY"}
           </button>
         </Box>
