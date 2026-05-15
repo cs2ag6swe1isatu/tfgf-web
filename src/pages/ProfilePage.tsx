@@ -185,6 +185,10 @@ const ProfilePage = () => {
   }, [selectedTab]);
 
   useEffect(() => {
+    setSelectedAchievementCategory(null);
+  }, [achCategoryView]);
+
+  useEffect(() => {
     if (selectedTab !== 2) {
       setSelectedHistoryEntry(null);
     }
@@ -443,21 +447,21 @@ const ProfilePage = () => {
   onMouseEnter={() => playSound("hover")}
   sx={subTabButtonStyle(historyView === "all")}
                   >
-                    Overall
+                    All
                   </Typography>
                   <Typography sx={{ color: "white" }}>|</Typography>
                   <Typography
-                    onClick={() => { setAchCategoryView("solo"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
+                    onClick={() => { setHistoryView("solo"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={subTabButtonStyle(historyView === "solo")}
                   >
                     Solo
                   </Typography>
                   <Typography sx={{ color: "white" }}>|</Typography>
                   <Typography
-                    onClick={() => { setAchCategoryView("multiplayer"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
+                    onClick={() => { setHistoryView("multiplayer"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={subTabButtonStyle(historyView === "multiplayer")}
                   >
-                    Multiplayer
+                    Multi
                   </Typography>
                 </Box>
 
@@ -613,7 +617,7 @@ const ProfilePage = () => {
               <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
                 
                 {/* Header Solo | Multiplayer */}
-                <Box sx={{ display: "flex", gap: "1.5rem", mb: "1rem", alignItems: "center" }}>
+                <Box sx={{ display: "flex", gap: "1.5rem", mb: "1rem", alignItems: "center", justifyContent: "center", width: "100%" }}>
                   <Typography
                     onClick={() => { setAchCategoryView("solo"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={subTabButtonStyle(achCategoryView === "solo")}
@@ -625,7 +629,7 @@ const ProfilePage = () => {
                     onClick={() => { setAchCategoryView("multiplayer"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={subTabButtonStyle(achCategoryView === "multiplayer")}
                   >
-                    Multiplayer
+                    Multi
                   </Typography>
                 </Box>
 
@@ -741,7 +745,7 @@ const ProfilePage = () => {
             )}
             {selectedTab === 2 && (
               <Box sx={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-                <Box sx={{ display: "flex", gap: "1.5rem", alignItems: "center" }}>
+                <Box sx={{ display: "flex", gap: "1.5rem", alignItems: "center", justifyContent: "center", width: "100%" }}>
                   <Typography
                    onClick={() => { setSelectedHistoryEntry(null); setHistoryMode("solo"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={{
