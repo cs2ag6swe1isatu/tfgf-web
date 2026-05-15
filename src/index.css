@@ -11,3 +11,50 @@ canvas, img, div {
 * {
   cursor: none !important;
 }
+
+:root {
+  --scrollbar-thumb: #34D216; /* neon green */
+  --scrollbar-track: #000000;
+  --scrollbar-thumb-glow: #34D21666;
+  --scrollbar-width: 8px;
+}
+
+/* Global retro / pixelated scrollbar (WebKit + Firefox) */
+* {
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track) !important;
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-width);
+  cursor: none !important;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  cursor: none !important;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb) !important;
+  border: 2px solid var(--scrollbar-track);
+  border-radius: 0 !important;
+  box-shadow: 0 0 10px var(--scrollbar-thumb-glow);
+  image-rendering: pixelated;
+  cursor: none !important;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  box-shadow: 0 0 14px var(--scrollbar-thumb-glow);
+}
+
+/* Keep scrollbars crisp when page is scaled / pixelated */
+html, body { image-rendering: pixelated; }
+
+/* Also hide cursor on scrollbar corner and buttons */
+*::-webkit-scrollbar-button { cursor: none !important; }
+*::-webkit-scrollbar-corner { cursor: none !important; }
+
+/* todo: hide native cursor on scrollbars
+OR hide native scrollbars and implement a DOM-based custom scrollbar component*/
