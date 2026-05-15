@@ -7,6 +7,7 @@ import { Globe, Lock } from "pixelarticons/react";
 import { getAvatarSrc } from "../utils/avatar";
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 import { useSoundContext } from "../context/SoundContext";
+import { getCategoryDisplay } from "../utils/categoryShorthand";
 
 import type {
   MultiplayerBridge,
@@ -824,7 +825,7 @@ const MultiplayerLobby = () => {
             onMouseEnter={() => { if (lobbyRole !== "client") playSound("hover"); }}
             disabled={lobbyRole === "client"}
           >
-            {gameConfig.category ? gameConfig.category.toUpperCase() : "CATEGORY"}
+            {getCategoryDisplay(gameConfig.category).toUpperCase()}
           </button>
 
 
