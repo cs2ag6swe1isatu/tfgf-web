@@ -19,6 +19,7 @@ import {
 import { calculateSoloXP, getLevel } from "../utils/progression";
 import type { Achievement } from "../types/player";
 
+
 // ─── Keyframe Animations ────────────────────────────────────────────────────
 
 const neonFlicker = keyframes`
@@ -214,7 +215,7 @@ const QuestionPanel = styled(Box)({
 
 const QuestionText = styled(Typography)({
   fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "20px",
+  fontSize: "15px",
   color: "#35E52B",
   textShadow: "0 0 8px #42FF5C, 0 0 20px #35E52B55",
   textAlign: "center",
@@ -281,7 +282,7 @@ const AnswerButton = styled(Button, {
 
   return {
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "20px",
+    fontSize: "15px",
     width: "100%",
     height: "100%",
     padding: "0 20px",
@@ -340,7 +341,7 @@ const AnswerLabel = styled(Box, {
 })<{ correct?: boolean; incorrect?: boolean }>( 
   ({ correct, incorrect }) => ({
     fontFamily: "'Press Start 2P', 'Courier New', monospace",
-    fontSize: "18px",
+    fontSize: "15px",
     color: correct ? "#35E52B" : incorrect ? "#E33232" : "#00E5FF",
     textShadow: correct
       ? "0 0 8px #35E52B"
@@ -351,79 +352,6 @@ const AnswerLabel = styled(Box, {
     flexShrink: 0,
   })
 );
-
-// ─── Ranking Overlay ──────────────────────────────────────────────────────────
-
-const RankingOverlay = styled(Box)({
-  position: "absolute",
-  inset: 0,
-  zIndex: 30,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "rgba(1,7,7,0.92)",
-  animation: `${fadeIn} 0.3s ease both`,
-});
-
-const RankingPanel = styled(Box)({
-  width: "560px",
-  border: "1.5px solid #00DFFF",
-  borderRadius: "12px",
-  background: "rgba(0,5,20,0.95)",
-  boxShadow: "0 0 24px #00DFFF44, 0 0 48px #00DFFF22",
-  padding: "28px 32px",
-  display: "flex",
-  flexDirection: "column",
-  gap: "10px",
-});
-
-const RankingTitle = styled(Typography)({
-  fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "25px",
-  color: "#35E52B",
-  textShadow: "0 0 8px #42FF5C",
-  textAlign: "center",
-  marginBottom: "8px",
-  letterSpacing: "3px",
-});
-
-const RankingRow = styled(Box)<{ isLocal?: boolean }>(({ isLocal }) => ({
-  display: "flex",
-  alignItems: "center",
-  gap: "14px",
-  padding: "10px 14px",
-  borderRadius: "6px",
-  background: isLocal ? "rgba(0,229,255,0.08)" : "transparent",
-  border: isLocal ? "1px solid #00E5FF44" : "1px solid transparent",
-}));
-
-const RankNumber = styled(Typography)({
-  fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "25px",
-  color: "#00E5FF",
-  textShadow: "0 0 6px #00E5FF",
-  minWidth: "24px",
-  textAlign: "center",
-});
-
-const RankName = styled(Typography)({
-  fontFamily: "'Courier New', monospace",
-  fontSize: "25px",
-  color: "#DADADA",
-  flex: 1,
-  letterSpacing: "1px",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-});
-
-const RankScore = styled(Typography)({
-  fontFamily: "'Press Start 2P', 'Courier New', monospace",
-  fontSize: "25px",
-  color: "#35E52B",
-  textShadow: "0 0 6px #35E52B",
-});
 
 // ─── Bottom Phase Bar ─────────────────────────────────────────────────────────
 
@@ -490,7 +418,7 @@ function useResponsiveScale(): string {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const QuestionPage = () => {
-
+  const [readyCountdown, setReadyCountdown] = useState<number | null>(null);
   const { playSound } = useSoundContext();
   const {
     questions,
@@ -518,6 +446,37 @@ const QuestionPage = () => {
   const localPlayerId = mode === "multiplayer" ? getMultiplayerPlayerId(localPlayer.id) : localPlayer.id;
 
   const multiplayerBridge: MultiplayerBridge | undefined = window.multiplayer;
+
+  const ReadyOverlay = styled(Box)({
+  position: "absolute",
+  inset: 0,
+  zIndex: 40,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(0,0,0,0.75)",
+  animation: `${fadeIn} 0.3s ease both`,
+});
+
+const ReadyLabel = styled(Typography)({
+  fontFamily: "'Press Start 2P', 'Courier New', monospace",
+  fontSize: "14px",
+  color: "#00E5FF",
+  letterSpacing: "4px",
+  textShadow: "0 0 12px #00E5FF",
+  marginBottom: "20px",
+  textTransform: "uppercase",
+});
+
+const ReadyNumber = styled(Typography)({
+  fontFamily: "'Press Start 2P', 'Courier New', monospace",
+  fontSize: "80px",
+  color: "#35E52B",
+  textShadow: "0 0 20px #42FF5C, 0 0 40px #35E52B88",
+  lineHeight: 1,
+  animation: `${neonFlicker} 0.8s ease-in-out infinite`,
+});
 
   // ── Reward System hooks ────────────────────────────────────────────────────
   const {
@@ -658,14 +617,16 @@ const handleAnswerClick = useCallback(
       return;
 
     if (phase === "answering" && mode === "solo" && selectedAnswer) return;
+    if (phase === "scoring" && mode === "multiplayer") return;
     
-
+    console.log("[TIMER EFFECT] phase:", phase, "mode:", mode, "lobbyRole:", lobbyRole, "selectedAnswer:", selectedAnswer);
     let timerInterval: number;
 
     const timerTickIntervalMs = 1000;
 
     if (mode === "solo" || lobbyRole === "host") {
       timerInterval = window.setInterval(() => {
+        console.log("[TIMER TICK] phase:", useTriviaStore.getState().phase); 
         useTriviaStore.getState().tickTimer();
         if (mode === "multiplayer" && lobbyRole === "host") {
           broadcastMultiplayerState();
@@ -705,43 +666,30 @@ const handleAnswerClick = useCallback(
 
   const hasScoredRef = useRef(false);
 
-  useEffect(() => {
-    if (hasScoredRef.current) return;
-    if (phase === "scoring" && mode === "multiplayer" && lobbyRole === "host") {
-      hasScoredRef.current = true;
-      scoreCurrentQuestion();
-      finalizeRankings();
-      broadcastMultiplayerState();
-    }
-  }, [phase, mode, lobbyRole, multiplayerBridge, scoreCurrentQuestion, finalizeRankings, broadcastMultiplayerState]);
+useEffect(() => {
+  if (phase !== "scoring" || mode !== "multiplayer" || lobbyRole !== "host") {
+    if (phase !== "scoring") hasScoredRef.current = false;
+    return;
+  }
+  if (hasScoredRef.current) return;
+  hasScoredRef.current = true;
+
+  scoreCurrentQuestion();
+  finalizeRankings();
+  broadcastMultiplayerState();
+
+  const delay = setTimeout(() => {
+    nextPhase();
+    broadcastMultiplayerState();
+  }, 3000);
+
+  return () => clearTimeout(delay);
+}, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, nextPhase, broadcastMultiplayerState]);
 
   useEffect(() => {
     if (phase !== "scoring") hasScoredRef.current = false;
   }, [phase]);
 
-  // ── Multiplayer: auto-advance when all players have answered ────────────────
-useEffect(() => {
-  if (mode !== "multiplayer" || lobbyRole !== "host") return;
-  if (phase !== "answering") return;
-
-  const totalPlayers = players.length;
-  if (totalPlayers === 0) return;
-
-  const state = useTriviaStore.getState();
-  const answersForQuestion = state.playerScores?.[currentIndex] ?? {};
-  const remoteAnswerCount = Object.keys(answersForQuestion).length;
-
-  // Count local player's answer too
-  const localHasAnswered = !!selectedAnswer;
-  const totalAnswered = remoteAnswerCount + (localHasAnswered ? 1 : 0);
-
-  if (totalAnswered >= totalPlayers) {
-    // Everyone answered — skip remaining timer and go to scoring
-    nextPhase();
-    broadcastMultiplayerState();
-  }
-}, [mode, lobbyRole, phase, players.length, selectedAnswer, currentIndex,
-    nextPhase, broadcastMultiplayerState]);
 
   // ── Multiplayer: broadcast on state changes ─────────────────────────────────
 
@@ -997,7 +945,7 @@ useEffect(() => {
           <Typography
             sx={{
               fontFamily: "'Press Start 2P', monospace",
-              fontSize: "23px",
+              fontSize: "17px",
               color: "#35E52B",
               textShadow: "0 0 8px #42FF5C",
               letterSpacing: "3px",
@@ -1089,24 +1037,13 @@ useEffect(() => {
           {currentHint && <PhaseHint>{currentHint}</PhaseHint>}
         </PhaseBar>
 
-        {/* ── RANKING OVERLAY (multiplayer scoring phase) ───────────────────── */}
-        {phase === "scoring" && mode === "multiplayer" && displayedRankings.length > 0 && (
-          <RankingOverlay>
-            <RankingPanel>
-              <RankingTitle>— RANKINGS —</RankingTitle>
-              {displayedRankings.slice(0, 8).map((entry) => (
-                <RankingRow key={entry.playerId} isLocal={entry.playerId === localPlayer.id}>
-                  <RankNumber>#{entry.rank}</RankNumber>
-                  <RankName>
-                    {entry.name}
-                    {entry.playerId === localPlayer.id ? " ◀" : ""}
-                  </RankName>
-                  <RankScore>{entry.score}</RankScore>
-                </RankingRow>
-              ))}
-            </RankingPanel>
-          </RankingOverlay>
-        )}
+        {/* ── GET READY OVERLAY ────────────────────────────────────────────── */}
+{phase === "readying" && readyCountdown !== null && (
+  <ReadyOverlay>
+    <ReadyLabel>Get Ready In</ReadyLabel>
+    <ReadyNumber>{readyCountdown}</ReadyNumber>
+  </ReadyOverlay>
+)}
 
         {/* ── REWARD OVERLAY ───────────────────────────────────────────────── */}
         <RewardOverlay

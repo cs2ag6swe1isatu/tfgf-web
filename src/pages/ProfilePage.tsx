@@ -436,22 +436,22 @@ const ProfilePage = () => {
                 {/* Stats Header Tabs */}
                 <Box sx={{ display: "flex", gap: "1.5rem", mb: "2rem", justifyContent: "center", alignItems: "center" }}>
                   <Typography
-                    onClick={() => { setHistoryView("all"); playSound("select"); }}
-                    onMouseEnter={() => playSound("hover")}
-                    sx={subTabButtonStyle(historyView === "all")}
+  onClick={() => { setHistoryView("all"); playSound("select"); }}
+  onMouseEnter={() => playSound("hover")}
+  sx={subTabButtonStyle(historyView === "all")}
                   >
                     Overall
                   </Typography>
                   <Typography sx={{ color: "white" }}>|</Typography>
                   <Typography
-                    onClick={() => { setHistoryView("solo"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
+                    onClick={() => { setAchCategoryView("solo"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={subTabButtonStyle(historyView === "solo")}
                   >
                     Solo
                   </Typography>
                   <Typography sx={{ color: "white" }}>|</Typography>
                   <Typography
-                    onClick={() => { setHistoryView("multiplayer"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
+                    onClick={() => { setAchCategoryView("multiplayer"); playSound("select"); }} onMouseEnter={() => playSound("hover")}
                     sx={subTabButtonStyle(historyView === "multiplayer")}
                   >
                     Multiplayer
