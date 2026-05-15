@@ -29,7 +29,7 @@ import { applyRoundScores, scoreIncrementForAnswer, PlayerRoundAnswer } from '..
  * - loading: Fetching questions, show animations or placeholders
  * - readying: Show "Get Ready" screen, short countdown before first question
  * - asking: Showing question and starting question timer
- * - answering: User is selecting answer, answer timer is running
+ * - answering: User is selecting answer, answer timer is 
  * - scoring: Show correct answer and update score, short delay before next question
  * - ranking: Show final results and rankings (for multiplayer)
  * - end: Game over, show summary and options to view profile or return to menu
