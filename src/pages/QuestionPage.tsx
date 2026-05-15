@@ -221,7 +221,7 @@ const QuestionPage = () => {
   const { applySessionProgress } = usePlayerStore();
   const localPlayer = usePlayerStore((state) => state.getPlayer());
   const { lobbyRole, players } = useMultiplayerStore();
-  const { setScreen } = useGameStore();
+  const { setScreen, recordSessionStartLevel, recordSessionEndLevel, queueAchievementUnlocks } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
   const category = useGameStore((state) => state.gameConfig.category);
   const localPlayerId = mode === "multiplayer" ? getMultiplayerPlayerId(localPlayer.id) : localPlayer.id;
@@ -255,9 +255,13 @@ const QuestionPage = () => {
   const levelAfterSessionRef     = useRef<number>(0);
   const endDataRef = useRef<{ achievements: Achievement[]; postUnlockScreen: "result" | "multiplayer-results"; } | null>(null);
   const gameStartTimeRef = useRef<number | null>(null);
-  const gameElapsedTimeRef = useRef<number>(0);
   const totalSessionTimeRef = useRef<number>(0);
   const totalAnsweredRef = useRef<number>(0);
+
+  // ── Guard: prevents the end-of-game handler running more than once ─────────
+  const endProgressAppliedRef = useRef(false);
+
+  const fellBehindByHalfRef = useRef(false);
 
   useEffect(() => {
     if (phase === 'answering' || phase === 'asking') {
@@ -311,6 +315,7 @@ const QuestionPage = () => {
     let timerInterval: number;
     if (mode === "solo" || lobbyRole === "host") {
       timerInterval = window.setInterval(() => {
+        console.log("[TIMER TICK] phase:", useTriviaStore.getState().phase); 
         useTriviaStore.getState().tickTimer();
         if (mode === "multiplayer" && lobbyRole === "host") broadcastMultiplayerState();
       }, 1000);
@@ -378,7 +383,7 @@ const QuestionPage = () => {
       fellBehindByHalfRef.current = false; totalSessionTimeRef.current = 0; totalAnsweredRef.current = 0;
       didLevelUpThisSessionRef.current = false; levelAfterSessionRef.current = 0; endProgressAppliedRef.current = false; 
     }
-  }, [phase, currentIndex]);
+  }, [phase, currentIndex, recordSessionStartLevel]);
 
   useEffect(() => {
     if (phase !== "end" || endProgressAppliedRef.current) return;

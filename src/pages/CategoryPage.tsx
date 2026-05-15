@@ -256,8 +256,6 @@ export default function CategoryPage() {
   return (
     <div style={styles.root}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
         @keyframes floatPx {
           0%,100% { transform: translateY(0) rotate(0deg); opacity: 0.45; }
           50%      { transform: translateY(-12px) rotate(45deg); opacity: 0.7; }

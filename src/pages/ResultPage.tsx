@@ -1,12 +1,14 @@
-import React, { useRef } from 'react';
-import { Box, Typography, Button, LinearProgress } from '@mui/material';
+import React, { useEffect, useRef, useState } from 'react';
+import { Box, Typography, Button, LinearProgress, GlobalStyles } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { usePlayerStore } from '../store/playerStore';
 import { getLevelProgressPercent } from '../utils/progression';
 import { getLastXpGained } from '../progression/progressionRules';
+import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from '../components/ui/RankIcon';
 import { keyframes, styled } from '@mui/material/styles';
+import { LevelUpPopup } from '../components/rewards/LevelUpPopup';
 
 // ─── Keyframes ───────────────────────────────────────────────────────────────
 
@@ -75,9 +77,6 @@ const btnHover = keyframes`
   50%       { box-shadow: 0 0 24px rgba(0,223,255,0.75), 0 0 0 2px #00DFFF, 0 0 48px rgba(0,223,255,0.2); }
 `;
 
-// Layout is derived from the user's stored resolution so pages use the
-// actual selected resolution in the `gameStore` rather than an inline table.
-
 // ─── Root wrapper ─────────────────────────────────────────────────────────────
 
 const ScaleRoot = styled(Box)({
@@ -93,18 +92,45 @@ const ScaleRoot = styled(Box)({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const ResultPage: React.FC = () => {
-  const setScreen   = useGameStore((s) => s.setScreen);
-  const storedRes   = useGameStore((s) => s.resolution);
-  const score       = useTriviaStore((s) => s.score ?? 0);
-  const questions   = useTriviaStore((s) => s.questions);
-  const userAnswers = useTriviaStore((s) => s.userAnswers ?? {});
-  const playerTotalXp = usePlayerStore((s) => s.getPlayer().totalXp);
+  const setScreen             = useGameStore((s) => s.setScreen);
+  const storedRes             = useGameStore((s) => s.resolution);
+  const score                 = useTriviaStore((s) => s.score ?? 0);
+  const questions             = useTriviaStore((s) => s.questions);
+  const userAnswers           = useTriviaStore((s) => s.userAnswers ?? {});
+  const playerTotalXp         = usePlayerStore((s) => s.getPlayer().totalXp);
 
-  // Pull rank title from player store if available, else default
-  let playerRankTitle = 'STUDENT';
-  try {
-    playerRankTitle = usePlayerStore((s: any) => s?.getPlayer?.()?.rankTitle) ?? 'STUDENT';
-  } catch (_) { /* store may not expose rankTitle */ }
+  // ── Level-up popup state from the store ──────────────────────────────────
+  const levelUpSession        = useGameStore((s) => s.levelUpSession);
+  const clearLevelUpSession   = useGameStore((s) => s.clearLevelUpSession);
+
+  // Local open/close state driven by the store flag — keeps the popup visible
+  // until the player explicitly dismisses it, regardless of the store flag
+  // resetting underneath.
+  const [popupOpen, setPopupOpen] = useState(false);
+  // Snapshot levels at the moment the popup opens so they don't change if
+  // the store updates while the popup is still visible.
+  const popupLevels = useRef({ prev: 1, next: 1 });
+
+  useEffect(() => {
+    if (levelUpSession.showLevelUpPopup && !popupOpen) {
+      popupLevels.current = {
+        prev: levelUpSession.sessionStartLevel,
+        next: levelUpSession.sessionEndLevel,
+      };
+      setPopupOpen(true);
+    }
+  }, [levelUpSession.showLevelUpPopup]);
+
+  const handlePopupClose = () => {
+    setPopupOpen(false);
+    clearLevelUpSession();
+  };
+
+  // Pull rank name from player store
+  const player = usePlayerStore((s) => s.getPlayer());
+  const playerRankTitle = player.rank.name.toUpperCase();
+  const rankSymbolType = getRankSymbolType(player.rank.name);
+  const rankColors = RANK_COLORS[rankSymbolType];
 
   // Compute layout from the user's stored resolution
   const base = {
@@ -136,12 +162,18 @@ const ResultPage: React.FC = () => {
   );
   const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
   const xpGained  = getLastXpGained() || score;
-  // Use player's actual XP from the store (already includes multiplied XP from applySessionProgress)
-  // to show accurate level/rank progress after this session
   const rankProg  = getLevelProgressPercent(playerTotalXp);
 
   return (
     <ScaleRoot>
+      {/* ── Level-up popup — only shown after game ends, never during gameplay ── */}
+      <LevelUpPopup
+        open={popupOpen}
+        previousLevel={popupLevels.current.prev}
+        newLevel={popupLevels.current.next}
+        onClose={handlePopupClose}
+      />
+
       <Box
         sx={{
           width:      '100%',
@@ -167,7 +199,6 @@ const ResultPage: React.FC = () => {
           padding:         L.pad,
           boxSizing:      'border-box',
 
-          // CRT scanlines
           '&::before': {
             content: '""',
             position: 'absolute',
@@ -182,7 +213,6 @@ const ResultPage: React.FC = () => {
             pointerEvents: 'none',
             zIndex: 20,
           },
-          // Moving sweep line
           '&::after': {
             content: '""',
             position: 'absolute',
@@ -195,6 +225,9 @@ const ResultPage: React.FC = () => {
           },
         }}
       >
+        {/* Rank icon keyframes */}
+        <GlobalStyles styles={{ [RANK_ICON_KEYFRAMES]: {} }} />
+
         {/* Vignette */}
         <Box sx={{
           position: 'absolute', inset: 0,
@@ -246,7 +279,6 @@ const ResultPage: React.FC = () => {
           position: 'relative',
           zIndex: 5,
           animation: `${cyanPulse} 3.5s ease-in-out infinite, ${fadeIn} 0.5s ease 0.3s both`,
-          // Corner accent dots
           '&::before, &::after': {
             content: '""',
             position: 'absolute',
@@ -341,7 +373,6 @@ const ResultPage: React.FC = () => {
           zIndex: 5,
           animation: `${slideUp} 0.55s cubic-bezier(0.22,1,0.36,1) 0.55s both`,
         }}>
-          {/* Label */}
           <Typography sx={{
             fontFamily: `'Press Start 2P', monospace`,
             color: '#E5E5E5',
@@ -352,7 +383,6 @@ const ResultPage: React.FC = () => {
             RANK PROGRESS
           </Typography>
 
-          {/* Star + bar + percent */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: `${Math.round(L.gap * 0.55)}px` }}>
             <StarIcon sx={{
               color: '#FFD42A',
@@ -391,18 +421,32 @@ const ResultPage: React.FC = () => {
             </Typography>
           </Box>
 
-          {/* Rank title */}
-          <Typography sx={{
-            fontFamily: `'Press Start 2P', monospace`,
-            color: '#D9E600',
-            fontSize: `${L.rankTitle}px`,
-            textAlign: 'center',
-            letterSpacing: '3px',
-            textShadow: '0 0 14px rgba(217,230,0,0.45)',
-            animation: `${rankPop} 0.65s cubic-bezier(0.22,1,0.36,1) 1s both`,
+          {/* Rank title with animated icon */}
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
           }}>
-            {playerRankTitle}
-          </Typography>
+            <RankIcon
+              type={rankSymbolType}
+              color={rankColors.primary}
+              glow={rankColors.glow}
+              size={Math.max(28, Math.round(L.rankTitle * 1.2))}
+              style={{ flexShrink: 0 }}
+            />
+            <Typography sx={{
+              fontFamily: `'Press Start 2P', monospace`,
+              color: rankColors.primary,
+              fontSize: `${L.rankTitle}px`,
+              textAlign: 'center',
+              letterSpacing: '3px',
+              textShadow: `0 0 14px ${rankColors.glow}, 0 0 28px ${rankColors.glow}`,
+              animation: `${rankPop} 0.65s cubic-bezier(0.22,1,0.36,1) 1s both`,
+            }}>
+              {playerRankTitle}
+            </Typography>
+          </Box>
         </Box>
 
         {/* ── NAV BUTTONS ──────────────────────────────────────────────── */}
@@ -415,7 +459,6 @@ const ResultPage: React.FC = () => {
           zIndex: 5,
           animation: `${slideUp} 0.5s ease 0.8s both`,
         }}>
-          {/* MAIN MENU */}
           <Button
             onClick={() => setScreen('home')}
             disableRipple={false}
@@ -456,7 +499,6 @@ const ResultPage: React.FC = () => {
             </Typography>
           </Button>
 
-          {/* VIEW PROFILE */}
           <Button
             onClick={() => setScreen('profile')}
             disableRipple={false}

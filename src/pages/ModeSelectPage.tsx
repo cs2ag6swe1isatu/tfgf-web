@@ -191,8 +191,6 @@ export default function ModeSelectPage() {
   return (
     <div style={styles.root}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
         @keyframes titleGlow {
           0%,100% {
             text-shadow:

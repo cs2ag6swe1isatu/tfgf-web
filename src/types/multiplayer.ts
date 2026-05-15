@@ -31,10 +31,12 @@ export interface MultiplayerGameState {
   currentIndex: number;
   seed?: number;
   category?: Category;
+  sessionId?: string; 
   difficulty?: Difficulty;
   questionLimit?: number;
   questionTimer?: number;
   answerTimer?: number;
+  questionPort?: number;
   playerScores?: Record<string, number>;
   rankings?: Array<{
     playerId: string;
@@ -51,6 +53,17 @@ export interface MultiplayerDiscoveredPayload extends MultiplayerLobbySnapshot {
 
 export interface MultiplayerLobbySnapshot extends MultiplayerBroadcastPayload {
   players: LobbyMember[];
+  sessionId?: string;
+  sequence?: number;
+  questionPort?: number;
+}
+
+export interface MultiplayerJoinAck {
+  lobbyId: string;
+  hostId: string;
+  sessionId?: string;
+  accepted: boolean;
+  reason?: string;
 }
 
 export interface MultiplayerJoinRequest {
@@ -74,6 +87,7 @@ export interface MultiplayerReadyUpdate {
 
 export interface MultiplayerHostExitPayload {
   lobbyId: string;
+  sessionId?: string;
 }
 
 export type DiscoveredHost = {
@@ -95,6 +109,7 @@ export interface MultiplayerBridge {
   startDiscovery: () => void;
   stopDiscovery: () => void;
   discoveryRequest: () => void;
+  getLocalIp?: () => string;
   onDiscoveryResponse: (id: string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   offDiscoveryResponse: (id:string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   onHostFound: (id: string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
@@ -112,6 +127,7 @@ export interface MultiplayerBridge {
   startBroadcast: (payload: MultiplayerLobbySnapshot) => void;
   updateLobbySnapshot?: (payload: MultiplayerLobbySnapshot) => void;
   requestJoin: (payload: MultiplayerJoinRequest) => void;
+  directJoin?: (hostAddress: string) => void;
   setReady: (payload: MultiplayerReadyUpdate) => void;
   kickPlayer?: (payload: { lobbyId: string; playerId: string }) => void;
   leaveLobby: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;

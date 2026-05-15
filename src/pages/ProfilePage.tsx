@@ -6,6 +6,7 @@ import {
   Button,
   LinearProgress,
   Divider,
+  GlobalStyles,
 } from "@mui/material";
 import { DIFFICULTIES, type Difficulty, type Mode } from "../constants";
 import { useGameStore } from "../store/gameStore";
@@ -14,7 +15,7 @@ import { getLevelProgressPercent } from '../utils/progression';
 import type { GameSession, Player, PlayData } from "../types/player";
 import { User } from "pixelarticons/react"; // Assuming you have this
 import { ACHIEVEMENT_RULES, type AchievementCategory, type AchievementScope } from "../progression/achievementRules";
-import { getAvatarSrc } from "../utils/avatar";
+import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 
 // --- Theme Constants based on your design ---
 const themeColors = {
@@ -298,7 +299,10 @@ const ProfilePage = () => {
         flexDirection: "column",
       }}
     >
-      {/* Header */}
+          {/* Rank icon keyframes */}
+          <GlobalStyles styles={{ [RANK_ICON_KEYFRAMES]: {} }} />
+
+          {/* Header */}
       <Box sx={{ flex: "0 0 auto", display: "flex", alignItems: "center", mb: "2%", gap: "1rem" }}>
         <User style={{ fontSize: "2rem", color: themeColors.neonGreen }} />
         <Typography sx={{ fontFamily: pixelFont, fontSize: "1.5rem", textShadow: `0 0 5px ${themeColors.neonGreen}` }}>
@@ -333,16 +337,29 @@ const ProfilePage = () => {
               }}
             >
               {player.avatar ? (
-                <img src={getAvatarSrc(player.avatar)} alt={playerName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img
+                  src={`./img/avatars/${encodeURIComponent(player.avatar)}`}
+                  alt={playerName}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", imageRendering: "pixelated" }}
+                />
               ) : (
                 <User style={{ fontSize: "3rem" }} />
               )}
             </Box>
             <Box>
               <Typography sx={{ fontFamily: pixelFont, fontSize: "0.8rem", letterSpacing: "2px" }}>{playerName}</Typography>
-              <Typography sx={{ fontFamily: pixelFont, fontSize: "0.65rem", color: themeColors.neonCyan, mt: "0.3rem" }}>
-                {player.rank.name}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '0.4rem', mt: '0.3rem' }}>
+                <RankIcon
+                  type={getRankSymbolType(player.rank.name)}
+                  color={RANK_COLORS[getRankSymbolType(player.rank.name)].primary}
+                  glow={RANK_COLORS[getRankSymbolType(player.rank.name)].glow}
+                  size={20}
+                  style={{ flexShrink: 0 }}
+                />
+                <Typography sx={{ fontFamily: pixelFont, fontSize: "0.65rem", color: RANK_COLORS[getRankSymbolType(player.rank.name)].primary, textShadow: `0 0 6px ${RANK_COLORS[getRankSymbolType(player.rank.name)].glow}` }}>
+                  {player.rank.name}
+                </Typography>
+              </Box>
             </Box>
           </Box>
 

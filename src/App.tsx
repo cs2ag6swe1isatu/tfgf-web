@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useRef } from "react";
+import React, { useDeferredValue, useEffect, useRef, useCallback } from "react";
 import HomePage from "./pages/HomePage";
 import ModeSelectPage from "./pages/ModeSelectPage";
 import CategoryPage from "./pages/CategoryPage";
@@ -18,6 +18,7 @@ import { usePlayerStore } from "./store/playerStore";
 import theme from "./ui/theme";
 import { SoundContext } from "./context/SoundContext";
 import type { SoundType } from "./context/SoundContext";
+import { usePreloader, lazyPreloadAudio } from "./hooks/usePreloader";
 
 const styles = {
   screenRoot: {
@@ -37,6 +38,82 @@ const Overlay: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
+// ── Splash / Preloader screen ─────────────────────────────
+function SplashScreen({ progress, stage }: { progress: number; stage: string }) {
+  const barWidth = Math.min(progress, 100);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      backgroundColor: '#000',
+      zIndex: 9999,
+    }}>
+      <div style={{
+        fontFamily: "'Press Start 2P', monospace",
+        fontSize: '13px',
+        color: '#1FC11A',
+        textShadow: '0 0 8px #3FFF56',
+        marginBottom: '32px',
+        letterSpacing: '3px',
+        textTransform: 'uppercase' as const,
+      }}>
+        LOADING...
+      </div>
+
+      {/* Progress bar */}
+      <div style={{
+        width: '280px',
+        height: '20px',
+        border: '2px solid #1FC11A',
+        borderRadius: '4px',
+        overflow: 'hidden',
+        boxShadow: '0 0 12px #1FC11A44',
+      }}>
+        <div style={{
+          width: `${barWidth}%`,
+          height: '100%',
+          background: '#1FC11A',
+          boxShadow: '0 0 8px #3FFF56',
+          transition: 'width 0.3s ease',
+          borderRadius: '2px',
+        }} />
+      </div>
+
+      {/* Stage label */}
+      <div style={{
+        fontFamily: "'Courier New', monospace",
+        fontSize: '11px',
+        color: '#1FC11A88',
+        marginTop: '12px',
+        letterSpacing: '1px',
+      }}>
+        {stage}
+      </div>
+
+      {/* Stats */}
+      <div style={{
+        fontFamily: "'Courier New', monospace",
+        fontSize: '10px',
+        color: '#1FC11A44',
+        marginTop: '8px',
+      }}>
+        Caching assets to RAM...
+      </div>
+    </div>
+  );
+}
+
+// ── Asset path helper — works in both dev (http) and packaged Electron (file://) ──
+const assetBase = window.location.protocol === "file:"
+  ? window.location.pathname.replace(/[^/\\]*$/, "")  // strip index.html, keep trailing slash
+  : "/";
+
+function assetUrl(rel: string): string {
+  return assetBase + rel;
+}
+
 // ── useAudioEngine — defined OUTSIDE App, at the module level ──
 function useAudioEngine(sfxEnabled: boolean, vol: number) {
   const audioBank = useRef<Partial<Record<SoundType, HTMLAudioElement>>>({});
@@ -45,12 +122,12 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
 
   useEffect(() => {
     const files: Record<SoundType, string> = {
-  hover: "/sounds/hover.mp3",
-  select: "/sounds/select.mp3",
-  tab: "/sounds/tab.mp3",
-  back: "/sounds/back.mp3",
-  error: "/sounds/error.mp3",
-};
+      hover:  assetUrl("sounds/hover.mp3"),
+      select: assetUrl("sounds/select.mp3"),
+      tab:    assetUrl("sounds/tab.mp3"),
+      back:   assetUrl("sounds/back.mp3"),
+      error:  assetUrl("sounds/error.mp3"),
+    };
 
     let loaded = 0;
     (Object.entries(files) as [SoundType, string][]).forEach(([key, src]) => {
@@ -86,7 +163,9 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
       g.gain.setValueAtTime(gain * (vol / 10), ac.currentTime);
       g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
       osc.start(); osc.stop(ac.currentTime + dur);
-    } catch (_) {}
+    } catch (_) {
+      // AudioContext not available — sound is optional
+    }
   }
 
   function synthSound(type: SoundType) {
@@ -130,12 +209,45 @@ export default function App() {
 
   const { playSound } = useAudioEngine(sfxEnabled, vol);
 
+  // ── Asset preloader ──────────────────────────────────────
+  const preloader = usePreloader();
+  const audioUpgradedRef = useRef(false);
+
+  // On first user interaction, upgrade audio to Web Audio API buffers
+  const handleFirstInteraction = useCallback(() => {
+    if (audioUpgradedRef.current) return;
+    audioUpgradedRef.current = true;
+    // Fire-and-forget: preload audio buffers in background
+    lazyPreloadAudio().then((ctx) => {
+      console.log('[Audio] Upgraded to AudioBuffer playback, ctx state:', ctx.state);
+    });
+  }, []);
+
+  // Attach one-time global listener for first interaction
+  useEffect(() => {
+    const handler = () => {
+      handleFirstInteraction();
+      // Remove all listeners after first interaction
+      document.removeEventListener('click', handler);
+      document.removeEventListener('touchstart', handler);
+      document.removeEventListener('keydown', handler);
+    };
+    document.addEventListener('click', handler);
+    document.addEventListener('touchstart', handler);
+    document.addEventListener('keydown', handler);
+    return () => {
+      document.removeEventListener('click', handler);
+      document.removeEventListener('touchstart', handler);
+      document.removeEventListener('keydown', handler);
+    };
+  }, [handleFirstInteraction]);
+
   // ── BGM ──────────────────────────────────────────────────
   const bgmRef   = useRef<HTMLAudioElement | null>(null);
   const bgmReady = useRef(false);
 
   useEffect(() => {
-    const audio = new Audio("/sounds/bgm/Eric Skiff - A Night Of Dizzy Spells ♫ NO COPYRIGHT 8-bit Music + Background.mp3");
+    const audio = new Audio(assetUrl("sounds/bgm/Eric Skiff - A Night Of Dizzy Spells ♫ NO COPYRIGHT 8-bit Music + Background.mp3"));
     audio.loop = true;
     audio.volume = 0;
     bgmRef.current = audio;
@@ -167,17 +279,14 @@ export default function App() {
 
   useEffect(() => { initializePlayer(); }, [initializePlayer]);
 
-  if (isPlayerLoading) {
+  // ── Show splash screen while loading ─────────────────────
+  if (isPlayerLoading || !preloader.ready) {
     return (
       <SoundContext.Provider value={{ playSound }}>
-        <div style={{
-          ...styles.screenRoot,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          backgroundColor: '#000', color: '#1FC11A',
-          fontFamily: "'Press Start 2P', monospace", fontSize: '20px',
-        }}>
-          LOADING...
-        </div>
+        <SplashScreen
+          progress={preloader.progress}
+          stage={preloader.stage}
+        />
       </SoundContext.Provider>
     );
   }
