@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
 import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { getAvatarSrc } from "../utils/avatar";
+import { RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 import type { Player } from "../types/player";
 
 // ─── SCORING ────────────────────────────────────────────────────────────────────
@@ -304,6 +305,8 @@ export default function MultiplayerResults() {
 
   const localXp = localPlayer?.totalXp ?? 0;
   const { tier, pct: rankPct } = getRankTier(localXp);
+  const rankSym = getRankSymbolType(tier.name);
+  const rankTheme = RANK_COLORS[rankSym];
 
   const medals = ["🥇", "🥈", "🥉"];
 
@@ -423,10 +426,10 @@ export default function MultiplayerResults() {
             {/* Tier badge row */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={s.rankTierBadge}>RANK {tier.rank}</span>
-                <span style={s.rankName}>{tier.name.toUpperCase()}</span>
+                <span style={{ ...s.rankTierBadge, background: rankTheme.primary, color: "#010707", textShadow: `0 0 6px ${rankTheme.glow}` }}>RANK {tier.rank}</span>
+                <span style={{ ...s.rankName, color: rankTheme.primary, textShadow: `0 0 8px ${rankTheme.glow}` }}>{tier.name.toUpperCase()}</span>
               </div>
-              <span style={s.rankPct}>{rankPct}%</span>
+              <span style={{ ...s.rankPct, color: rankTheme.primary, textShadow: `0 0 6px ${rankTheme.glow}` }}>{rankPct}%</span>
             </div>
             {/* Level range */}
             <div style={{ marginBottom: 10 }}>
@@ -435,9 +438,9 @@ export default function MultiplayerResults() {
               </span>
             </div>
             {/* Progress bar */}
-            <div style={s.progTrack}>
-              <div style={{ ...s.progBar, width: `${progWidth}%` }} />
-              <div style={{ ...s.progGem, left: `calc(${progWidth}% - 7px)` }}>⬟</div>
+            <div style={{ ...s.progTrack, border: `1px solid ${rankTheme.primary}44` }}>
+              <div style={{ ...s.progBar, width: `${progWidth}%`, background: `linear-gradient(90deg,${rankTheme.primary}aa,${rankTheme.glow})`, boxShadow: `0 0 10px ${rankTheme.glow}` }} />
+              <div style={{ ...s.progGem, left: `calc(${progWidth}% - 7px)`, color: rankTheme.primary, textShadow: `0 0 7px ${rankTheme.glow}` }}>⬟</div>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
               <span style={s.rankSub}>XP: {localXp.toLocaleString()}</span>
@@ -544,7 +547,7 @@ const s: Record<string, React.CSSProperties> = {
     gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))",
     gap: 13,
   },
-  rankPanel: { background: "#10363A3a", border: "1px solid #00DFFF2a", padding: "14px 16px" },
+  rankPanel: { background: "#10363A3a", border: "1px solid #00DFFF2a", padding: "14px 16px", boxShadow: "0 0 12px rgba(0,223,255,0.12)" },
   rankTierBadge: {
     fontSize: "10px",
     color: "#031533",
@@ -553,11 +556,11 @@ const s: Record<string, React.CSSProperties> = {
     letterSpacing: ".1em",
     fontFamily: "'Press Start 2P', monospace",
   },
-  rankName: { fontSize: "clamp(10px,1.4vw,12px)", color: "#D9E600", textShadow: "0 0 8px #D9E600", fontFamily: "'Press Start 2P', monospace" },
-  rankPct: { fontSize: "clamp(10px,1.4vw,12px)", color: "#35E52B", fontFamily: "'Press Start 2P', monospace" },
-  progTrack: { height: 16, background: "#041D4955", border: "1px solid #D9E60033", position: "relative", overflow: "visible", marginBottom: 8 },
-  progBar: { height: "100%", width: 0, background: "linear-gradient(90deg,#D9E600aa,#D9E600)", boxShadow: "0 0 10px #D9E600", transition: "width 1.5s cubic-bezier(.4,0,.2,1)" },
-  progGem: { position: "absolute", top: -5, color: "#D9E600", fontSize: 16, textShadow: "0 0 7px #D9E600", lineHeight: 1, transition: "left 1.5s cubic-bezier(.4,0,.2,1)" },
+  rankName: { fontSize: "clamp(10px,1.4vw,12px)", fontFamily: "'Press Start 2P', monospace" },
+  rankPct: { fontSize: "clamp(10px,1.4vw,12px)", fontFamily: "'Press Start 2P', monospace" },
+  progTrack: { height: 16, background: "#041D4955", position: "relative", overflow: "visible", marginBottom: 8 },
+  progBar: { height: "100%", width: 0, transition: "width 1.5s cubic-bezier(.4,0,.2,1)" },
+  progGem: { position: "absolute", top: -5, fontSize: 16, lineHeight: 1, transition: "left 1.5s cubic-bezier(.4,0,.2,1)" },
   rankSub: { fontSize: "10px ", color: "#8ecfda", letterSpacing: ".08em", fontFamily: "'Press Start 2P', monospace" },
 };
 

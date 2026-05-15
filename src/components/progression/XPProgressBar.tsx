@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import { usePlayerStore } from '../../store/playerStore';
+import { RANK_COLORS, getRankSymbolType } from '../ui/RankIcon';
 
 const barGlow = keyframes`
   0%   { box-shadow: 0 0 4px rgba(0,229,255,0.4); }
@@ -25,24 +26,12 @@ const XPProgressBar: React.FC = () => {
   const currentLevelXP = totalXp % XP_PER_LEVEL;
   const progressPercent = Math.min(100, Math.max(0, (currentLevelXP / XP_PER_LEVEL) * 100));
   
-  // Determine rank tier for badge color
-  const rankTier = Math.floor((level - 1) / 10);
-  
-  // Rank color progression based on theme accent colors
-  const rankColors = [
-    '#00F5FF', // Novice (Tier 0) - cyan
-    '#A855FF', // Student (Tier 1) - purple
-    '#FF4FD8', // Scholar (Tier 2) - pink
-    '#FF2E63', // Professor (Tier 3) - red
-    '#FF7A18', // Expert (Tier 4) - orange
-    '#00FF85', // Specialist (Tier 5) - green
-    '#F9FF00', // Genius (Tier 6) - yellow
-    '#4DFFFF', // Brainiac (Tier 7) - ice
-    '#7B61FF', // Sage (Tier 8) - violet
-    '#E6F7FF', // Oracle (Tier 9+) - white
-  ];
-  
-  const badgeColor = rankColors[rankTier] || rankColors[9];
+  // Determine rank from level
+  const rankSymbolType = getRankSymbolType(
+    ["novice","student","scholar","professor","expert","specialist","genius","brainiac","sage","oracle"][Math.min(9, Math.floor((level - 1) / 10))]
+  );
+  const rankTheme = RANK_COLORS[rankSymbolType];
+  const badgeColor = rankTheme.primary;
   
   return (
     <Box sx={{ width: '100%', position: 'relative', mt: 2 }}>

@@ -780,7 +780,7 @@ useEffect(() => {
                     size={18}
                     style={{ flexShrink: 0 }}
                   />
-                  <span style={styles.playerSub}>
+                  <span style={{ ...styles.playerSub, color: RANK_COLORS[getRankSymbolType(p.rank?.name ?? '')].primary, textShadow: `0 0 4px ${RANK_COLORS[getRankSymbolType(p.rank?.name ?? '')].glow}` }}>
                     {p.rank?.name ?? 'novice'} · lv.{p.level ?? "—"}
                   </span>
                 </Box>
