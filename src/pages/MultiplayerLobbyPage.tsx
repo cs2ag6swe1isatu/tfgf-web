@@ -514,7 +514,7 @@ const MultiplayerLobby = () => {
       marginTop: "4px",
     },
     lobbyIdLabel: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "18px",
       color: "#E5E5E5",
       whiteSpace: "nowrap" as const,
@@ -525,7 +525,7 @@ const MultiplayerLobby = () => {
       border: "1.5px solid #10363A",
       borderRadius: "6px",
       padding: "4px 12px",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "18px",
       color: "#35E52B",
       letterSpacing: "2px",
@@ -541,7 +541,7 @@ const MultiplayerLobby = () => {
       border: `1.5px solid ${isPrivateMode ? "#E3A020" : "#00DFFF"}`,
       background: isPrivateMode ? "rgba(227,160,32,0.12)" : "#00DFFF",
       color: isPrivateMode ? "#E3A020" : "#010707",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "17px",
       cursor: "pointer",
       letterSpacing: "1px",
@@ -554,7 +554,7 @@ const MultiplayerLobby = () => {
       border: "1.5px solid #00DFFF",
       background: "#10363A",
       color: "#35E52B",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "17px",
       cursor: "pointer",
       letterSpacing: "1px",
@@ -575,13 +575,13 @@ const MultiplayerLobby = () => {
       marginBottom: "12px",
     },
     panelTitle: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "22px",
       color: "#E5E5E5",
       letterSpacing: "2px",
     },
     panelCount: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "18px",
       color: "#DADADA",
       letterSpacing: "1px",
@@ -614,7 +614,7 @@ const MultiplayerLobby = () => {
       minWidth: 0,
     },
     playerName: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "18px",
       color: "#D9E600",
       letterSpacing: "1px",
@@ -623,13 +623,13 @@ const MultiplayerLobby = () => {
       whiteSpace: "nowrap" as const,
     },
     playerSub: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "13px",
       color: "#DADADA",
       letterSpacing: "0.5px",
     },
     hostBadge: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "13px",
       color: "#E5E5E5",
       background: "rgba(0,0,0,0.25)",
@@ -640,7 +640,7 @@ const MultiplayerLobby = () => {
       flexShrink: 0,
     },
     connectionBadge: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "13px",
       color: "#E33232",
       background: "rgba(227,50,50,0.12)",
@@ -663,7 +663,7 @@ const MultiplayerLobby = () => {
       border: "1.5px solid #E33232",
       background: "rgba(227,50,50,0.10)",
       color: "#E33232",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "14px",
       cursor: "pointer",
       letterSpacing: "1px",
@@ -672,7 +672,7 @@ const MultiplayerLobby = () => {
     },
     waitingText: {
       textAlign: "center" as const,
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "16px",
       color: "#E5E5E5",
       letterSpacing: "1px",
@@ -690,7 +690,7 @@ const MultiplayerLobby = () => {
       border: "1.5px solid #00DFFF",
       background: "#10363A",
       color: "#35E52B",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "16px",
       cursor: "pointer",
       letterSpacing: "1px",
@@ -710,7 +710,7 @@ const MultiplayerLobby = () => {
       border: "none",
       background: disabled ? "#1A4A20" : "#39E600",
       color: disabled ? "#4a7a4a" : "#EAEAEA",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "20px",
       cursor: disabled ? "default" : "pointer",
       letterSpacing: "2px",
@@ -742,7 +742,6 @@ const MultiplayerLobby = () => {
           </Box>
 
           <Box sx={styles.ipRow}>
-            <span style={styles.lobbyIdLabel}>IP:</span>
             <span style={styles.lobbyIdBox}>{machineIp}</span>
           </Box>
 

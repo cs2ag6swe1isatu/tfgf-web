@@ -162,7 +162,7 @@ const MultiplayerDiscovery = () => {
       width: "100%", height: "100%",
       bgcolor: COLORS.bg, display: "flex",
       justifyContent: "center", alignItems: "center",
-      fontFamily: "'VT323', monospace", overflow: "hidden"
+      fontFamily: "'Press Start 2P', monospace", overflow: "hidden"
     },
     container: {
       width: "100%", maxWidth: "1024px", // Ratios [cite: 978, 979]
