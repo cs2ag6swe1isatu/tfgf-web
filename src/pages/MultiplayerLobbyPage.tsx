@@ -58,6 +58,8 @@ const MultiplayerLobby = () => {
   const hasConfirmedJoinRef = useRef(false);
   const isTransitioningToGameRef = useRef(false);
   const joinTimeoutRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
+  const gameStartAbortRef = useRef<AbortController | null>(null);
 
   const handleHostExit = useCallback(() => {
     if (hasHandledHostExitRef.current) return;
@@ -138,7 +140,35 @@ const MultiplayerLobby = () => {
     [lobbyRole, setGameConfig, setScreen, startGame, multiplayerBridge]
   );
 
+  // Track mounted state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      console.log(`[Lobby] Component unmounting, cancelling any in-progress game start`);
+      isMountedRef.current = false;
+      if (gameStartAbortRef.current) {
+        gameStartAbortRef.current.abort();
+      }
+    };
+  }, []);
+
   const handleStartGame = async () => {
+    // This function should only be called by the host (PLAY button is host-only in the UI)
+    if (lobbyRole !== "host") {
+      console.error(`[Lobby] handleStartGame called by non-host (role=${lobbyRole}), aborting`);
+      return;
+    }
+
+    if (!isMountedRef.current) {
+      console.warn(`[Lobby] Component not mounted, skipping game start`);
+      return;
+    }
+
+    if (!lobbyId) {
+      console.warn(`[Lobby] No lobbyId, cannot start game`);
+      return;
+    }
+
     resetGame();
     const gameSessionSeed = Math.floor(Math.random() * defaultGameConfig.seedRange);
     useGameStore.getState().setGameConfig({ seed: gameSessionSeed });
@@ -146,33 +176,44 @@ const MultiplayerLobby = () => {
     const sessionQuestionTimer = gameConfig.questionTimer ?? defaultGameConfig.questionTimer;
     const sessionAnswerTimer = gameConfig.answerTimer ?? defaultGameConfig.answerTimer;
 
-    console.log(`[Lobby] Starting game as ${lobbyRole}, seed=${gameSessionSeed}`);
+    console.log(`[Lobby] Host starting game, seed=${gameSessionSeed}`);
 
-    // Host: Listen for HTTP server port before broadcasting game-state
-    if (multiplayerBridge?.onHttpServerStarted) {
-      const httpStartTime = Date.now();
-      multiplayerBridge.onHttpServerStarted("StartGame", (port) => {
-        const httpElapsedMs = Date.now() - httpStartTime;
-        console.log(`[Lobby] HTTP server started on port ${port} (${httpElapsedMs}ms after setup), broadcasting game-state`);
-        const state = useTriviaStore.getState();
-        multiplayerBridge?.broadcastGameState({
-          phase: state.phase,
-          timer: state.timer,
-          currentIndex: state.currentIndex,
-          seed: gameSessionSeed,
-          category: gameConfig.category ?? undefined,
-          difficulty: gameConfig.difficulty ?? undefined,
-          questionLimit: state.questionLimit,
-          questionTimer: state.questionTimer,
-          answerTimer: state.answerTimer,
-          questionPort: port, // Include the port for clients to fetch questions
-          playerScores: state.playerScores,
-          rankings: state.rankings,
+    // Host: start game initialization and HTTP server in sequence
+    console.log(`[Lobby] Host: waiting for HTTP server to start before broadcasting...`);
+    
+    let httpPort: number | undefined = undefined;
+    const httpStartTime = Date.now();
+    
+    // Create a promise that resolves when HTTP server is ready (with timeout safety)
+    const httpServerReady = new Promise<number>((resolve) => {
+      let timeoutHandle: NodeJS.Timeout | null = null;
+      
+      const safeResolve = (port: number) => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        resolve(port);
+      };
+      
+      if (multiplayerBridge?.onHttpServerStarted) {
+        multiplayerBridge.onHttpServerStarted("StartGame", (port) => {
+          const httpElapsedMs = Date.now() - httpStartTime;
+          console.log(`[Lobby] HTTP server callback fired with port ${port} (${httpElapsedMs}ms)`);
+          safeResolve(port);
+          multiplayerBridge.offHttpServerStarted("StartGame");
         });
-        multiplayerBridge.offHttpServerStarted("StartGame");
-      });
-    }
+        
+        // Safety timeout: if HTTP server doesn't start within 10 seconds, proceed anyway
+        timeoutHandle = setTimeout(() => {
+          console.warn(`[Lobby] HTTP server startup timeout after 10 seconds, proceeding with port=undefined`);
+          safeResolve(0);
+          multiplayerBridge?.offHttpServerStarted("StartGame");
+        }, 10000);
+      } else {
+        console.warn(`[Lobby] multiplayerBridge.onHttpServerStarted not available`);
+        resolve(0);
+      }
+    });
 
+    // Start game initialization (which triggers HTTP server startup internally)
     console.log(`[Lobby] Host calling startGame...`);
     const gameStartTime = Date.now();
     await startGame({
@@ -188,8 +229,48 @@ const MultiplayerLobby = () => {
       autoJoinLan: false
     });
     const gameElapsedMs = Date.now() - gameStartTime;
-    console.log(`[Lobby] startGame completed in ${gameElapsedMs}ms`);
+    console.log(`[Lobby] startGame completed in ${gameElapsedMs}ms, waiting for HTTP server...`);
 
+    // Check if still mounted and in lobby before continuing
+    if (!isMountedRef.current || !lobbyId) {
+      console.warn(`[Lobby] Component unmounted or left lobby during game initialization, cancelling broadcast`);
+      return;
+    }
+
+    // Wait for HTTP server to be ready (will timeout after 10s)
+    httpPort = await httpServerReady;
+    const totalWaitMs = Date.now() - httpStartTime;
+    console.log(`[Lobby] HTTP server ready check complete, port=${httpPort} (${totalWaitMs}ms total)`);
+
+    if (!httpPort || httpPort === 0) {
+      console.warn(`[Lobby] WARNING: HTTP server port is ${httpPort || 'undefined'}, clients will fall back to local question loading`);
+    }
+
+    // Final safety check: still mounted and in lobby?
+    if (!isMountedRef.current || !lobbyId) {
+      console.warn(`[Lobby] Component unmounted or left lobby before broadcast, cancelling`);
+      return;
+    }
+
+    // Now broadcast game-state with the port (even if port is 0/undefined, still broadcast)
+    const state = useTriviaStore.getState();
+    console.log(`[Lobby] Broadcasting game-state, port=${httpPort}, phase=${state.phase}`);
+    multiplayerBridge?.broadcastGameState({
+      phase: state.phase,
+      timer: state.timer,
+      currentIndex: state.currentIndex,
+      seed: gameSessionSeed,
+      category: gameConfig.category ?? undefined,
+      difficulty: gameConfig.difficulty ?? undefined,
+      questionLimit: state.questionLimit,
+      questionTimer: state.questionTimer,
+      answerTimer: state.answerTimer,
+      questionPort: httpPort || undefined, // undefined if port is 0
+      playerScores: state.playerScores,
+      rankings: state.rankings,
+    });
+
+    console.log(`[Lobby] Host game-start complete, navigating to question page`);
     setScreen("question");
   };
 
