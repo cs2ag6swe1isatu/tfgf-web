@@ -286,9 +286,10 @@ const MultiplayerMenuPage = () => {
   };
 
   const handleSetInternetMode = async () => {
-    const url = relayUrl;
-    if (!url || !url.trim()) {
-      alert('No relay URL configured. Set the relay URL via environment or settings before using Internet mode.');
+    const envUrl = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env.VITE_RELAY_URL : null;
+    const url = relayUrl && relayUrl.trim() ? relayUrl : (envUrl && envUrl.trim() ? envUrl : null);
+    if (!url) {
+      alert('No relay URL configured. Set `VITE_RELAY_URL` in your .env or configure the relay URL in settings before using Internet mode.');
       return;
     }
     const success = await setMultiplayerMode('internet', url);
