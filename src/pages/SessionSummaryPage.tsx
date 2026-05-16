@@ -443,7 +443,7 @@ const SessionSummaryPage: React.FC = () => {
               fontSize: `${Math.max(6, Math.round(L.label * 0.5))}px`,
               letterSpacing: '0.5px',
             }}>
-              {xpIntoCurrentLevel} / 1000 TO NEXT LEVEL
+              {xpIntoCurrentLevel} / 1000 
             </Typography>
           </Box>
         </Box>

@@ -442,7 +442,7 @@ const ResultPage: React.FC = () => {
               fontSize: `${Math.max(6, Math.round(L.label * 0.5))}px`,
               letterSpacing: '0.5px',
             }}>
-              {playerTotalXp} / {player.xpToNextLevel} TO NEXT LEVEL
+              {playerTotalXp} / {player.xpToNextLevel} 
             </Typography>
           </Box>
         </Box>
