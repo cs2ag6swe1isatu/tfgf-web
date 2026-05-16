@@ -255,6 +255,7 @@ const QuestionPage = () => {
   const levelAfterSessionRef     = useRef<number>(0);
   const endDataRef = useRef<{ achievements: Achievement[]; postUnlockScreen: "result" | "multiplayer-results"; } | null>(null);
   const gameStartTimeRef = useRef<number | null>(null);
+  const gameElapsedTimeRef = useRef<number>(0);
   const totalSessionTimeRef = useRef<number>(0);
   const totalAnsweredRef = useRef<number>(0);
 
@@ -374,9 +375,6 @@ const QuestionPage = () => {
   }, [mode, lobbyRole, multiplayerBridge]);
 
   useEffect(() => { if (phase === "ranking") nextPhase(); }, [phase, nextPhase]);
-
-  const endProgressAppliedRef = useRef(false);
-  const fellBehindByHalfRef = useRef(false);
 
   useEffect(() => {
     if (phase === "readying" && currentIndex === 0) {

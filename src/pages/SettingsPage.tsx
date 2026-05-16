@@ -217,6 +217,9 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
   const audioBank = useRef<Partial<Record<SoundType, HTMLAudioElement>>>({});
   const audioCtx  = useRef<AudioContext | null>(null);
   const mp3Ready  = useRef(false);
+  // Keep a ref in sync with sfxEnabled so playSound always reads the latest value
+  const sfxEnabledRef = useRef(sfxEnabled);
+  useEffect(() => { sfxEnabledRef.current = sfxEnabled; }, [sfxEnabled]);
 
   useEffect(() => {
     const files: Record<SoundType, string> = {
@@ -277,7 +280,7 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
   }
 
   function playSound(type: SoundType) {
-    if (!sfxEnabled) return;
+    if (!sfxEnabledRef.current) return;
     const mp3 = audioBank.current[type];
     if (mp3Ready.current && mp3) {
       mp3.currentTime = 0;
@@ -378,7 +381,9 @@ export default function SettingsPage() {
   const [draftResKey,      setDraftResKey]      = useState<string>(storedRes.label ?? "XGA");
   const [draftAutoJoinLan, setDraftAutoJoinLan] = useState<boolean>(gameConfig.autoJoinLan ?? false);
 
-  const { playSound } = useAudioEngine(draftSfx, draftVolume);
+  // FIX: drive the audio engine from the persisted setting, not the draft.
+  // This prevents sounds from playing/stopping based on unsaved toggle state.
+  const { playSound } = useAudioEngine(storedSettings.sfxEnabled ?? true, draftVolume);
 
   // ── Credits state & refs ───────────────────────────────
   const creditsScrollRef    = useRef<HTMLDivElement>(null);
@@ -624,7 +629,9 @@ export default function SettingsPage() {
             <PixelToggle
               value={draftSfx} label="UI SOUND EFFECTS"
               onHover={() => playSound("hover")}
-              onToggle={() => { playSound("select"); setDraftSfx(!draftSfx); }}
+              // FIX: only play the click sound when turning SFX ON (new state = true).
+              // When turning OFF, the new state is false so no sound should play.
+              onToggle={() => { if (!draftSfx) playSound("select"); setDraftSfx(!draftSfx); }}
             />
             <SectionLabel>MUSIC</SectionLabel>
             <PixelToggle
