@@ -1,3 +1,13 @@
+## Fix 8 — Profile stats rounded to whole numbers
+**File:** src/pages/ProfilePage.tsx (buildProfileStatsView + displayedTopScore)
+**What was wrong:** Total Score and per-difficulty scores accumulated `playData.scoreGained` (float values from `calculateScore()`) without rounding, causing decimals like 5661.333333333333 to display. Top Score also could inherit floats from `sessionInput.score`.
+**What was changed:**
+- Added `Math.round(view.score)` after all aggregation in `buildProfileStatsView`
+- Added `Math.round(summary.score)` per difficulty after aggregation
+- Wrapped `displayedTopScore` computation in `Math.round()`
+**Fields affected:** totalScore, topScore, score per difficulty
+**Coverage:** ALL, SOLO, and MULTI tabs (all use the same `buildProfileStatsView` function)
+
 # Multiplayer Sync Fixes
 _Incremental changelog — one entry per confirmed fix._
 
