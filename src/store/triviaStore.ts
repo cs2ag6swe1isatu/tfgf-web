@@ -270,6 +270,12 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
   /* ---------- Answer handling ---------- */
   selectAnswer: (answer) => {
+    // Missed/no answer — zero score contribution and reset streak
+    if (!answer) {
+      set({ currentStreak: 0 });
+      return;
+    }
+
     const {
       questions, currentIndex, mode, phase, score,
       userAnswers, answerTimer, currentStreak, maxStreak, timer, difficulty,
@@ -456,8 +462,12 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       return;
     }
 
-    if (!currentQuestion || !currentQuestion.allAnswers.includes(answer)) {
-      console.warn(`[TriviaStore] Invalid answer selected: ${answer}`);
+    // Missed/no answer — reset streak (multiplayer)
+    if (!answer || !currentQuestion || !currentQuestion.allAnswers.includes(answer)) {
+      if (!answer) {
+        set({ selectedAnswerRemainingTime: timer, currentStreak: 0 });
+      }
+      if (!answer) console.warn(`[TriviaStore] Empty/missed answer submitted`);
       return;
     }
 

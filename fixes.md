@@ -1,3 +1,21 @@
+## Fix 14 — Timer-expiry (no-answer) streak reset verified
+**File:** src/store/triviaStore.ts (tickTimer)
+**What was wrong:** No issue found — `tickTimer` already sets `currentStreak: 0` on timer expiry when no answer is selected (both solo and multiplayer paths). This was already correct before this fix.
+**What was changed:** Confirmed no change needed. The timer-expiry path correctly resets streak to 0 when the user runs out of time without answering.
+**Fields affected:** N/A (verified correct)
+
+## Fix 13 — Missed/no answer zeroes score and resets streak (Multiplayer)
+**File:** src/store/triviaStore.ts (submitAnswer)
+**What was wrong:** `submitAnswer` in the multiplayer path had no guard for empty/null answer before the validation check. An empty answer would trigger the `console.warn` and return without resetting `currentStreak`, leaving the streak intact even though the question was missed.
+**What was changed:** Added explicit missed-answer guard before the validation check: if `!answer`, sets `currentStreak: 0` and returns. The existing `!currentQuestion.allAnswers.includes(answer)` invalid-answer path was also consolidated — now only the `!answer` case resets streak; invalid non-empty answers still simply return without streak reset (they shouldn't occur in normal flow).
+**Fields affected:** score, streak
+
+## Fix 12 — Missed/no answer zeroes score and resets streak (Solo)
+**File:** src/store/triviaStore.ts (selectAnswer)
+**What was wrong:** `selectAnswer` had no guard for empty/null answer before the phase validation check. An empty or null answer would fail the `allAnswers.includes(answer)` validation and exit without resetting `currentStreak` or zeroing `score`. For solo mode, a missed question (timer expiry with no answer) would skip scoring entirely but `currentStreak` was only reset via the `tickTimer` path, not via the answer-handling path.
+**What was changed:** Added early guard at top of `selectAnswer`: if `!answer`, sets `currentStreak: 0` and returns without further processing. This ensures any null/empty/undefined answer entering the answer handler immediately resets streak before any validation or scoring logic runs.
+**Fields affected:** score (implicitly — no score addition), streak
+
 ## Fix 11 — TO NEXT LEVEL and XP bar corrected on Solo result screen
 **File:** src/pages/SessionSummaryPage.tsx
 **What was wrong:** "TO NEXT LEVEL" showed raw totalXp / player.xpToNextLevel (e.g. 20469 / 511) instead of XP progress within current level. Also used wrong fraction for the label.
