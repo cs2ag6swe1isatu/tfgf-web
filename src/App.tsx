@@ -205,6 +205,8 @@ export default function App() {
   const bgmEnabled    = useGameStore((s) => s.settings.bgmEnabled);
   const sfxEnabled    = useGameStore((s) => s.settings.sfxEnabled);
   const vol           = useGameStore((s) => s.settings.volume);
+  // Pause global BGM while the Credits screen BGM is active
+  const creditsBgmActive = useGameStore((s) => s.creditsBgmActive);
   const deferredScreen = useDeferredValue(screen);
 
   const { playSound } = useAudioEngine(sfxEnabled, vol);
@@ -264,14 +266,15 @@ export default function App() {
     const audio = bgmRef.current;
     if (!audio) return;
     audio.volume = (vol / 10) * 0.4;
-    if (bgmEnabled) {
+    // Pause global BGM when Credits BGM is active to prevent overlap
+    if (bgmEnabled && !creditsBgmActive) {
       audio.play().catch((err) => {
         if (err.name !== "NotAllowedError") console.warn("BGM play error:", err);
       });
     } else {
       audio.pause();
     }
-  }, [bgmEnabled, vol]);
+  }, [bgmEnabled, vol, creditsBgmActive]);
 
   // ── Player init ──────────────────────────────────────────
   const initializePlayer = usePlayerStore((s: { initialize: () => Promise<void>; isLoading: boolean }) => s.initialize);
