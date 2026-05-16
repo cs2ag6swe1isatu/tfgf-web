@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Typography, Button, LinearProgress, GlobalStyles } from '@mui/material';
-import StarIcon from '@mui/icons-material/Star';
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { usePlayerStore } from '../store/playerStore';
@@ -10,40 +9,7 @@ import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from '.
 import { keyframes, styled } from '@mui/material/styles';
 import { LevelUpPopup } from '../components/rewards/LevelUpPopup';
 
-// ─── Keyframes ───────────────────────────────────────────────────────────────
-
-const scanline = keyframes`
-  0%   { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
-`;
-
-const flickerRed = keyframes`
-  0%, 100% {
-    text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 16px rgba(227,50,50,0.55);
-  }
-  8%  {
-    text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 6px rgba(227,50,50,0.2);
-  }
-  9%  {
-    text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 24px rgba(255,101,64,0.9);
-  }
-  41% {
-    text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 4px rgba(227,50,50,0.15);
-  }
-  42% {
-    text-shadow: 1px 1px 0 #FF6540, 3px 3px 0 #2B0909, 0 0 28px rgba(255,101,64,1);
-  }
-`;
-
-const cyanPulse = keyframes`
-  0%, 100% { box-shadow: 0 0 14px rgba(0,223,255,0.45), 0 0 28px rgba(0,223,255,0.2); }
-  50%       { box-shadow: 0 0 24px rgba(0,223,255,0.7), 0 0 48px rgba(0,223,255,0.3); }
-`;
-
-const statGlow = keyframes`
-  0%, 100% { box-shadow: 0 0 10px rgba(0,229,255,0.3); }
-  50%       { box-shadow: 0 0 20px rgba(0,229,255,0.6); }
-`;
+// ─── Keyframes (kept minimal – only entrance animations) ─────────────────
 
 const slideDown = keyframes`
   from { opacity: 0; transform: translateY(-36px); }
@@ -60,24 +26,7 @@ const fadeIn = keyframes`
   to   { opacity: 1; }
 `;
 
-const starSpin = keyframes`
-  0%   { transform: scale(0) rotate(-90deg); opacity: 0; }
-  65%  { transform: scale(1.3) rotate(15deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
-`;
-
-const rankPop = keyframes`
-  0%   { opacity: 0; transform: scale(0.65) translateY(10px); }
-  70%  { transform: scale(1.1) translateY(-4px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
-`;
-
-const btnHover = keyframes`
-  0%, 100% { box-shadow: 0 0 12px rgba(0,223,255,0.4), 0 0 0 2px #00DFFF; }
-  50%       { box-shadow: 0 0 24px rgba(0,223,255,0.75), 0 0 0 2px #00DFFF, 0 0 48px rgba(0,223,255,0.2); }
-`;
-
-// ─── Root wrapper ─────────────────────────────────────────────────────────────
+// ─── Root wrapper ─────────────────────────────────────────────────────────
 
 const ScaleRoot = styled(Box)({
   width: '100%',
@@ -89,7 +38,7 @@ const ScaleRoot = styled(Box)({
   background: '#031533',
 });
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────────────
 
 const ResultPage: React.FC = () => {
   const setScreen             = useGameStore((s) => s.setScreen);
@@ -103,12 +52,8 @@ const ResultPage: React.FC = () => {
   const levelUpSession        = useGameStore((s) => s.levelUpSession);
   const clearLevelUpSession   = useGameStore((s) => s.clearLevelUpSession);
 
-  // Local open/close state driven by the store flag — keeps the popup visible
-  // until the player explicitly dismisses it, regardless of the store flag
-  // resetting underneath.
+  // Local open/close state driven by the store flag
   const [popupOpen, setPopupOpen] = useState(false);
-  // Snapshot levels at the moment the popup opens so they don't change if
-  // the store updates while the popup is still visible.
   const popupLevels = useRef({ prev: 1, next: 1 });
 
   useEffect(() => {
@@ -126,7 +71,7 @@ const ResultPage: React.FC = () => {
     clearLevelUpSession();
   };
 
-  // Pull rank name from player store
+  // Pull rank / level data from player store
   const player = usePlayerStore((s) => s.getPlayer());
   const playerRankTitle = player.rank.name.toUpperCase();
   const rankSymbolType = getRankSymbolType(player.rank.name);
@@ -164,9 +109,12 @@ const ResultPage: React.FC = () => {
   const xpGained  = getLastXpGained();
   const rankProg  = getLevelProgressPercent(playerTotalXp);
 
+  // Average time per question – derived from available data (0 if unavailable)
+  const avgTime   = useTriviaStore((s) => s.avgTime);
+
   return (
     <ScaleRoot>
-      {/* ── Level-up popup — only shown after game ends, never during gameplay ── */}
+      {/* ── Level-up popup ──────────────────────────────────────────────── */}
       <LevelUpPopup
         open={popupOpen}
         previousLevel={popupLevels.current.prev}
@@ -183,58 +131,19 @@ const ResultPage: React.FC = () => {
           overflow:   'hidden',
           fontFamily: `'Press Start 2P', monospace`,
 
-          background: `
-            radial-gradient(ellipse at 50% 0%,
-              #08235A 0%,
-              #041D49 40%,
-              #031533 75%,
-              #062B2B 100%
-            )
-          `,
+          background: '#031533',
 
           display:        'flex',
           flexDirection:  'column',
           alignItems:     'center',
-          justifyContent: 'space-between',
-          padding:         L.pad,
+          justifyContent: 'center',
+          gap:            `${L.gap}px`,
+          padding:        L.pad,
           boxSizing:      'border-box',
-
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            inset: 0,
-            background: `repeating-linear-gradient(
-              0deg,
-              transparent,
-              transparent 2px,
-              rgba(0,0,0,0.09) 2px,
-              rgba(0,0,0,0.09) 4px
-            )`,
-            pointerEvents: 'none',
-            zIndex: 20,
-          },
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            left: 0, right: 0,
-            height: '100px',
-            background: 'linear-gradient(transparent, rgba(0,160,255,0.025) 50%, transparent)',
-            animation: `${scanline} 7s linear infinite`,
-            pointerEvents: 'none',
-            zIndex: 21,
-          },
         }}
       >
         {/* Rank icon keyframes */}
         <GlobalStyles styles={{ [RANK_ICON_KEYFRAMES]: {} }} />
-
-        {/* Vignette */}
-        <Box sx={{
-          position: 'absolute', inset: 0,
-          background: 'radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.7) 100%)',
-          pointerEvents: 'none',
-          zIndex: 19,
-        }} />
 
         {/* ── GAME OVER HEADER ─────────────────────────────────────────── */}
         <Box sx={{
@@ -245,6 +154,7 @@ const ResultPage: React.FC = () => {
           position: 'relative',
           zIndex: 5,
           animation: `${slideDown} 0.55s cubic-bezier(0.22,1,0.36,1) both`,
+          mb: `${Math.round(L.gap * 0.5)}px`,
         }}>
           <Typography sx={{
             fontFamily: `'Press Start 2P', monospace`,
@@ -253,42 +163,21 @@ const ResultPage: React.FC = () => {
             letterSpacing: '4px',
             textAlign:  'center',
             lineHeight: 1.2,
-            WebkitTextStroke: '1px #2B0909',
-            textShadow: `
-              1px 1px 0 #FF6540,
-              3px 3px 0 #2B0909,
-              0  0  16px rgba(227,50,50,0.55)
-            `,
-            animation: `${flickerRed} 5s ease-in-out 1.2s infinite`,
             userSelect: 'none',
           }}>
             GAME OVER !
           </Typography>
         </Box>
 
-        {/* ── STATS PANEL ──────────────────────────────────────────────── */}
+        {/* ── 2×2 STATS GRID ────────────────────────────────────────────── */}
         <Box sx={{
           width: '100%',
-          border: '2.5px solid #00DFFF',
-          borderRadius: '20px',
-          background: '#072454',
-          padding: `${L.gap}px`,
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: `${L.gap}px`,
           position: 'relative',
           zIndex: 5,
-          animation: `${cyanPulse} 3.5s ease-in-out infinite, ${fadeIn} 0.5s ease 0.3s both`,
-          '&::before, &::after': {
-            content: '""',
-            position: 'absolute',
-            width: '7px', height: '7px',
-            borderRadius: '50%',
-            background: '#00DFFF',
-            boxShadow: '0 0 10px #00DFFF, 0 0 20px #00DFFF',
-          },
-          '&::before': { top: '11px', left: '11px' },
-          '&::after':  { top: '11px', right: '11px' },
+          animation: `${fadeIn} 0.5s ease 0.3s both`,
         }}>
           {/* YOUR SCORE */}
           <Box sx={{
@@ -301,7 +190,6 @@ const ResultPage: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             padding: '18px 14px',
-            animation: `${statGlow} 3s ease-in-out infinite, ${fadeIn} 0.5s ease 0.4s both`,
           }}>
             <Typography sx={{
               fontFamily: `'Press Start 2P', monospace`,
@@ -315,10 +203,9 @@ const ResultPage: React.FC = () => {
             </Typography>
             <Typography sx={{
               fontFamily: `'Press Start 2P', monospace`,
-              color: '#F0F0F0',
+              color: '#FFFFFF',
               fontSize: `${L.stat}px`,
               lineHeight: 1,
-              textShadow: '0 0 12px rgba(240,240,240,0.3)',
             }}>
               {score}
             </Typography>
@@ -335,7 +222,6 @@ const ResultPage: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             padding: '18px 14px',
-            animation: `${statGlow} 3s ease-in-out 0.4s infinite, ${fadeIn} 0.5s ease 0.5s both`,
           }}>
             <Typography sx={{
               fontFamily: `'Press Start 2P', monospace`,
@@ -349,102 +235,214 @@ const ResultPage: React.FC = () => {
             </Typography>
             <Typography sx={{
               fontFamily: `'Press Start 2P', monospace`,
-              color: '#F0F0F0',
+              color: '#FFFFFF',
               fontSize: `${L.stat}px`,
               lineHeight: 1,
-              textShadow: '0 0 12px rgba(240,240,240,0.3)',
             }}>
               {xpGained}
             </Typography>
           </Box>
+
+          {/* ACCURACY */}
+          <Box sx={{
+            border: '2.5px dashed #00E5FF',
+            borderRadius: '14px',
+            background: '#0A3766',
+            minHeight: `${L.statMinH}px`,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '18px 14px',
+          }}>
+            <Typography sx={{
+              fontFamily: `'Press Start 2P', monospace`,
+              color: '#DADADA',
+              fontSize: `${L.label}px`,
+              mb: 2.5,
+              textAlign: 'center',
+              letterSpacing: '1px',
+            }}>
+              ACCURACY
+            </Typography>
+            <Typography sx={{
+              fontFamily: `'Press Start 2P', monospace`,
+              color: '#FFFFFF',
+              fontSize: `${L.stat}px`,
+              lineHeight: 1,
+              mb: 1.5,
+            }}>
+              {accuracy}%
+            </Typography>
+            <Typography sx={{
+              fontFamily: `'Press Start 2P', monospace`,
+              color: '#A0A0A0',
+              fontSize: `${Math.max(7, Math.round(L.label * 0.7))}px`,
+              textAlign: 'center',
+            }}>
+              {correct} / {totalQ} CORRECT
+            </Typography>
+          </Box>
+
+          {/* AVG TIME */}
+          <Box sx={{
+            border: '2.5px dashed #00E5FF',
+            borderRadius: '14px',
+            background: '#0A3766',
+            minHeight: `${L.statMinH}px`,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '18px 14px',
+          }}>
+            <Typography sx={{
+              fontFamily: `'Press Start 2P', monospace`,
+              color: '#DADADA',
+              fontSize: `${L.label}px`,
+              mb: 2.5,
+              textAlign: 'center',
+              letterSpacing: '1px',
+            }}>
+              AVG TIME
+            </Typography>
+            <Typography sx={{
+              fontFamily: `'Press Start 2P', monospace`,
+              color: '#FFFFFF',
+              fontSize: `${L.stat}px`,
+              lineHeight: 1,
+              mb: 1.5,
+            }}>
+              {avgTime.toFixed(1)}s
+            </Typography>
+            <Typography sx={{
+              fontFamily: `'Press Start 2P', monospace`,
+              color: '#A0A0A0',
+              fontSize: `${Math.max(7, Math.round(L.label * 0.7))}px`,
+              textAlign: 'center',
+            }}>
+              PER QUESTION
+            </Typography>
+          </Box>
         </Box>
 
-        {/* ── RANK PROGRESS ────────────────────────────────────────────── */}
+        {/* ── RANK PROGRESS PANEL ────────────────────────────────────────── */}
         <Box sx={{
           width: '100%',
-          background: '#4B5248',
+          background: '#0A1A3A',
           borderRadius: '16px',
-          padding: `${L.gap}px ${L.gap + 6}px`,
-          boxShadow: '0 6px 0 #2E332E',
+          padding: `${Math.round(L.gap * 0.9)}px ${L.gap}px`,
           display: 'flex',
-          flexDirection: 'column',
-          gap: `${Math.round(L.gap * 0.55)}px`,
+          alignItems: 'center',
+          gap: `${Math.round(L.gap * 0.5)}px`,
           position: 'relative',
           zIndex: 5,
           animation: `${slideUp} 0.55s cubic-bezier(0.22,1,0.36,1) 0.55s both`,
         }}>
-          <Typography sx={{
-            fontFamily: `'Press Start 2P', monospace`,
-            color: '#E5E5E5',
-            fontSize: `${L.label}px`,
-            textAlign: 'center',
-            letterSpacing: '2px',
+          {/* Left: LEVEL */}
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            flexShrink: 0,
+            minWidth: '70px',
           }}>
-            RANK PROGRESS
-          </Typography>
+            <Typography sx={{
+              fontFamily: `'Press Start 2P', monospace`,
+              color: '#A0A0A0',
+              fontSize: `${Math.max(8, Math.round(L.label * 0.65))}px`,
+              letterSpacing: '1px',
+              mb: 0.5,
+            }}>
+              LEVEL
+            </Typography>
+            <Typography sx={{
+              fontFamily: `'Press Start 2P', monospace`,
+              color: '#FFFFFF',
+              fontSize: `${Math.round(L.stat * 0.8)}px`,
+              lineHeight: 1,
+            }}>
+              {player.level}
+            </Typography>
+          </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: `${Math.round(L.gap * 0.55)}px` }}>
-            <StarIcon sx={{
-              color: '#FFD42A',
-              fontSize: `${Math.round(L.header * 0.58)}px`,
-              filter: 'drop-shadow(0 0 8px rgba(255,212,42,0.65))',
-              flexShrink: 0,
-              animation: `${starSpin} 0.7s cubic-bezier(0.22,1,0.36,1) 0.75s both`,
-            }} />
+          {/* Right: Rank info — fills remaining space */}
+          <Box sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: `${Math.round(L.gap * 0.35)}px`,
+            minWidth: 0,
+          }}>
+            {/* CURRENT RANK badge + rank name (inline) */}
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+            }}>
+              <Box sx={{
+                background: '#8B3A8B',
+                borderRadius: '20px',
+                padding: '3px 12px',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}>
+                <Typography sx={{
+                  fontFamily: `'Press Start 2P', monospace`,
+                  color: '#FFFFFF',
+                  fontSize: `${Math.max(6, Math.round(L.label * 0.5))}px`,
+                  letterSpacing: '1px',
+                  whiteSpace: 'nowrap',
+                }}>
+                  CURRENT RANK
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <RankIcon
+                  type={rankSymbolType}
+                  color={rankColors.primary}
+                  glow={rankColors.glow}
+                  size={Math.max(16, Math.round(L.rankTitle * 0.7))}
+                  style={{ flexShrink: 0 }}
+                />
+                <Typography sx={{
+                  fontFamily: `'Press Start 2P', monospace`,
+                  color: rankColors.primary,
+                  fontSize: `${Math.max(10, Math.round(L.rankTitle * 0.65))}px`,
+                  letterSpacing: '1px',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {playerRankTitle}
+                </Typography>
+              </Box>
+            </Box>
 
-            <Box sx={{ flex: 1 }}>
+            {/* XP progress bar */}
+            <Box sx={{ width: '100%' }}>
               <LinearProgress
                 variant="determinate"
                 value={rankProg}
                 sx={{
-                  height: `${Math.round(L.gap * 0.85)}px`,
+                  height: `${Math.round(L.gap * 0.6)}px`,
                   borderRadius: '99px',
-                  backgroundColor: '#3E443D',
+                  backgroundColor: '#1A2A4A',
                   '& .MuiLinearProgress-bar': {
-                    backgroundColor: '#D9E600',
+                    backgroundColor: '#00E5FF',
                     borderRadius: '99px',
-                    boxShadow: '0 0 8px rgba(217,230,0,0.55)',
                   },
                 }}
               />
             </Box>
 
+            {/* XP to next level label */}
             <Typography sx={{
               fontFamily: `'Press Start 2P', monospace`,
-              color: '#E5E5E5',
-              fontSize: `${Math.round(L.label * 0.85)}px`,
-              minWidth: '52px',
-              textAlign: 'right',
-              flexShrink: 0,
+              color: '#A0A0A0',
+              fontSize: `${Math.max(6, Math.round(L.label * 0.5))}px`,
+              letterSpacing: '0.5px',
             }}>
-              {rankProg}%
-            </Typography>
-          </Box>
-
-          {/* Rank title with animated icon */}
-          <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '12px',
-          }}>
-            <RankIcon
-              type={rankSymbolType}
-              color={rankColors.primary}
-              glow={rankColors.glow}
-              size={Math.max(28, Math.round(L.rankTitle * 1.2))}
-              style={{ flexShrink: 0 }}
-            />
-            <Typography sx={{
-              fontFamily: `'Press Start 2P', monospace`,
-              color: rankColors.primary,
-              fontSize: `${L.rankTitle}px`,
-              textAlign: 'center',
-              letterSpacing: '3px',
-              textShadow: `0 0 14px ${rankColors.glow}, 0 0 28px ${rankColors.glow}`,
-              animation: `${rankPop} 0.65s cubic-bezier(0.22,1,0.36,1) 1s both`,
-            }}>
-              {playerRankTitle}
+              {playerTotalXp} / {player.xpToNextLevel} TO NEXT LEVEL
             </Typography>
           </Box>
         </Box>
@@ -466,33 +464,20 @@ const ResultPage: React.FC = () => {
               flex: 1,
               height: `${Math.round(L.gap * 3.3)}px`,
               borderRadius: '16px',
-              background: '#0D4D73',
-              border: '2px solid #00DFFF',
-              boxShadow: '0 0 12px rgba(0,223,255,0.4)',
-              position: 'relative',
-              overflow: 'hidden',
-              transition: 'all 0.15s ease',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: 0, left: '-100%',
-                width: '60%', height: '100%',
-                background: 'linear-gradient(90deg, transparent, rgba(0,229,255,0.1), transparent)',
-                transition: 'left 0.4s ease',
-              },
+              background: 'transparent',
+              border: '2.5px solid #00DFFF',
+              color: '#00DFFF',
               '&:hover': {
-                background: '#125C8A',
-                animation: `${btnHover} 1s ease-in-out infinite`,
-                '&::after': { left: '160%' },
+                background: 'rgba(0,223,255,0.1)',
+                border: '2.5px solid #00DFFF',
               },
             }}
           >
             <Typography sx={{
               fontFamily: `'Press Start 2P', monospace`,
-              color: '#35E52B',
+              color: '#00DFFF',
               fontSize: `${L.btn}px`,
               letterSpacing: '1.5px',
-              textShadow: '0 0 8px rgba(53,229,43,0.5)',
               userSelect: 'none',
             }}>
               MAIN MENU
@@ -506,33 +491,20 @@ const ResultPage: React.FC = () => {
               flex: 1,
               height: `${Math.round(L.gap * 3.3)}px`,
               borderRadius: '16px',
-              background: '#0D4D73',
-              border: '2px solid #00DFFF',
-              boxShadow: '0 0 12px rgba(0,223,255,0.4)',
-              position: 'relative',
-              overflow: 'hidden',
-              transition: 'all 0.15s ease',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: 0, left: '-100%',
-                width: '60%', height: '100%',
-                background: 'linear-gradient(90deg, transparent, rgba(0,229,255,0.1), transparent)',
-                transition: 'left 0.4s ease',
-              },
+              background: 'transparent',
+              border: '2.5px solid #00DFFF',
+              color: '#00DFFF',
               '&:hover': {
-                background: '#125C8A',
-                animation: `${btnHover} 1s ease-in-out infinite`,
-                '&::after': { left: '160%' },
+                background: 'rgba(0,223,255,0.1)',
+                border: '2.5px solid #00DFFF',
               },
             }}
           >
             <Typography sx={{
               fontFamily: `'Press Start 2P', monospace`,
-              color: '#35E52B',
+              color: '#00DFFF',
               fontSize: `${L.btn}px`,
               letterSpacing: '1.5px',
-              textShadow: '0 0 8px rgba(53,229,43,0.5)',
               userSelect: 'none',
             }}>
               VIEW PROFILE

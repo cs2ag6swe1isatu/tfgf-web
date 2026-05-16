@@ -1,3 +1,20 @@
+## Fix 11 — TO NEXT LEVEL and XP bar corrected on Solo result screen
+**File:** src/pages/SessionSummaryPage.tsx
+**What was wrong:** "TO NEXT LEVEL" showed raw totalXp / player.xpToNextLevel (e.g. 20469 / 511) instead of XP progress within current level. Also used wrong fraction for the label.
+**What was changed:** Added `getXpIntoLevel` import and `xpIntoCurrentLevel` local variable. `"TO NEXT LEVEL"` label now shows: `{xpIntoCurrentLevel} / 1000 TO NEXT LEVEL`. XP bar `rankProg` already uses `getLevelProgressPercent(playerTotalXp)` which correctly computes `(totalXP % 1000) / 1000 * 100` — no change needed there.
+**Fields affected:** xpIntoCurrentLevel, "TO NEXT LEVEL" text
+
+## Fix 10 — Solo result screen rank panel unified and tightened
+**File:** src/pages/SessionSummaryPage.tsx
+**What was wrong:** Rank progress panel had a vertical divider line that visually separated the LEVEL and rank sections, making them appear as disconnected floating elements rather than a single cohesive panel.
+**What was changed:** Removed the vertical divider line. Reduced gap between left (LEVEL) and right (rank info) sections. Tightened overall padding, font sizes, and element gaps so all rank/progress content sits together in one unified container matching the mockup. Reduced RankIcon size, font sizes, and progress bar height proportionally.
+**Fields affected:** UI only — no logic changes
+
+## Fix 9 — Solo result screen redesigned to match mockup
+**File:** src/pages/SessionSummaryPage.tsx
+**What was changed:** Layout and styling updated to match provided mockup — "GAME OVER !" red heading centered, 2×2 stat grid with dashed cyan borders (YOUR SCORE, XP GAINED, ACCURACY with X/15 CORRECT, AVG TIME with PER QUESTION), rank progress panel (dark background, left-aligned with LEVEL + number on left, CURRENT RANK purple badge + rank name + cyan XP progress bar + "X / Y TO NEXT LEVEL" on right), two full-width side-by-side buttons (MAIN MENU and VIEW PROFILE, both cyan outline). Removed: animated scanline overlay, vignette, radial gradient background, glowing stat animations, star icon, percentage display on rank bar, non-cyan button backgrounds.
+**Fields affected:** UI only — no logic changes
+
 ## Fix 8 — Profile stats rounded to whole numbers
 **File:** src/pages/ProfilePage.tsx (buildProfileStatsView + displayedTopScore)
 **What was wrong:** Total Score and per-difficulty scores accumulated `playData.scoreGained` (float values from `calculateScore()`) without rounding, causing decimals like 5661.333333333333 to display. Top Score also could inherit floats from `sessionInput.score`.
