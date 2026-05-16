@@ -148,6 +148,7 @@ const MultiplayerLobby = () => {
       if (gameStartAbortRef.current) {
         gameStartAbortRef.current.abort();
       }
+      multiplayerBridge?.stopBroadcast?.({ suppressHostExit: isTransitioningToGameRef.current });
     };
   }, []);
 
@@ -270,6 +271,7 @@ const MultiplayerLobby = () => {
     });
 
     console.log(`[Lobby] Host game-start complete, navigating to question page`);
+    isTransitioningToGameRef.current = true;
     setScreen("question");
   };
 
@@ -424,7 +426,7 @@ const MultiplayerLobby = () => {
     multiplayerBridge.startBroadcast(initialPayload);
 
     return () => {
-      multiplayerBridge.stopBroadcast?.();
+      multiplayerBridge.stopBroadcast?.({ suppressHostExit: isTransitioningToGameRef.current });
     };
   }, [lobbyRole, lobbyId, multiplayerBridge]);
 

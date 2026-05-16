@@ -48,6 +48,10 @@ export interface MultiplayerGameState {
     name: string;
     score: number;
     rank: number;
+    correctCount?: number;
+    questionsAnswered?: number;
+    accuracy?: number;
+    avgTime?: number;
   }>;
 }
 
@@ -139,7 +143,7 @@ export interface MultiplayerBridge {
   kickPlayer?: (payload: { lobbyId: string; playerId: string }) => void;
   leaveLobby: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;
   sendHeartbeat?: (payload: { lobbyId: string; hostAddress: string; playerId: string }) => void;
-  stopBroadcast: () => void;
+  stopBroadcast: (options?: { suppressHostExit?: boolean }) => void;
   broadcastGameState: (gameState: MultiplayerGameState) => void;
   onGameStateSync: (id: string, cb: (gameState: MultiplayerGameState) => void) => void;
   offGameStateSync: (id: string) => void;

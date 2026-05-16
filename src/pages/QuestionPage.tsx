@@ -428,6 +428,7 @@ const QuestionPage = () => {
     timer,
     answerTimer,
     playerScores,
+    playerAnswers,
     rankings,
     questionLimit,
     submitAnswer,
@@ -596,7 +597,6 @@ const ReadyNumber = styled(Typography)({
       return;
 
     if (phase === "answering" && mode === "solo" && selectedAnswer) return;
-    if (phase === "scoring" && mode === "multiplayer") return;
     
     console.log("[TIMER EFFECT] phase:", phase, "mode:", mode, "lobbyRole:", lobbyRole, "selectedAnswer:", selectedAnswer);
     let timerInterval: number;
@@ -641,6 +641,28 @@ const ReadyNumber = styled(Typography)({
     };
   }, [mode, lobbyRole, multiplayerBridge, currentIndex, receiveRemoteAnswer]);
 
+  useEffect(() => {
+    if (mode !== "multiplayer" || lobbyRole !== "host" || phase !== "answering") return;
+
+    const activePlayers = players.filter((player) => player.connectionState !== "disconnected");
+    if (activePlayers.length === 0) return;
+
+    const state = useTriviaStore.getState();
+    const everyoneAnswered = activePlayers.every((player) => {
+      if (player.isHost) {
+        return Boolean(state.selectedAnswer);
+      }
+
+      const answers = state.playerAnswers[player.id];
+      return Boolean(answers && answers[state.currentIndex]);
+    });
+
+    if (!everyoneAnswered) return;
+
+    useTriviaStore.setState({ phase: "scoring", timer: 3 });
+    broadcastMultiplayerState();
+  }, [mode, lobbyRole, phase, currentIndex, selectedAnswer, playerAnswers, players, broadcastMultiplayerState]);
+
   // ── Multiplayer: score current question (host) ──────────────────────────────
 
   const hasScoredRef = useRef(false);
@@ -656,13 +678,6 @@ useEffect(() => {
   scoreCurrentQuestion();
   finalizeRankings();
   broadcastMultiplayerState();
-
-  const delay = setTimeout(() => {
-    nextPhase();
-    broadcastMultiplayerState();
-  }, 3000);
-
-  return () => clearTimeout(delay);
 }, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, nextPhase, broadcastMultiplayerState]);
 
   useEffect(() => {

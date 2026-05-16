@@ -187,7 +187,7 @@ function sendAck(packetId: string, lobbyId: string, address: string, playerId?: 
     type: "ack",
     payload: { packetId, lobbyId, playerId }
   };
-  sendUdpMessage(JSON.stringify(packet), address);
+  getCriticalTargets(address).forEach((target) => sendUdpMessage(JSON.stringify(packet), target));
 }
 
 function getCriticalTargets(address: string): string[] {
@@ -713,13 +713,20 @@ function startBroadcast(snapshot: MultiplayerLobbySnapshot) {
   }, 2000);
 }
 
-function stopBroadcast() {
+function stopBroadcast(options?: { suppressHostExit?: boolean }) {
   isGameActive = false;
-  console.log('[preload] stopBroadcast');
+  
+  if (options?.suppressHostExit) {
+    // Transitioning to in-game — stop broadcasting but keep host state alive
+    // so the host can still receive & process answer-submission, game-state, etc.
+    console.log('[preload] stopBroadcast (suppressHostExit=true) — preserving host state for game');
+  } else {
+    console.log('[preload] stopBroadcast');
+  }
 
   ipcRenderer.send('multiplayer:mdns-stop-adv');
 
-  if (activeMode === 'host' && activeSnapshot) {
+  if (activeMode === 'host' && activeSnapshot && !options?.suppressHostExit) {
     const lobbyId = activeSnapshot.lobbyId;
     if (pendingHostExitTimeout) {
       clearTimeout(pendingHostExitTimeout);
@@ -736,6 +743,14 @@ function stopBroadcast() {
   }
 
   playerHeartbeats.clear();
+
+  if (options?.suppressHostExit) {
+    // Keep activeMode='host' and activeSnapshot so the host can still
+    // receive & route multiplayer packets (answer-submission etc.)
+    // The snapshot + broadcast interval are stopped, but the routing stays live.
+    return;
+  }
+
   if (activeMode === "host") {
     activeMode = null;
   }
