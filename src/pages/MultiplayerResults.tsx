@@ -4,9 +4,7 @@ import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { getAvatarSrc } from "../utils/avatar";
 import { RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 import type { Player } from "../types/player";
-
-// ─── SCORING ────────────────────────────────────────────────────────────────────
-const DMULT: Record<string, number> = { Easy: 1.0, Medium: 1.5, Hard: 2.0 };
+import { getLastXpGained } from "../progression/progressionRules";
 
 interface RankTier {
   rank: number;
@@ -77,6 +75,10 @@ interface RankingEntry {
   name: string;
   score: number;
   rank: number;
+  correctCount?: number;
+  questionsAnswered?: number;
+  accuracy?: number;
+  avgTime?: number;
 }
 
 interface LobbyMemberInfo {
@@ -92,10 +94,10 @@ function buildPlayerResults(
   rankings: RankingEntry[],
   lobbyMembers: LobbyMemberInfo[],
   localPlayerId: string,
-  difficulty: string,
+  questions: Array<{ correctAnswer: string }>,
+  localAnswers: Array<string | undefined>,
+  localAvgTime: number,
 ): PlayerResult[] {
-  const m = DMULT[difficulty] ?? 1.0;
-
   const playerMap = new Map<string, { name: string; avatar: string; isHost: boolean }>();
   lobbyMembers.forEach((p) => {
     playerMap.set(p.id, { name: p.name, avatar: p.avatar ?? "Detective.png", isHost: p.isHost });
@@ -104,16 +106,30 @@ function buildPlayerResults(
     playerMap.set(localPlayerId, { name: "You", avatar: "Detective.png", isHost: false });
   }
 
+  const localAnswered = localAnswers
+    .map((answer, index) => (answer ? { answer, index } : null))
+    .filter((entry): entry is { answer: string; index: number } => entry !== null);
+
+  const localCorrectCount = localAnswered.reduce((count, entry) => {
+    const question = questions[entry.index];
+    return count + (question && entry.answer === question.correctAnswer ? 1 : 0);
+  }, 0);
+
+  const localAccuracy = localAnswered.length > 0
+    ? Math.round((localCorrectCount / localAnswered.length) * 100)
+    : 0;
+
   return rankings
     .map((entry) => {
       const info = playerMap.get(entry.playerId);
       if (!info) return null;
 
-      const estimatedCorrect = Math.round(entry.score / (m * 12));
-      const correctCount = Math.min(estimatedCorrect, 999);
-      const qAnswered = rankings.length > 0 ? rankings.length : 1;
-      const acc = Math.round((correctCount / qAnswered) * 100);
-      const xp = entry.score + (acc === 100 ? 50 : 0);
+      const isLocalPlayer = entry.playerId === localPlayerId;
+      const correctCount = entry.correctCount ?? (isLocalPlayer ? localCorrectCount : 0);
+      const qAnswered = entry.questionsAnswered ?? (isLocalPlayer ? localAnswered.length : 0);
+      const acc = entry.accuracy ?? (isLocalPlayer ? localAccuracy : (qAnswered > 0 ? Math.round((correctCount / qAnswered) * 100) : 0));
+      const avg = entry.avgTime ?? (isLocalPlayer ? localAvgTime : null);
+      const xp = isLocalPlayer ? (getLastXpGained() || entry.score) : entry.score;
 
       return {
         id: entry.playerId,
@@ -122,7 +138,7 @@ function buildPlayerResults(
         isHost: info.isHost,
         score: entry.score,
         acc,
-        avg: null as number | null,
+        avg,
         xp,
         correctCount,
         rank: entry.rank,
@@ -279,6 +295,8 @@ export default function MultiplayerResults() {
 
   const triviaRankings = useTriviaStore((s) => s.rankings);
   const triviaQuestions = useTriviaStore((s) => s.questions);
+  const triviaAvgTime = useTriviaStore((s) => s.avgTime);
+  const triviaUserAnswers = useTriviaStore((s) => s.userAnswers);
 
   const gameConfig = useGameStore((s) => s.gameConfig);
   const localPlayer = usePlayerStore((s) => s.getPlayer());
@@ -298,7 +316,9 @@ export default function MultiplayerResults() {
     triviaRankings,
     lobbyPlayers,
     localMpId,
-    difficulty,
+    triviaQuestions,
+    triviaUserAnswers,
+    triviaAvgTime,
   );
 
   const you = players.find((p) => p.id === localMpId);
@@ -311,7 +331,7 @@ export default function MultiplayerResults() {
   const medals = ["🥇", "🥈", "🥉"];
 
   const scoreDisplay = useCountUp(you?.score || 0, 1800, ready);
-  const xpDisplay = useCountUp(you?.xp || 0, 2000, ready);
+  const xpDisplay = useCountUp(getLastXpGained() || you?.xp || 0, 2000, ready);
   const accDisplay = useCountUp(you?.acc || 0, 1400, ready);
 
   useEffect(() => {

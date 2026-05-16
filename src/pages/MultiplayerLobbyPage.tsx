@@ -7,6 +7,7 @@ import { Globe, Lock } from "pixelarticons/react";
 import { getAvatarSrc } from "../utils/avatar";
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 import { useSoundContext } from "../context/SoundContext";
+import { getCategoryDisplay } from "../utils/categoryShorthand";
 
 import type {
   MultiplayerBridge,
@@ -45,6 +46,7 @@ const MultiplayerLobby = () => {
   const machineIp = multiplayerBridge?.getLocalIp?.() ?? hostAddress ?? "127.0.0.1";
   const currentPlayer = useMultiplayerStore((s) => s.currentPlayer());
   const isReady = currentPlayer?.isReady ?? false;
+  const isCurrentPlayerDisconnected = currentPlayer?.connectionState === "disconnected";
 
   const startGame = useTriviaStore((s) => s.startGame);
   const resetGame = useTriviaStore((s) => s.resetGame);
@@ -71,7 +73,7 @@ const MultiplayerLobby = () => {
   const handleCreateLobby = () => {
     setLobbyId(currentLobbyId);
     setLobbyRole("host");
-    addOrUpdatePlayer(multiplayerPlayer, { isHost: true, isReady: true });
+    addOrUpdatePlayer(multiplayerPlayer, { isHost: true, isReady: true, connectionState: "connected" });
     setCurrentPlayerId(multiplayerPlayer.id);
   };
 
@@ -146,6 +148,7 @@ const MultiplayerLobby = () => {
       if (gameStartAbortRef.current) {
         gameStartAbortRef.current.abort();
       }
+      multiplayerBridge?.stopBroadcast?.({ suppressHostExit: isTransitioningToGameRef.current });
     };
   }, []);
 
@@ -268,6 +271,7 @@ const MultiplayerLobby = () => {
     });
 
     console.log(`[Lobby] Host game-start complete, navigating to question page`);
+    isTransitioningToGameRef.current = true;
     setScreen("question");
   };
 
@@ -381,18 +385,22 @@ const MultiplayerLobby = () => {
   useEffect(() => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
-    const handlePlayerJoined = (p: LobbyMember) => addOrUpdatePlayer(p, { isHost: false, isReady: false });
+    const handlePlayerJoined = (p: LobbyMember) => addOrUpdatePlayer(p, { isHost: false, isReady: false, connectionState: "connected" });
     const handlePlayerReadyChanged = (playerId: string, ready: boolean) => setPlayerReady(playerId, ready);
+    const handlePlayerStatusChanged = (playerId: string, connectionState: "connected" | "disconnected") =>
+      useMultiplayerStore.getState().setPlayerConnectionState(playerId, connectionState);
     const handlePlayerLeft = (playerId: string) => removePlayer(playerId);
 
     multiplayerBridge.onPlayerJoined("Lobby", handlePlayerJoined);
     multiplayerBridge.onPlayerReadyChanged("Lobby", handlePlayerReadyChanged);
     multiplayerBridge.onPlayerLeft("Lobby", handlePlayerLeft);
+    multiplayerBridge.onPlayerStatusChanged?.("Lobby", handlePlayerStatusChanged);
 
     return () => {
       multiplayerBridge.offPlayerJoined?.("Lobby");
       multiplayerBridge.offPlayerReadyChanged?.("Lobby");
       multiplayerBridge.offPlayerLeft?.("Lobby");
+      multiplayerBridge.offPlayerStatusChanged?.("Lobby");
     };
   }, [lobbyRole, lobbyId, multiplayerBridge, addOrUpdatePlayer, setPlayerReady, removePlayer]);
 
@@ -412,24 +420,25 @@ const MultiplayerLobby = () => {
       difficulty: undefined,
       isPrivate: false,
       lastActive: new Date().toISOString(),
-      players: [{ ...multiplayerPlayer, isHost: true, isReady: true }], // ← FIX: was []
+      players: [{ ...multiplayerPlayer, isHost: true, isReady: true, connectionState: "connected" }], // ← FIX: was []
     };
 
     multiplayerBridge.startBroadcast(initialPayload);
 
     return () => {
-      multiplayerBridge.stopBroadcast?.();
+      multiplayerBridge.stopBroadcast?.({ suppressHostExit: isTransitioningToGameRef.current });
     };
-  }, [lobbyRole, lobbyId, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level]);
+  }, [lobbyRole, lobbyId, multiplayerBridge]);
 
   useEffect(() => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
+    const connectedPlayerCount = players.filter((player) => player.connectionState !== "disconnected").length;
     const payload: MultiplayerLobbySnapshot = {
       lobbyId,
       hostId: multiplayerPlayer.id,
       hostName: multiplayerPlayer.name,
       hostLevel: multiplayerPlayer.level,
-      playerCount: players.length || 1,
+      playerCount: connectedPlayerCount || 1,
       maxPlayers: defaultGameConfig.maxPlayers,
       category: gameConfig.category ?? undefined,
       difficulty: gameConfig.difficulty ?? undefined,
@@ -452,9 +461,11 @@ const MultiplayerLobby = () => {
   };
 
   const allPlayers = players;
+  const connectedPlayers = allPlayers.filter((player) => player.connectionState !== "disconnected");
+  const disconnectedPlayers = allPlayers.filter((player) => player.connectionState === "disconnected");
   const isCategorySelected = Boolean(gameConfig.category);
   const isDifficultySelected = Boolean(gameConfig.difficulty);
-  const canStart = isCategorySelected && isDifficultySelected && allPlayers.length > 1 && allPlayers.every((p) => p.isReady);
+  const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
 
   useEffect(() => {
     if (lobbyRole === "host" && players.length === 0) {
@@ -506,7 +517,7 @@ const MultiplayerLobby = () => {
       marginTop: "4px",
     },
     lobbyIdLabel: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "18px",
       color: "#E5E5E5",
       whiteSpace: "nowrap" as const,
@@ -517,7 +528,7 @@ const MultiplayerLobby = () => {
       border: "1.5px solid #10363A",
       borderRadius: "6px",
       padding: "4px 12px",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "18px",
       color: "#35E52B",
       letterSpacing: "2px",
@@ -533,7 +544,7 @@ const MultiplayerLobby = () => {
       border: `1.5px solid ${isPrivateMode ? "#E3A020" : "#00DFFF"}`,
       background: isPrivateMode ? "rgba(227,160,32,0.12)" : "#00DFFF",
       color: isPrivateMode ? "#E3A020" : "#010707",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "17px",
       cursor: "pointer",
       letterSpacing: "1px",
@@ -546,7 +557,7 @@ const MultiplayerLobby = () => {
       border: "1.5px solid #00DFFF",
       background: "#10363A",
       color: "#35E52B",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "17px",
       cursor: "pointer",
       letterSpacing: "1px",
@@ -567,25 +578,27 @@ const MultiplayerLobby = () => {
       marginBottom: "12px",
     },
     panelTitle: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "22px",
       color: "#E5E5E5",
       letterSpacing: "2px",
     },
     panelCount: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "18px",
       color: "#DADADA",
       letterSpacing: "1px",
     },
-    playerRow: (active: boolean) => ({
+    playerRow: (active: boolean, disconnected: boolean) => ({
       display: "flex",
       alignItems: "center",
       gap: "12px",
       padding: "10px 12px",
       borderRadius: "7px",
-      background: active ? "#022f36" : "#6A7373",
+      background: disconnected ? "rgba(106,115,115,0.35)" : active ? "#022f36" : "#6A7373",
+      border: disconnected ? "1px solid rgba(227,50,50,0.55)" : "1px solid transparent",
       marginBottom: "8px",
+      opacity: disconnected ? 0.72 : 1,
     }),
     avatar: {
       width: "36px",
@@ -604,7 +617,7 @@ const MultiplayerLobby = () => {
       minWidth: 0,
     },
     playerName: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "18px",
       color: "#D9E600",
       letterSpacing: "1px",
@@ -613,13 +626,13 @@ const MultiplayerLobby = () => {
       whiteSpace: "nowrap" as const,
     },
     playerSub: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "13px",
       color: "#DADADA",
       letterSpacing: "0.5px",
     },
     hostBadge: {
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "13px",
       color: "#E5E5E5",
       background: "rgba(0,0,0,0.25)",
@@ -629,12 +642,22 @@ const MultiplayerLobby = () => {
       marginLeft: "4px",
       flexShrink: 0,
     },
-    statusDot: (ready: boolean) => ({
+    connectionBadge: {
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
+      fontSize: "13px",
+      color: "#E33232",
+      background: "rgba(227,50,50,0.12)",
+      borderRadius: "4px",
+      padding: "1px 7px",
+      letterSpacing: "1px",
+      flexShrink: 0,
+    },
+    statusDot: (status: "ready" | "notReady" | "disconnected") => ({
       width: "14px",
       height: "14px",
       borderRadius: "50%",
-      background: ready ? "#35E52B" : "#E33232",
-      boxShadow: ready ? "0 0 7px #35E52B" : "0 0 7px #E33232",
+      background: status === "ready" ? "#35E52B" : status === "disconnected" ? "#A15A5A" : "#E33232",
+      boxShadow: status === "ready" ? "0 0 7px #35E52B" : status === "disconnected" ? "0 0 7px #A15A5A" : "0 0 7px #E33232",
       flexShrink: 0,
     }),
     kickBtn: {
@@ -643,7 +666,7 @@ const MultiplayerLobby = () => {
       border: "1.5px solid #E33232",
       background: "rgba(227,50,50,0.10)",
       color: "#E33232",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "14px",
       cursor: "pointer",
       letterSpacing: "1px",
@@ -652,7 +675,7 @@ const MultiplayerLobby = () => {
     },
     waitingText: {
       textAlign: "center" as const,
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "16px",
       color: "#E5E5E5",
       letterSpacing: "1px",
@@ -670,7 +693,7 @@ const MultiplayerLobby = () => {
       border: "1.5px solid #00DFFF",
       background: "#10363A",
       color: "#35E52B",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "16px",
       cursor: "pointer",
       letterSpacing: "1px",
@@ -690,7 +713,7 @@ const MultiplayerLobby = () => {
       border: "none",
       background: disabled ? "#1A4A20" : "#39E600",
       color: disabled ? "#4a7a4a" : "#EAEAEA",
-      fontFamily: "'VT323', 'Courier New', monospace",
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
       fontSize: "20px",
       cursor: disabled ? "default" : "pointer",
       letterSpacing: "2px",
@@ -700,7 +723,7 @@ const MultiplayerLobby = () => {
     }),
   };
 
-  const allPlayersReady = allPlayers.length > 1 && allPlayers.every((p) => p.isReady);
+  const allPlayersReady = connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
 
   return (
     <Box sx={styles.root}>
@@ -721,9 +744,8 @@ const MultiplayerLobby = () => {
             )}
           </Box>
 
-          <Box sx={styles.lobbyIdRow}>
-            <span style={styles.lobbyIdLabel}>LOBBY ID:</span>
-            <span style={styles.lobbyIdBox}>{currentLobbyId}</span>
+          <Box sx={styles.ipRow}>
+            <span style={styles.lobbyIdBox}>{machineIp}</span>
           </Box>
 
           <button style={styles.exitBtn} onClick={() => { handleLeaveLobby(); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
@@ -731,22 +753,26 @@ const MultiplayerLobby = () => {
           </button>
         </Box>
 
-        <Box sx={styles.ipRow}>
-          <span style={styles.lobbyIdLabel}>MACHINE IP:</span>
-          <span style={styles.lobbyIdBox}>{machineIp}</span>
-        </Box>
+        
+
 
         {/* Players panel */}
         <Box sx={styles.panel}>
           <Box sx={styles.panelHeader}>
             <span style={styles.panelTitle}>PLAYERS:</span>
             <span style={styles.panelCount}>
-              {allPlayers.length}/{defaultGameConfig.maxPlayers ?? 4}
+              {connectedPlayers.length}/{defaultGameConfig.maxPlayers ?? 4}
             </span>
           </Box>
 
+          {disconnectedPlayers.length > 0 && (
+            <Box sx={styles.waitingText}>
+              {disconnectedPlayers.length === 1 ? "1 player is reconnecting" : `${disconnectedPlayers.length} players are reconnecting`}
+            </Box>
+          )}
+
           {allPlayers.map((p) => (
-            <Box key={p.id} sx={styles.playerRow(true)}>
+            <Box key={p.id} sx={styles.playerRow(p.connectionState !== "disconnected", p.connectionState === "disconnected")}>
               <Box sx={styles.avatar}>
                 <img src={getAvatarSrc(p.avatar || "")} alt="" style={{ width: "100%", height: "100%", imageRendering: "pixelated", objectFit: "contain", borderRadius: "3px" }} />
               </Box>
@@ -754,6 +780,7 @@ const MultiplayerLobby = () => {
                 <Box sx={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <span style={styles.playerName}>{p.name || "NAME"}</span>
                   {p.isHost && <span style={styles.hostBadge}>HOST</span>}
+                  {p.connectionState === "disconnected" && <span style={styles.connectionBadge}>OFFLINE</span>}
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <RankIcon
@@ -773,17 +800,17 @@ const MultiplayerLobby = () => {
                   KICK
                 </button>
               )}
-              <Box sx={styles.statusDot(p.isReady ?? false)} />
+              <Box sx={styles.statusDot(p.connectionState === "disconnected" ? "disconnected" : p.isReady ? "ready" : "notReady")} />
             </Box>
           ))}
 
           {Array.from({ length: Math.max(0, (defaultGameConfig.maxPlayers ?? 4) - allPlayers.length) }).map((_, i) => (
-            <Box key={`empty-${i}`} sx={styles.playerRow(false)}>
+            <Box key={`empty-${i}`} sx={styles.playerRow(false, false)}>
               <Box sx={styles.avatar} />
               <Box sx={styles.playerInfo}>
                 <span style={{ ...styles.playerName, color: "#DADADA", opacity: 0.5 }}>—</span>
               </Box>
-              <Box sx={styles.statusDot(false)} />
+              <Box sx={styles.statusDot("notReady")} />
             </Box>
           ))}
 
@@ -800,7 +827,7 @@ const MultiplayerLobby = () => {
             onMouseEnter={() => { if (lobbyRole !== "client") playSound("hover"); }}
             disabled={lobbyRole === "client"}
           >
-            {gameConfig.category ? gameConfig.category.toUpperCase() : "CATEGORY"}
+            {getCategoryDisplay(gameConfig.category).toUpperCase()}
           </button>
 
 
@@ -815,12 +842,12 @@ const MultiplayerLobby = () => {
             </button>
           ) : (
             <button
-              style={styles.primaryBtn(!currentPlayer)}
-              onClick={() => { if (currentPlayer) { handleReadyToggle(currentPlayer.id, !isReady); playSound("select"); } }}
-              onMouseEnter={() => { if (currentPlayer) playSound("hover"); }}
-              disabled={!currentPlayer}
+              style={styles.primaryBtn(!currentPlayer || isCurrentPlayerDisconnected)}
+              onClick={() => { if (currentPlayer && !isCurrentPlayerDisconnected) { handleReadyToggle(currentPlayer.id, !isReady); playSound("select"); } }}
+              onMouseEnter={() => { if (currentPlayer && !isCurrentPlayerDisconnected) playSound("hover"); }}
+              disabled={!currentPlayer || isCurrentPlayerDisconnected}
             >
-              {isReady ? "UNREADY" : "READY"}
+              {isCurrentPlayerDisconnected ? "RECONNECTING..." : isReady ? "UNREADY" : "READY"}
             </button>
           )}
 

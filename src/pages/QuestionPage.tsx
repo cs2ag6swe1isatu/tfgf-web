@@ -213,9 +213,21 @@ const QuestionPage = () => {
   const resolution = useGameStore((state) => state.resolution);
 
   const {
-    questions, currentIndex, phase, selectedAnswer, timer, answerTimer, playerScores,
-    rankings, questionLimit, currentStreak, submitAnswer, receiveRemoteAnswer,
-    scoreCurrentQuestion, finalizeRankings, nextPhase,
+    questions,
+    currentIndex,
+    phase,
+    selectedAnswer,
+    timer,
+    answerTimer,
+    playerScores,
+    playerAnswers,
+    rankings,
+    questionLimit,
+    submitAnswer,
+    receiveRemoteAnswer,
+    scoreCurrentQuestion,
+    finalizeRankings,
+    nextPhase,
   } = useTriviaStore();
 
   const { applySessionProgress } = usePlayerStore();
@@ -310,8 +322,16 @@ const QuestionPage = () => {
     }, [submitAnswer, questions, currentIndex, timer, answerTimer, localPlayer, triggerReward]);
 
   useEffect(() => {
-    if (phase !== "readying" && phase !== "answering" && phase !== "scoring") return;
-    if (phase === "answering" && selectedAnswer && mode === "solo") return;
+    if (
+      phase !== "readying" &&
+      phase !== "answering" &&
+      phase !== "scoring"
+    )
+      return;
+
+    if (phase === "answering" && mode === "solo" && selectedAnswer) return;
+    
+    console.log("[TIMER EFFECT] phase:", phase, "mode:", mode, "lobbyRole:", lobbyRole, "selectedAnswer:", selectedAnswer);
     let timerInterval: number;
     if (mode === "solo" || lobbyRole === "host") {
       timerInterval = window.setInterval(() => {
@@ -333,7 +353,44 @@ const QuestionPage = () => {
     return () => { multiplayerBridge.offAnswerSubmission?.("QuestionPage"); };
   }, [mode, lobbyRole, multiplayerBridge, currentIndex, receiveRemoteAnswer]);
 
+  useEffect(() => {
+    if (mode !== "multiplayer" || lobbyRole !== "host" || phase !== "answering") return;
+
+    const activePlayers = players.filter((player) => player.connectionState !== "disconnected");
+    if (activePlayers.length === 0) return;
+
+    const state = useTriviaStore.getState();
+    const everyoneAnswered = activePlayers.every((player) => {
+      if (player.isHost) {
+        return Boolean(state.selectedAnswer);
+      }
+
+      const answers = state.playerAnswers[player.id];
+      return Boolean(answers && answers[state.currentIndex]);
+    });
+
+    if (!everyoneAnswered) return;
+
+    useTriviaStore.setState({ phase: "scoring", timer: 3 });
+    broadcastMultiplayerState();
+  }, [mode, lobbyRole, phase, currentIndex, selectedAnswer, playerAnswers, players, broadcastMultiplayerState]);
+
+  // ── Multiplayer: score current question (host) ──────────────────────────────
+
   const hasScoredRef = useRef(false);
+
+useEffect(() => {
+  if (phase !== "scoring" || mode !== "multiplayer" || lobbyRole !== "host") {
+    if (phase !== "scoring") hasScoredRef.current = false;
+    return;
+  }
+  if (hasScoredRef.current) return;
+  hasScoredRef.current = true;
+
+  scoreCurrentQuestion();
+  finalizeRankings();
+  broadcastMultiplayerState();
+}, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, nextPhase, broadcastMultiplayerState]);
 
   useEffect(() => {
     if (hasScoredRef.current) return;

@@ -57,10 +57,6 @@ const theme = createTheme({
         body: {
           imageRendering: 'pixelated',
           backgroundColor: '#000',
-          // Custom scrollbar to look like a retro terminal
-          '&::-webkit-scrollbar': { width: '8px' },
-          '&::-webkit-scrollbar-track': { background: '#000' },
-          '&::-webkit-scrollbar-thumb': { background: NEON_GREEN },
         },
       },
     },
