@@ -6,7 +6,7 @@ import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
 import type { TriviaState } from "../store";
-import { scoreForCorrectAnswers, scoreIncrementForAnswer } from "../rules";
+import { scoreIncrementForAnswer } from "../rules";
 import { defaultGameConfig } from "../config/gameConfig";
 import { styled, keyframes } from "@mui/material/styles";
 import { useSoundContext } from "../context/SoundContext";
@@ -549,9 +549,11 @@ const ReadyNumber = styled(Typography)({
       const isCorrect = answer === currentQuestion.correctAnswer;
       if (!isCorrect) return;
 
-      const timeTaken = 15 - (timer ?? 0);
-      totalSessionTimeRef.current += timeTaken;
-      totalAnsweredRef.current += 1;
+      if (mode === "solo") {
+        const timeTaken = 15 - (timer ?? 0);
+        totalSessionTimeRef.current += timeTaken;
+        totalAnsweredRef.current += 1;
+      }
 
       const finalScore = scoreIncrementForAnswer(
         true,
@@ -560,8 +562,9 @@ const ReadyNumber = styled(Typography)({
         answerTimer,
       );
 
-      const streakAfterThisAnswer = useTriviaStore.getState().currentStreak + 1;
-      const xpEarned = calculateXP(finalScore, streakAfterThisAnswer);
+      // streak is already incremented by submitAnswer → selectAnswer
+      const currentStreak = useTriviaStore.getState().currentStreak;
+      const xpEarned = calculateXP(finalScore, currentStreak);
 
       sessionXpRef.current += xpEarned;
 
@@ -574,7 +577,7 @@ const ReadyNumber = styled(Typography)({
       triggerReward({
         score: finalScore,
         xp: xpEarned,
-        streak: streakAfterThisAnswer,
+        streak: currentStreak,
         oldXP,
         newXP,
         oldLevel: visualLevel,
@@ -583,7 +586,7 @@ const ReadyNumber = styled(Typography)({
         buttonRef: answerButtonRef,
       });
     },
-    [submitAnswer, questions, currentIndex, timer, answerTimer, triggerReward]
+    [submitAnswer, questions, currentIndex, timer, answerTimer, triggerReward, mode]
   );
 
   // ── Timer tick ──────────────────────────────────────────────────────────────
@@ -703,6 +706,18 @@ useEffect(() => {
       const shouldResetSelectedAnswer =
         payload.currentIndex !== currentState.currentIndex;
 
+      const mappedRankings = payload.rankings?.map((r) => ({
+        playerId: r.playerId,
+        name: r.name,
+        score: r.score,
+        rank: r.rank,
+        correctCount: r.correctCount,
+        questionsAnswered: r.questionsAnswered,
+        accuracy: r.accuracy,
+        avgTime: r.avgTime,
+        xp: r.xp ?? 0,
+      }));
+
       const nextState: Partial<TriviaState> = {
         phase: payload.phase,
         timer: payload.timer,
@@ -714,7 +729,7 @@ useEffect(() => {
         ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
         ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
         ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
-        ...(payload.rankings !== undefined ? { rankings: payload.rankings } : {}),
+        ...(mappedRankings !== undefined ? { rankings: mappedRankings } : {}),
       };
 
       if (shouldResetSelectedAnswer) nextState.selectedAnswer = "";
@@ -810,17 +825,17 @@ useEffect(() => {
       (q, index) => q.correctAnswer === finalUserAnswers[index]
     ).length;
 
-    const fallbackScore = scoreForCorrectAnswers(correctAnswersCount);
-    const rankingEntry = finalRankings.find((entry) => entry.playerId === localPlayerId);
     const currentPlayerScore =
       cfgMode === "multiplayer"
-        ? rankingEntry?.score ?? finalPlayerScores[localPlayerId] ?? fallbackScore
-        : fallbackScore;
+        ? finalRankings.find((entry) => entry.playerId === localPlayerId)?.score
+          ?? finalPlayerScores[localPlayerId]
+          ?? 0
+        : triviaState.score;
 
     const playerRank =
       cfgMode === "multiplayer"
-        ? rankingEntry?.rank ??
-          1 + Object.values(finalPlayerScores).filter((s) => s > currentPlayerScore).length
+        ? finalRankings.find((entry) => entry.playerId === localPlayerId)?.rank
+          ?? 1 + Object.values(finalPlayerScores).filter((s) => s > currentPlayerScore).length
         : 0;
 
     const elapsedMs = gameStartTimeRef.current ? Date.now() - gameStartTimeRef.current : 0;
@@ -849,6 +864,7 @@ useEffect(() => {
       hostedLobby: cfgMode === "multiplayer" && lobbyRole === "host",
       fellBehindByHalfAndWon:
         cfgMode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
+      rank: cfgMode === "multiplayer" ? playerRank : undefined,
     };
 
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);

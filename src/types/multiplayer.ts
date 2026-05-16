@@ -52,6 +52,7 @@ export interface MultiplayerGameState {
     questionsAnswered?: number;
     accuracy?: number;
     avgTime?: number;
+    xp?: number;
   }>;
 }
 

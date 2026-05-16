@@ -161,7 +161,7 @@ const ResultPage: React.FC = () => {
     0
   );
   const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
-  const xpGained  = getLastXpGained() || score;
+  const xpGained  = getLastXpGained();
   const rankProg  = getLevelProgressPercent(playerTotalXp);
 
   return (

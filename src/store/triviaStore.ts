@@ -8,6 +8,7 @@ import { useMultiplayerStore } from './multiplayerStore';
 import type { MultiplayerBridge } from '../types/multiplayer';
 import { defaultGameConfig } from '../config/gameConfig';
 import { applyRoundScores, scoreIncrementForAnswer, PlayerRoundAnswer } from '../rules';
+import { calculateMultiplayerXP } from '../utils/progression';
 
 /**
  * Trivia Store - Game Logic and State Management
@@ -47,6 +48,7 @@ export interface PlayerRanking {
   questionsAnswered?: number;
   accuracy?: number;
   avgTime?: number;
+  xp: number;
 }
 
 export interface TriviaState {
@@ -569,13 +571,22 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         .filter((item): item is AnswerEntry => item !== null);
 
       const questionsAnswered = answeredEntries.length;
+      let maxStreak = 0;
+      let currentStreak = 0;
       const correctCount = answeredEntries.reduce((count, { entry, index }) => {
         const question = questions[index];
-        return count + (question && entry.answer === question.correctAnswer ? 1 : 0);
+        const isCorrect = question && entry.answer === question.correctAnswer;
+        if (isCorrect) {
+          currentStreak++;
+          if (currentStreak > maxStreak) maxStreak = currentStreak;
+        } else {
+          currentStreak = 0;
+        }
+        return count + (isCorrect ? 1 : 0);
       }, 0);
 
-      const accuracy = questionsAnswered > 0
-        ? Math.round((correctCount / questionsAnswered) * 100)
+      const accuracy = questions.length > 0
+        ? Math.round((correctCount / questions.length) * 100)
         : 0;
 
       const avgTime = questionsAnswered > 0
@@ -589,7 +600,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
           ) / 10
         : 0;
 
-      return { correctCount, questionsAnswered, accuracy, avgTime };
+      return { correctCount, maxStreak, questionsAnswered, accuracy, avgTime };
     };
 
     const rankingMap = new Map<string, { playerId: string; name: string; score: number }>();
@@ -614,10 +625,13 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       .sort((a, b) => b.score - a.score)
       .map((entry, index) => {
         const summary = summarizePlayer(entry.playerId);
+        const playerScore = entry.score;
+        const xp = calculateMultiplayerXP(playerScore, summary.maxStreak, index + 1);
         return {
           ...entry,
           rank: index + 1,
           ...summary,
+          xp,
         };
       });
 

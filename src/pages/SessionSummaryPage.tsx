@@ -145,7 +145,7 @@ const SessionSummaryPage: React.FC = () => {
   // Correct formula: XP within the current level (mod 1000) divided by 1000.
   const rankProg = Math.round((playerTotalXp % 1000) / 1000 * 100);
 
-  const xpGained = getLastXpGained() || score;
+  const xpGained = getLastXpGained();
 
   const avgTime = useTriviaStore((s) => s.avgTime);
   const avgTimeDisplay =
