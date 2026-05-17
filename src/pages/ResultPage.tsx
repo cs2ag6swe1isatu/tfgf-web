@@ -3,11 +3,12 @@ import { Box, Typography, Button, LinearProgress, GlobalStyles } from '@mui/mate
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { usePlayerStore } from '../store/playerStore';
-import { getLevelProgressPercent } from '../utils/progression';
+import { getLevelProgressPercent, getXpIntoLevel } from '../utils/progression';
 import { getLastXpGained } from '../progression/progressionRules';
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from '../components/ui/RankIcon';
 import { keyframes, styled } from '@mui/material/styles';
 import { LevelUpPopup } from '../components/rewards/LevelUpPopup';
+import LevelUpTransition from '../components/LevelUpTransition';
 
 // ─── Keyframes (kept minimal – only entrance animations) ─────────────────
 
@@ -71,6 +72,20 @@ const ResultPage: React.FC = () => {
     clearLevelUpSession();
   };
 
+  // ── Cinematic level-up transition state ──────────────────────────────────
+  const [showLevelUpTransition, setShowLevelUpTransition] = useState(false);
+
+  const xpGained = getLastXpGained();
+const totalXpBefore = playerTotalXp - xpGained;
+const oldLevel = xpGained > 0 ? Math.floor(totalXpBefore / 1000) + 1 : Math.floor(playerTotalXp / 1000) + 1;
+const newLevel = Math.floor(playerTotalXp / 1000) + 1;
+
+useEffect(() => {
+  if (xpGained > 0 && newLevel > oldLevel) {
+    setShowLevelUpTransition(true);
+  }
+}, []); // run once on mount — values are already settled
+
   // Pull rank / level data from player store
   const player = usePlayerStore((s) => s.getPlayer());
   const playerRankTitle = player.rank.name.toUpperCase();
@@ -106,7 +121,6 @@ const ResultPage: React.FC = () => {
     0
   );
   const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
-  const xpGained  = getLastXpGained();
   const rankProg  = getLevelProgressPercent(playerTotalXp);
 
   // Average time per question – derived from available data (0 if unavailable)
@@ -512,6 +526,20 @@ const ResultPage: React.FC = () => {
           </Button>
         </Box>
       </Box>
+
+      {/* ── Cinematic level-up transition ──────────────────────────────── */}
+    {showLevelUpTransition && (
+  <LevelUpTransition
+    oldLevel={oldLevel}
+    newLevel={newLevel}
+    oldXP={getXpIntoLevel(totalXpBefore)}
+    newXP={getXpIntoLevel(playerTotalXp)}
+    xpForOldLevel={1000}
+    xpForNewLevel={1000}
+    levelRangeLabel={`LV ${Math.floor((oldLevel - 1) / 10) * 10 + 1}–${Math.floor((oldLevel - 1) / 10) * 10 + 10}`}
+    onContinue={() => setShowLevelUpTransition(false)}
+  />
+)}
     </ScaleRoot>
   );
 };

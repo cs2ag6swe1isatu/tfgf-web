@@ -169,7 +169,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
           // Host: Load locally and then start HTTP server to share
           questions = await loadQuestions(category, difficulty, questionLimit, seed);
           if (bridge?.startHttpServer) {
-            console.log('[TriviaStore] Host starting HTTP server for questions');
             bridge.startHttpServer(JSON.stringify(questions));
           }
         } else {
@@ -177,7 +176,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
           const hostAddress = multiplayerStore.hostAddress;
           if (hostAddress && questionPort) {
             const fetchUrl = `http://${hostAddress}:${questionPort}/questions`;
-            console.log(`[TriviaStore] Client attempting to fetch questions from host: ${hostAddress}:${questionPort}`);
             
             let lastError: Error | null = null;
             const maxRetries = 3;
@@ -195,14 +193,12 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
                 
                 if (response.ok) {
                   questions = await response.json();
-                  console.log(`[TriviaStore] Successfully fetched ${questions.length} questions from host (attempt ${attempt}, ${fetchDurationMs}ms)`);
                   lastError = null;
                   break;
                 } else {
                   lastError = new Error(`HTTP error! status: ${response.status}`);
                   console.warn(`[TriviaStore] HTTP fetch attempt ${attempt} failed: ${response.status}`);
                   if (attempt < maxRetries) {
-                    console.log(`[TriviaStore] Retrying in ${retryDelayMs}ms...`);
                     await new Promise(resolve => setTimeout(resolve, retryDelayMs));
                   }
                 }
@@ -210,7 +206,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
                 lastError = e instanceof Error ? e : new Error(String(e));
                 console.warn(`[TriviaStore] HTTP fetch attempt ${attempt} error:`, lastError.message);
                 if (attempt < maxRetries) {
-                  console.log(`[TriviaStore] Retrying in ${retryDelayMs}ms...`);
                   await new Promise(resolve => setTimeout(resolve, retryDelayMs));
                 }
               }
@@ -222,7 +217,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
             }
           } else {
             // Fallback for missing address/port
-            console.log('[TriviaStore] Missing hostAddress or questionPort, falling back to local load');
             questions = await loadQuestions(category, difficulty, questionLimit, seed);
           }
         }

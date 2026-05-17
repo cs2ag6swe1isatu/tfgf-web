@@ -4,7 +4,9 @@ import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { getAvatarSrc } from "../utils/avatar";
 import { RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 import type { Player } from "../types/player";
-import { getLastXpGained } from "../progression/progressionRules";
+import { getLastXpGained, levelFromXp } from "../progression/progressionRules";
+import { getXpIntoLevel } from "../utils/progression";
+import LevelUpTransition from "../components/LevelUpTransition";
 
 interface RankTier {
   rank: number;
@@ -325,6 +327,20 @@ export default function MultiplayerResults() {
   const you = players.find((p) => p.id === localMpId);
 
   const localXp = localPlayer?.totalXp ?? 0;
+
+  // ── Cinematic level-up transition state ──────────────────────────────────
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const xpGainedThisGame = getLastXpGained() || you?.xp || 0;
+  const xpBeforeGame = localXp - xpGainedThisGame;
+  const oldLevel = levelFromXp(xpBeforeGame);
+  const newLevel = localPlayer?.level ?? oldLevel;
+
+  useEffect(() => {
+    if (newLevel > oldLevel) {
+      setShowLevelUp(true);
+    }
+  }, [newLevel, oldLevel]);
+
   const { tier, pct: rankPct } = getRankTier(localXp);
   const rankSym = getRankSymbolType(tier.name);
   const rankTheme = RANK_COLORS[rankSym];
@@ -478,6 +494,20 @@ export default function MultiplayerResults() {
       </div>
 
       <style>{globalCSS}</style>
+
+      {/* ── Cinematic level-up transition ──────────────────────────────── */}
+      {showLevelUp && (
+  <LevelUpTransition
+    oldLevel={oldLevel}
+    newLevel={newLevel}
+    oldXP={getXpIntoLevel(xpBeforeGame)}
+    newXP={getXpIntoLevel(localXp)}
+    xpForOldLevel={1000}
+    xpForNewLevel={1000}
+    levelRangeLabel={`LV ${Math.floor((oldLevel - 1) / 10) * 10 + 1}–${Math.floor((oldLevel - 1) / 10) * 10 + 10}`}
+    onContinue={() => setShowLevelUp(false)}
+  />
+)}
     </div>
   );
 }

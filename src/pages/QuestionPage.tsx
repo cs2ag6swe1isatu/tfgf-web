@@ -601,14 +601,12 @@ const ReadyNumber = styled(Typography)({
 
     if (phase === "answering" && mode === "solo" && selectedAnswer) return;
     
-    console.log("[TIMER EFFECT] phase:", phase, "mode:", mode, "lobbyRole:", lobbyRole, "selectedAnswer:", selectedAnswer);
     let timerInterval: number;
 
     const timerTickIntervalMs = 1000;
 
     if (mode === "solo" || lobbyRole === "host") {
       timerInterval = window.setInterval(() => {
-        console.log("[TIMER TICK] phase:", useTriviaStore.getState().phase); 
         useTriviaStore.getState().tickTimer();
         if (mode === "multiplayer" && lobbyRole === "host") {
           broadcastMultiplayerState();
@@ -767,16 +765,7 @@ useEffect(() => {
     }
   }, [phase, currentIndex, recordSessionStartLevel]);
 
-  useEffect(() => {
-    if (phase === "answering" && currentIndex === 0 && sessionXpRef.current === 0) {
-      if (gameStartTimeRef.current === null) {
-        gameStartTimeRef.current = Date.now();
-      }
-      if (!endProgressAppliedRef.current) {
-        recordSessionStartLevel();
-      }
-    }
-  }, [phase, currentIndex, recordSessionStartLevel]);
+
 
   useEffect(() => {
     if (mode !== "multiplayer") return;

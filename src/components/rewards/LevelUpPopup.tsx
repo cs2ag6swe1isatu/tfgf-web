@@ -137,15 +137,13 @@ export const LevelUpPopup: React.FC<LevelUpPopupProps> = ({
     return () => clearTimeout(timer);
   }, [open, onClose, clearLevelUpSession]);
 
-  if (!open) return null;
+  
 
-  // XP display values derived from level data (adjust to your real store shape)
-  const XP_PER_LEVEL = 1000;
-const player       = useGameStore((s) => s.getPlayer());
-const totalXp      = player.totalXp;
+    const XP_PER_LEVEL = 1000;
+  const player       = useGameStore((s) => s.getPlayer());
+  const totalXp      = player.totalXp;
 
-// XP inside the NEW level (after level-up)
-const newXp        = totalXp % XP_PER_LEVEL;
+  const newXp        = totalXp % XP_PER_LEVEL;
 const newXpGoal    = XP_PER_LEVEL;
 
 // Previous level bar was full (that's what triggered the level-up)
@@ -160,6 +158,8 @@ const ranksPerBand = 10;
 const bandStart    = Math.floor((newLevel - 1) / ranksPerBand) * ranksPerBand + 1;
 const bandEnd      = bandStart + ranksPerBand - 1;
 const levelRange   = `LV ${bandStart}-${bandEnd}`;
+
+  if (!open) return null;
 
   return (
     <Box
