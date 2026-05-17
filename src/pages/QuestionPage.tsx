@@ -360,11 +360,9 @@ const QuestionPage = () => {
 
     if (phase === "answering" && mode === "solo" && selectedAnswer) return;
     
-    console.log("[TIMER EFFECT] phase:", phase, "mode:", mode, "lobbyRole:", lobbyRole, "selectedAnswer:", selectedAnswer);
     let timerInterval: number;
     if (mode === "solo" || lobbyRole === "host") {
       timerInterval = window.setInterval(() => {
-        console.log("[TIMER TICK] phase:", useTriviaStore.getState().phase); 
         useTriviaStore.getState().tickTimer();
         if (mode === "multiplayer" && lobbyRole === "host") broadcastMultiplayerState();
       }, 1000);
@@ -477,10 +475,20 @@ useEffect(() => {
 
   useEffect(() => {
     if (phase === "readying" && currentIndex === 0) {
-      fellBehindByHalfRef.current = false; totalSessionTimeRef.current = 0; totalAnsweredRef.current = 0;
-      didLevelUpThisSessionRef.current = false; levelAfterSessionRef.current = 0; endProgressAppliedRef.current = false; 
+      fellBehindByHalfRef.current = false;
+      totalSessionTimeRef.current = 0;
+      totalAnsweredRef.current = 0;
+      sessionXpRef.current = 0;
+      endProgressAppliedRef.current = false;
+      gameStartTimeRef.current = null;
+
+      recordSessionStartLevel();
+      didLevelUpThisSessionRef.current = false;
+      levelAfterSessionRef.current     = 0;
     }
   }, [phase, currentIndex, recordSessionStartLevel]);
+
+
 
   useEffect(() => {
     if (phase !== "end" || endProgressAppliedRef.current) return;
