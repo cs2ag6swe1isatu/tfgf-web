@@ -34,7 +34,7 @@ export interface MultiplayerActions {
   setHostId: (id: string | null) => void;
   setHostAddress: (address: string | null) => void;
   setPrivate: (isPrivate: boolean) => void;
-  addOrUpdatePlayer: (player: Player | LobbyMember, opts?: { isHost?: boolean; isReady?: boolean; connectionState?: PlayerConnectionState; lastSeenAt?: number }) => void;
+  addOrUpdatePlayer: (player: Player | LobbyMember, opts?: { isHost?: boolean; isReady?: boolean; connectionState?: PlayerConnectionState; lastSeenAt?: number; status?: "lobby" | "playing" | "results" }) => void;
   removePlayer: (playerId: string) => void;
   setPlayerReady: (playerId: string, ready: boolean) => void;
   setPlayerConnectionState: (playerId: string, connectionState: PlayerConnectionState) => void;
@@ -154,6 +154,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         connectionState: opts?.connectionState ?? existing?.connectionState ?? "connected",
         lastSeenAt: existing?.lastSeenAt,
         disconnectedAt: opts?.connectionState === "disconnected" ? existing?.disconnectedAt ?? Date.now() : undefined,
+        status: opts?.status ?? existing?.status ?? "lobby",
       };
 
       if (existingIndex >= 0) {
@@ -201,6 +202,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         connectionState: p.connectionState ?? "connected",
         lastSeenAt: p.lastSeenAt,
         disconnectedAt: p.disconnectedAt,
+        status: p.status ?? "lobby",
       })),
       lobbyState: state.lobbyState,
       isPrivate: snapshot.isPrivate ?? state.isPrivate,

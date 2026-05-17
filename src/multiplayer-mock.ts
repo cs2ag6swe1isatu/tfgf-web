@@ -41,7 +41,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   private onHostFoundCbs = new Map<string, (payload: MultiplayerDiscoveredPayload) => void>();
   private onDiscoveryResponseCbs = new Map<string, (payload: MultiplayerDiscoveredPayload) => void>();
   private onPlayerJoinedCbs = new Map<string, (player: LobbyMember) => void>();
-  private onPlayerReadyChangedCbs = new Map<string, (playerId: string, ready: boolean) => void>();
+  private onPlayerReadyChangedCbs = new Map<string, (playerId: string, ready: boolean, member?: Partial<LobbyMember>) => void>();
   private onPlayerLeftCbs = new Map<string, (playerId: string) => void>();
   private onHostExitCbs = new Map<string, (payload: MultiplayerHostExitPayload) => void>();
   private onGameStateSyncCbs = new Map<string, (payload: MultiplayerGameState) => void>();
@@ -89,6 +89,9 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   private broadcastSnapshot(snapshot: MultiplayerLobbySnapshot) {
     const packet: MultiplayerPacket = { type: "lobby-broadcast", snapshot };
     this.channel.postMessage(packet);
+    
+    // Also emit locally for host renderer sync
+    this.emitHostFound(snapshot, snapshot.hostAddress ?? "localhost");
   }
 
   private pruneStalePlayers(staleMs = 10000) {
@@ -228,21 +231,23 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     if (packet.type === "ready-update") {
       if (!this.activeSnapshot || packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
       if (!this.isTargetingActiveHost(packet.payload.hostAddress)) return;
-      console.log('[mock] ready-update for', packet.payload.playerId, 'ready=', packet.payload.ready);
+      console.log('[mock] ready-update for', packet.payload.playerId, 'ready=', packet.payload.ready, 'member=', packet.payload.member);
 
       this.playerHeartbeats.set(packet.payload.playerId, Date.now());
 
       this.updateHostSnapshot((current) => ({
         ...current,
         players: current.players.map((player) =>
-          player.id === packet.payload.playerId ? { ...player, isReady: packet.payload.ready } : player,
+          player.id === packet.payload.playerId 
+            ? { ...player, ...packet.payload.member, isReady: packet.payload.ready } 
+            : player,
         ),
         playerCount: current.players.length,
       }));
 
-      this.onPlayerReadyChangedCbs.forEach((cb) => cb(packet.payload.playerId, packet.payload.ready));
+      this.onPlayerReadyChangedCbs.forEach((cb) => cb(packet.payload.playerId, packet.payload.ready, packet.payload.member));
       return;
-    }
+      }
 
     if (packet.type === "leave-request") {
       if (packet.payload.lobbyId !== this.activeSnapshot.lobbyId) return;
@@ -403,7 +408,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   offPlayerJoined(id: string): void {
     this.onPlayerJoinedCbs.delete(id);
   }
-  onPlayerReadyChanged(id: string, cb: (playerId: string, ready: boolean) => void): void {
+  onPlayerReadyChanged(id: string, cb: (playerId: string, ready: boolean, member?: Partial<LobbyMember>) => void): void {
     this.onPlayerReadyChangedCbs.set(id, cb);
   }
   offPlayerReadyChanged(id: string): void {
