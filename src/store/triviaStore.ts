@@ -22,19 +22,13 @@ import { calculateMultiplayerXP } from '../utils/progression';
  * - Multiplayer vs solo game mode handling
  *
  * PHASE RULES:
- * - loading:   Fetching questions
- * - readying:  "Get Ready" countdown before first question
- * - asking:    Question visible, answer timer not yet started
- * - answering: User is selecting answer, answer timer running
- * - scoring:   Show correct answer, short delay before next question
- * - ranking:   Show final results/rankings (multiplayer)
- * - end:       Game over — QuestionPage applies session progress then navigates away
- *
- * FIX (BUG 5): selectAnswer previously set phase directly to "end" on the last
- * question, skipping the scoring delay. This caused the end-of-game handler in
- * QuestionPage to fire before the user could see whether their last answer was
- * correct. Now the last question always goes through "scoring" → tickTimer →
- * "ranking" → nextPhase() → "end", identical to every other question.
+ * - loading: Fetching questions, show animations or placeholders
+ * - readying: Show "Get Ready" screen, short countdown before first question
+ * - asking: Showing question and starting question timer
+ * - answering: User is selecting answer, answer timer is 
+ * - scoring: Show correct answer and update score, short delay before next question
+ * - ranking: Show final results and rankings (for multiplayer)
+ * - end: Game over, show summary and options to view profile or return to menu
  */
 
 export type Phase = 'loading' | 'readying' | 'asking' | 'answering' | 'scoring' | 'ranking' | 'end';
