@@ -68,13 +68,14 @@ const AchievementUnlockPage = () => {
   const achievementUnlockQueue = useGameStore((state) => state.achievementUnlockQueue);
   const postUnlockScreen = useGameStore((state) => state.postUnlockScreen);
   const setScreen = useGameStore((state) => state.setScreen);
+  const mode = useGameStore((state) => state.gameConfig.mode);
 
   const activeAchievement = achievementUnlockQueue[0];
 
   useEffect(() => {
     if (activeAchievement) return;
 
-    const target = postUnlockScreen ?? "result";
+    const target = postUnlockScreen ?? (mode === "multiplayer" ? "multiplayer-results" : "result");
     const { clearAchievementUnlocks } = useGameStore.getState();
     clearAchievementUnlocks();
     setScreen(target);
@@ -109,7 +110,7 @@ const AchievementUnlockPage = () => {
     const isLastUnlock = state.achievementUnlockQueue.length <= 1;
 
     if (isLastUnlock) {
-      const target = state.postUnlockScreen ?? "result";
+      const target = state.postUnlockScreen ?? (state.gameConfig.mode === "multiplayer" ? "multiplayer-results" : "result");
       state.clearAchievementUnlocks();
       state.setScreen(target);
       return;
