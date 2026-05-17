@@ -1,5 +1,8 @@
 import { useGameStore } from "../store/gameStore";
 import { useSoundContext } from "../context/SoundContext";
+import { useEffect } from "react";
+import { usePlayerStore } from "../store/playerStore";
+
 
 // ─── Palette (spec-accurate) ──────────────────────────────────────────────────
 const C = {
@@ -184,9 +187,26 @@ function ModeCard({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function ModeSelectPage() {
+  const localPlayer = usePlayerStore((state) => state.getPlayer());
+
+useEffect(() => {
+  usePlayerStore.getState().claimDailyPowerUps();
+}, []);
+
+const isDailyBonusClaimed = (() => {
+  const last = localPlayer.lastPlayedDate;
+  if (!last) return false;
+  const now = new Date();
+  return (
+    last.getFullYear() === now.getFullYear() &&
+    last.getMonth() === now.getMonth() &&
+    last.getDate() === now.getDate()
+  );
+})();
   const { playSound } = useSoundContext();
   const setScreen = useGameStore((s) => s.setScreen);
   const setMode   = useGameStore((s) => s.setMode);
+
 
   return (
     <div style={styles.root}>
@@ -272,6 +292,7 @@ export default function ModeSelectPage() {
           <h1 style={styles.title}>CHOOSE MODE</h1>
         </div>
 
+      
         {/* Mode cards */}
         <div style={styles.cardRow}>
           <ModeCard
@@ -290,16 +311,32 @@ export default function ModeSelectPage() {
           />
         </div>
 
-        {/* Back button */}
-        <button
-          className="back-btn"
-          onClick={() => {setScreen("home"); playSound("select");}}
-          onMouseEnter={() => { playSound("hover"); }}
+        {/* Bottom row: back button + powerups icon */}
+<div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+  <button
+    className="back-btn"
+    onClick={() => { setScreen("home"); playSound("select"); }}
+    onMouseEnter={() => { playSound("hover"); }}
+    style={styles.backBtn}
+  >
+    ← BACK
+  </button>
 
-          style={styles.backBtn}
-        >
-          BACK
-        </button>
+  <button
+    className="back-btn"
+    onClick={() => { setScreen("powerups"); playSound("select"); }}
+    onMouseEnter={() => { playSound("hover"); }}
+    title="Power-Ups"
+    style={{
+      ...styles.backBtn,
+      padding: "14px 18px",
+      fontSize: 15,
+      letterSpacing: 0,
+    }}
+  >
+    POWER-UPS⚡
+  </button>
+</div>
 
       </main>
     </div>
@@ -327,7 +364,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     gap: 0,
     width: "100%",
     minHeight: "100%",

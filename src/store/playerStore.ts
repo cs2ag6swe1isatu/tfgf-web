@@ -1,3 +1,4 @@
+import { PowerUpId, PowerUpInventoryEntry } from "src/types/powerups";
 import { defaultGameConfig } from "../config/gameConfig";
 import { CATEGORIES, Category, DIFFICULTIES, Difficulty, getRankForLevel, MODES, Mode } from "../constants";
 import { evaluateUnlocks } from "../progression/achievementRules";
@@ -35,6 +36,10 @@ export interface PlayerState {
   setAvatar: (avatar: string) => void;
   setPlayerName: (name: string) => void;
   updatePlayer: (updates: Partial<Player>) => void;
+  claimDailyPowerUps: () => boolean;
+  spendPowerUp: (id: PowerUpId, count?: number) => void;
+  earnPowerUp: (id: PowerUpId, count?: number) => void;
+
 }
 
 export const PLAYER_STORAGE_KEY = "tfgf-player";
@@ -79,6 +84,8 @@ export const getMultiplayerPlayer = (player: Player): Player => ({
   ...player,
   id: getMultiplayerPlayerId(player.id),
 });
+
+
 
 export const createEmptyPlayData = (): PlayData => ({
   xpGained: 0,
@@ -262,6 +269,12 @@ const createDefaultPlayer = (): Player => ({
   rivalDefeats: 0,
   rivalStats: {},
   individualStats: createInitialIndividualStats(),
+  powerUpInventory: [
+      { id: "fifty_fifty", count: 2 },
+      { id: "time_freeze", count: 1 },
+      { id: "double_xp", count: 1 },
+    ],
+
 });
 
 const normalizePlayer = (value: unknown): Player | null => {
@@ -272,6 +285,7 @@ const normalizePlayer = (value: unknown): Player | null => {
   const soloTopScore = readNumber(value.soloTopScore, readNumber(value.topScore, 0));
   const multiplayerTopScore = readNumber(value.multiplayerTopScore, 0);
   const topScore = readNumber(value.topScore, Math.max(soloTopScore, multiplayerTopScore));
+  
 
   return {
     ...createDefaultPlayer(),
@@ -306,7 +320,27 @@ const normalizePlayer = (value: unknown): Player | null => {
     rivalDefeats: readNumber(value.rivalDefeats, 0),
     rivalStats: isRecord(value.rivalStats) ? Object.fromEntries(Object.entries(value.rivalStats).map(([k, v]) => [k, readNumber(v, 0)])) : {},
     individualStats: normalizeIndividualStats(value.individualStats),
+    powerUpInventory: Array.isArray(value.powerUpInventory)
+    ? value.powerUpInventory
+    : createDefaultPlayer().powerUpInventory,
+    
+
   };
+};
+
+const MAX_POWERUP_STACK = 9;
+
+const mergeInventory = (
+  existing: PowerUpInventoryEntry[],
+  additions: PowerUpInventoryEntry[]
+): PowerUpInventoryEntry[] => {
+  const map = new Map(existing.map((e) => [e.id, e.count]));
+  for (const { id, count } of additions) {
+    map.set(id, Math.min(MAX_POWERUP_STACK, (map.get(id) ?? 0) + count));
+  }
+  return Array.from(map.entries()).map(
+    ([id, count]) => ({ id, count } as PowerUpInventoryEntry)
+  );
 };
 
 export const trimGameHistory = (history: GameSession[]): GameSession[] => {
@@ -604,4 +638,52 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     persistPlayer(updatedPlayer);
     return { player: updatedPlayer };
   }),
+
+   // ── Power-up actions ────────────────────────────────────────────────────
+  claimDailyPowerUps: () => {
+    const player = get().player ?? createDefaultPlayer();
+    const now = new Date();
+    const lastClaim = player.lastPlayedDate;
+    if (lastClaim) {
+      const sameDay =
+        lastClaim.getFullYear() === now.getFullYear() &&
+        lastClaim.getMonth() === now.getMonth() &&
+        lastClaim.getDate() === now.getDate();
+      if (sameDay) return false;
+    }
+    const bonus: PowerUpInventoryEntry[] = [
+      { id: "fifty_fifty", count: 1 },
+      { id: Math.random() > 0.5 ? "time_freeze" : "double_xp", count: 1 },
+    ];
+    const updatedInventory = mergeInventory(player.powerUpInventory ?? [], bonus);
+    const updatedPlayer: Player = {
+      ...player,
+      powerUpInventory: updatedInventory,
+      lastPlayedDate: now,
+      lastActive: now,
+    };
+    persistPlayer(updatedPlayer);
+    set({ player: updatedPlayer });
+    return true;
+  },
+
+  earnPowerUp: (id, count = 1) => {
+    const player = get().player ?? createDefaultPlayer();
+    const updatedInventory = mergeInventory(player.powerUpInventory ?? [], [{ id, count }]);
+    const updatedPlayer = { ...player, powerUpInventory: updatedInventory };
+    persistPlayer(updatedPlayer);
+    set({ player: updatedPlayer });
+  },
+
+  spendPowerUp: (id, count = 1) => {
+    const player = get().player ?? createDefaultPlayer();
+    const updatedInventory = (player.powerUpInventory ?? []).map((entry) =>
+      entry.id === id
+        ? { ...entry, count: Math.max(0, entry.count - count) }
+        : entry
+    );
+    const updatedPlayer = { ...player, powerUpInventory: updatedInventory };
+    persistPlayer(updatedPlayer);
+    set({ player: updatedPlayer });
+  },
 }));

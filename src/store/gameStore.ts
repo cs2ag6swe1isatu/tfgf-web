@@ -16,6 +16,7 @@ type Screen =
   | "profile"
   | "settings"
   | "standing"
+  | "powerups"
   | "multiplayer-menu"
   | "multiplayer-lobby"
   | "multiplayer-discovery"

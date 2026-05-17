@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo } from "react";
 import { useGameStore } from "../store/gameStore";
 import { useSoundContext } from "../context/SoundContext";
+import { usePlayerStore } from "../store/playerStore";
 
 // ─── Floating background particle ───────────────────────────────────────────
 function FloatingParticle({
@@ -144,6 +145,7 @@ export default function HomePage() {
   const setScreen = useGameStore((state) => state.setScreen);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const particles = useParticles(55);
+  
 
   // Periodic glitch effect on title
   useEffect(() => {
