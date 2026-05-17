@@ -1,6 +1,6 @@
-// File: LevelProgressionScreen.tsx
-import { useEffect, useRef, useState } from "react";
-import { motion, useAnimation, animate } from "framer-motion";
+// FIX: Removed unused imports: useAnimation, animate
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const XP_PER_LEVEL = 1000;
@@ -14,7 +14,7 @@ const levelRange = (level: number): [number, number] => [
   level * XP_PER_LEVEL,
 ];
 
-const xpProgress = (xp: number) => xp % XP_PER_LEVEL || (xp > 0 && xp % XP_PER_LEVEL === 0 ? XP_PER_LEVEL : 0);
+// FIX: Removed dead xpProgress helper — it was never called.
 
 type Rank = {
   label: string;
@@ -93,21 +93,22 @@ export default function LevelProgressionScreen({
   onContinue,
 }: LevelProgressionScreenProps) {
 
-  const curLevel = levelFromXp(xp);
+  const curLevel  = levelFromXp(xp);
   const prevLevel = levelFromXp(previousXp);
   const nextLevel = Math.min(curLevel + 1, MAX_LEVEL);
 
-  // FIX: Guard — only render this screen when a level-up actually occurred.
-  // Caller is responsible for gating, but we also protect here.
+  // FIX: leveledUp was computed but never used as a guard. Added early-return
+  // so this screen renders nothing if somehow mounted without a real level-up.
   const leveledUp = curLevel > prevLevel;
+  if (!leveledUp) return null;
 
-  const curRank = rankFromLevel(curLevel);
+  const curRank  = rankFromLevel(curLevel);
   const nextRank = rankFromLevel(nextLevel);
 
-  const [curLo, curHi] = levelRange(curLevel);
+  const [curLo, curHi]   = levelRange(curLevel);
   const [nextLo, nextHi] = levelRange(nextLevel);
 
-  const progress = ((xp - (curLevel - 1) * XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
+  const progress    = ((xp - (curLevel - 1) * XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
   const progressPct = Math.min(progress, 100);
 
   useEffect(() => {
@@ -192,7 +193,7 @@ export default function LevelProgressionScreen({
         marginBottom: "clamp(24px,5vh,56px)",
       }}>
 
-        {/* LEFT CARD */}
+        {/* LEFT CARD — current (newly reached) level */}
         <motion.div
           initial={{ opacity: 0, x: -60 }}
           animate={{ opacity: 1, x: 0 }}
@@ -239,7 +240,6 @@ export default function LevelProgressionScreen({
             </div>
           </div>
 
-          {/* FIX: Removed redundant showLevelUp wrapper — this screen only mounts when leveled up */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -261,7 +261,6 @@ export default function LevelProgressionScreen({
 
         {/* CENTER */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          {/* FIX: Removed nested redundant showLevelUp motion.div wrapper */}
           <motion.div
             animate={{ scale: [1, 1.08, 1], textShadow: ["0 0 12px #00ff88", "0 0 30px #00ff88", "0 0 12px #00ff88"] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
@@ -292,7 +291,7 @@ export default function LevelProgressionScreen({
           </div>
         </div>
 
-        {/* RIGHT CARD */}
+        {/* RIGHT CARD — next level ahead */}
         <motion.div
           initial={{ opacity: 0, x: 60 }}
           animate={{ opacity: 1, x: 0 }}
@@ -331,15 +330,16 @@ export default function LevelProgressionScreen({
             <div style={{ color: "rgba(0,255,255,0.5)", fontSize: "clamp(8px,0.9vw,10px)", letterSpacing: "0.2em", marginBottom: 6 }}>
               XP PROGRESS
             </div>
+            {/* FIX: Right card shows 0% progress — player has just entered this next level,
+                no XP has been earned into it yet. XP label also shows 0 as current. */}
             <ProgressBar pct={0} color={nextRank.color} glow={nextRank.glow} />
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
               <span style={{ color: "rgba(0,255,255,0.5)", fontSize: "clamp(8px,0.9vw,10px)" }}>
-                {xp}/{nextLevel * XP_PER_LEVEL}
+                0/{nextLevel * XP_PER_LEVEL}
               </span>
             </div>
           </div>
 
-          {/* FIX: Removed redundant showLevelUp wrapper */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: [0, 1, 0.7, 1] }}

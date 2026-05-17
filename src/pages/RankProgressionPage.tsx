@@ -1,5 +1,4 @@
-// File: RankProgressionScreen.tsx
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 const RANKS = [
   { id:1,  name:"Novice",     level:[1,10],   xp:[0,10000]       },
@@ -29,7 +28,6 @@ const RANK_COLORS: Record<string, { primary: string; glow: string; secondary: st
 
 function getRankKey(name: string) { return name.toLowerCase(); }
 
-// FIX: Accept newLevel directly — rank is determined by level milestone, not XP
 function getRankForLevel(level: number) {
   return RANKS.find(r => level >= r.level[0] && level <= r.level[1]) ?? RANKS[RANKS.length - 1];
 }
@@ -152,11 +150,9 @@ const CSS = `
 @keyframes levelUpPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.7;transform:scale(1.08)} }
 `;
 
-// FIX: Props updated — accepts newLevel (the rank-milestone level) instead of player xp/level
-// so the screen correctly shows the NEW rank being unlocked, not the current in-progress rank.
 interface RankProgressionScreenProps {
-  newLevel: number;       // the level just reached (e.g. 11, 21, 31 …)
-  playerXp: number;       // total XP (used only for display)
+  newLevel: number;
+  playerXp: number;
   onContinue?: () => void;
 }
 
@@ -165,11 +161,9 @@ export default function RankProgressionScreen({
   playerXp,
   onContinue,
 }: RankProgressionScreenProps) {
-  const [barPct, setBarPct] = useState(0);
+  // FIX: Removed dead barPct state — it was initialised to 0, set to 0 in useEffect, never read meaningfully.
 
-  // FIX: Derive ranks from the milestone level, not from XP lookup
-  // newLevel IS the first level of the new rank tier (e.g. 11 = Student)
-  const newRank = getRankForLevel(newLevel);
+  const newRank  = getRankForLevel(newLevel);
   const prevRank = RANKS.find(r => r.id === newRank.id - 1) ?? RANKS[0];
   const nextRank = getNextRank(newRank);
 
@@ -177,12 +171,6 @@ export default function RankProgressionScreen({
   const prevKey = getRankKey(prevRank.name);
   const newC    = RANK_COLORS[newKey]  ?? RANK_COLORS.novice;
   const prevC   = RANK_COLORS[prevKey] ?? RANK_COLORS.novice;
-
-  useEffect(() => {
-    // Bar shows 0% into the new rank (just unlocked)
-    const t = setTimeout(() => setBarPct(0), 500);
-    return () => clearTimeout(t);
-  }, []);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Enter") onContinue?.(); };
@@ -256,7 +244,7 @@ export default function RankProgressionScreen({
           marginBottom:"clamp(16px,3.5vh,32px)", zIndex:2,
         }}>
 
-          {/* LEFT PANEL — previous rank */}
+          {/* LEFT PANEL — previous rank (always 100% complete) */}
           <div style={panelStyle(prevC)}>
             <Corners color={prevC.primary}/>
             <div style={{animation:`borderPulse 2s ease-in-out infinite`,position:"absolute",inset:0,borderRadius:10,
@@ -281,7 +269,11 @@ export default function RankProgressionScreen({
             <div style={{width:"100%"}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
                 <span style={{fontSize:"clamp(7px,0.9vw,9px)",letterSpacing:"0.2em",color:"rgba(0,255,255,0.45)"}}>XP PROGRESS</span>
-                <span style={{fontSize:"clamp(7px,0.9vw,9px)",color:"rgba(0,255,255,0.45)"}}>{playerXp.toLocaleString()}/{prevRank.xp[1].toLocaleString()}</span>
+                {/* FIX: Left panel always shows completed XP (prevRank max/max) — playerXp is
+                    already in the new rank so showing it here against prevRank.xp[1] was wrong. */}
+                <span style={{fontSize:"clamp(7px,0.9vw,9px)",color:"rgba(0,255,255,0.45)"}}>
+                  {prevRank.xp[1].toLocaleString()}/{prevRank.xp[1].toLocaleString()}
+                </span>
               </div>
               <div style={{height:9,background:"rgba(255,255,255,0.06)",borderRadius:5,border:`1px solid ${prevC.primary}33`,overflow:"hidden"}}>
                 <div style={{
@@ -297,7 +289,6 @@ export default function RankProgressionScreen({
               </div>
             </div>
 
-            {/* FIX: Always show "XP GOAL REACHED!" on left panel — previous rank is always complete */}
             <div style={{
               width:"100%", border:`1px solid ${prevC.primary}66`,
               padding:"clamp(5px,1vh,8px)", textAlign:"center",

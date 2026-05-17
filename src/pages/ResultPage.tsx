@@ -1,10 +1,9 @@
-// File: ResultPage.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Box, Typography, Button, LinearProgress, GlobalStyles } from '@mui/material';
 import { useGameStore } from '../store/gameStore';
 import { useTriviaStore } from '../store/triviaStore';
 import { usePlayerStore } from '../store/playerStore';
-import { getLevelProgressPercent, getXpIntoLevel } from '../utils/progression';
+import { getLevelProgressPercent } from '../utils/progression';
 import { getLastXpGained } from '../progression/progressionRules';
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from '../components/ui/RankIcon';
 import { keyframes, styled } from '@mui/material/styles';
@@ -59,28 +58,29 @@ const ResultPage: React.FC = () => {
   const oldLevel      = Math.min(Math.floor(totalXpBefore / 1000) + 1, 100);
   const newLevel      = Math.min(Math.floor(playerTotalXp  / 1000) + 1, 100);
 
+  const didLevelUp    = newLevel > oldLevel;
+
+  // FIX: Capture rankMilestone in a ref on mount so it's stable across
+  // the level→rank transition (plain const would be stale after re-render).
+  const rankMilestoneRef = useRef<number | null>(
+    RANK_MILESTONE_LEVELS.includes(newLevel) ? newLevel : null
+  );
+  const rankMilestone = rankMilestoneRef.current;
+
   // ── Sequential flow state ─────────────────────────────────────────────────
-  // FIX: Replaced automatic useEffect transitions with explicit user-driven flags.
-  // showLevelUp  → LevelProgressionScreen is visible
-  // showRankUp   → RankProgressionScreen is visible
-  // Both default false; they are set on mount and cleared only by user clicking CONTINUE.
-
-  const didLevelUp   = newLevel > oldLevel;
-  const rankMilestone = RANK_MILESTONE_LEVELS.includes(newLevel) ? newLevel : null;
-
-  // FIX: Initialise directly from computed values — no useEffect needed for initial state.
+  // If leveled up → show level screen first.
+  // If no level-up but somehow at a rank milestone → show rank screen directly.
   const [showLevelUp, setShowLevelUp] = useState<boolean>(() => didLevelUp);
-  const [showRankUp,  setShowRankUp]  = useState<boolean>(false);
+  const [showRankUp,  setShowRankUp]  = useState<boolean>(() => !didLevelUp && rankMilestone !== null);
 
-  // FIX: When level-up CONTINUE is clicked → close level screen, then open rank screen if applicable.
+  // FIX: Use stable ref for rankMilestone in handler to avoid closure staleness.
   const handleLevelUpContinue = () => {
     setShowLevelUp(false);
-    if (rankMilestone !== null) {
+    if (rankMilestoneRef.current !== null) {
       setShowRankUp(true);
     }
   };
 
-  // FIX: When rank-up CONTINUE is clicked → close rank screen, return to result.
   const handleRankUpContinue = () => {
     setShowRankUp(false);
   };
@@ -123,10 +123,7 @@ const ResultPage: React.FC = () => {
   const rankProg = getLevelProgressPercent(playerTotalXp);
   const avgTime  = useTriviaStore((s) => s.avgTime);
 
-  // ── Overlay screens (rendered on top, cover the result page) ─────────────
-  // FIX: Removed LevelUpPopup and old LevelUpTransition — replaced by the two
-  // standalone screens below, gated by showLevelUp / showRankUp flags.
-  // Neither screen auto-advances; both require explicit CONTINUE click.
+  // ── Overlay screens ───────────────────────────────────────────────────────
 
   if (showLevelUp) {
     return (
