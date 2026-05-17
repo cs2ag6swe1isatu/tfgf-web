@@ -383,6 +383,7 @@ export default function SettingsPage() {
   const player       = usePlayerStore((s) => s.player);
   const updatePlayer = usePlayerStore((s: PlayerState) => s.updatePlayer);
   const resetPlayer  = usePlayerStore((s: PlayerState) => s.resetPlayer);
+  const resetSettingsToDefaults = useGameStore((s) => s.resetSettingsToDefaults);
   const clearAllData = useGameStore((s) => (s as any).clearAllData as (() => void));
 
   // ── Local draft state ──────────────────────────────────
@@ -672,6 +673,21 @@ export default function SettingsPage() {
           <div>
             <SectionLabel>MANAGE DATA</SectionLabel>
             {([
+              ["RESET SETTINGS", () => {
+                const ok = window.confirm("Reset settings to defaults? This will restore default display, audio, and network settings. Your player progress will not be affected. Continue?");
+                if (ok) {
+                  resetSettingsToDefaults();
+                  // Sync local draft state so the UI immediately reflects defaults
+                  setDraftVolume(5);
+                  setDraftSfx(true);
+                  setDraftBgm(true);
+                  setDraftUseCase(false);
+                  setDraftFlicker(false);
+                  setDraftScanlines(false);
+                  setDraftResKey("XGA");
+                  setDraftAutoJoinLan(false);
+                }
+              }],
               ["RESET PROGRESS", () => {
                 const ok = window.confirm("Reset progress? This will erase levels, history, and achievements but keep your settings. Continue?");
                 if (ok) resetPlayer();
