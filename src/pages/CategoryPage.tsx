@@ -110,64 +110,74 @@ function FolderCard({
         position: "relative",
         width: "100%",
         cursor: "pointer",
-        animation: `cardIn 0.35s ${animDelay} both`,
         marginTop: 16, // room for the tab above
+        transition: "transform 0.12s",
+        transformOrigin: "center top",
       }}
     >
-      {/* Folder tab */}
       <div
-        className="folder-tab"
-        style={{
-          position: "absolute",
-          top: -16,
-          left: -2,
-          width: "42%",
-          height: 16,
-          background: C.folderTab,
-          border: `2px solid ${C.folderOutline}`,
-          borderBottom: "none",
-          borderRadius: "4px 4px 0 0",
-          transition: "background 0.12s, border-color 0.12s",
-          zIndex: 2,
-        }}
-      />
-      {/* Folder body */}
-      <div
-        className="folder-body"
+        className="folder-card-inner"
         style={{
           position: "relative",
-          height: 120,
-          background: C.folderBody,
-          border: `2px solid ${C.folderOutline}`,
-          borderRadius: "0 4px 4px 4px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "0 12px",
-          transition: "background 0.12s, border-color 0.12s",
-          zIndex: 1,
-          // inner shadow strip at top
-          boxShadow: `inset 0 4px 0 ${C.folderInner}`,
+          animation: `cardIn 0.35s ${animDelay} both`,
+          transformOrigin: "center top",
         }}
       >
-        {/* Label */}
-        <span
-          className="folder-label"
+        {/* Folder tab */}
+        <div
+          className="folder-tab"
           style={{
-            fontFamily: "'Press Start 2P', monospace",
-            fontSize: 11,
-            color: C.folderText,
-            textAlign: "center",
-            lineHeight: 1.9,
-            letterSpacing: "0.02em",
-            transition: "color 0.12s",
-            userSelect: "none",
+            position: "absolute",
+            top: -16,
+            left: -2,
+            width: "42%",
+            height: 16,
+            background: C.folderTab,
+            border: `2px solid ${C.folderOutline}`,
+            borderBottom: "none",
+            borderRadius: "4px 4px 0 0",
+            transition: "background 0.12s, border-color 0.12s",
+            zIndex: 2,
+          }}
+        />
+        {/* Folder body */}
+        <div
+          className="folder-body"
+          style={{
+            position: "relative",
+            height: 120,
+            background: C.folderBody,
+            border: `2px solid ${C.folderOutline}`,
+            borderRadius: "0 4px 4px 4px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 12px",
+            transition: "background 0.12s, border-color 0.12s",
+            zIndex: 1,
+            // inner shadow strip at top
+            boxShadow: `inset 0 4px 0 ${C.folderInner}`,
           }}
         >
-          {lines.map((line, i) => (
-            <span key={i} style={{ display: "block" }}>{line}</span>
-          ))}
-        </span>
+          {/* Label */}
+          <span
+            className="folder-label"
+            style={{
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: 11,
+              color: C.folderText,
+              textAlign: "center",
+              lineHeight: 1.9,
+              letterSpacing: "0.02em",
+              transition: "color 0.12s",
+              userSelect: "none",
+            }}
+          >
+            {lines.map((line, i) => (
+              <span key={i} style={{ display: "block" }}>{line}</span>
+            ))}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -299,7 +309,7 @@ export default function CategoryPage() {
         .folder-card:hover .folder-label {
           color: #010707 !important;
         }
-        .folder-card:active .folder-body {
+        .folder-card:active {
           transform: scale(0.97);
         }
 
