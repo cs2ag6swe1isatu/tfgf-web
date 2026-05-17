@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSoundContext } from "../context/SoundContext";
+import { PowerUpInventoryPanel } from "../components/powerups/PowerUpInventoryPanel";
 import {
   Typography,
   Box,
@@ -16,6 +17,10 @@ import type { GameSession, Player, PlayData } from "../types/player";
 import { User } from "pixelarticons/react"; // Assuming you have this
 import { ACHIEVEMENT_RULES, type AchievementCategory, type AchievementScope } from "../progression/achievementRules";
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
+
+
+
+
 
 // --- Theme Constants based on your design ---
 const themeColors = {
@@ -164,9 +169,21 @@ const achievementCardHeight = "clamp(11rem, 15vw, 12.5rem)";
 
 
 const ProfilePage = () => {
+  const localPlayer = usePlayerStore((state) => state.getPlayer());
   const setScreen = useGameStore((state) => state.setScreen);
   const player = usePlayerStore((state) => state.getPlayer());
   const { playSound } = useSoundContext();
+  const isDailyBonusClaimed = (() => {
+  const last = localPlayer.lastPlayedDate;
+  if (!last) return false;
+  const now = new Date();
+  return (
+    last.getFullYear() === now.getFullYear() &&
+    last.getMonth() === now.getMonth() &&
+    last.getDate() === now.getDate()
+  );
+})();
+
 
   // States
   const [selectedTab, setSelectedTab] = useState<number>(0);
@@ -273,6 +290,16 @@ const ProfilePage = () => {
       boxShadow: isActive ? `0 0 15px ${themeColors.neonGreen}` : `0 0 5px ${themeColors.neonGreenDim}`,
     },
   });
+
+  <PowerUpInventoryPanel
+  inventory={localPlayer.powerUpInventory ?? [
+  { id: "fifty_fifty", count: 2 },
+  { id: "time_freeze", count: 1 },
+  { id: "double_xp", count: 1 },
+]}
+  dailyClaimed={isDailyBonusClaimed}
+/>
+
 
   // Focus one achievements category at a time for maximum visibility
   const toggleCategory = (category: AchievementCategory) => {

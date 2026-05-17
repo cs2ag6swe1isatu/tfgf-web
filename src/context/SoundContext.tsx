@@ -12,7 +12,12 @@ export type SoundType = "hover" | "select" | "tab" | "back" | "error" | 'bunny_s
   | 'emote_dead'
   | 'emote_watch'
   | 'emote_speed'
-  | 'emote_gogo';
+  | 'emote_gogo'
+  | 'powerup_fifty_fifty'
+  | 'powerup_time_freeze'
+  | 'powerup_double_xp'
+  | 'powerup_bunny_hint'
+  | 'powerup_earned'
 
 export const SoundContext = createContext<{
   playSound: (type: SoundType) => void;

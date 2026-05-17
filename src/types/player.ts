@@ -1,5 +1,7 @@
 import { Category, Difficulty, Mode, Rank } from "../constants";
 import type { Question } from "./question";
+import type { PowerUpInventoryEntry } from "./powerups";
+
 
 export interface PlayData {
   xpGained: number;
@@ -56,6 +58,9 @@ export interface Player {
   level: number;
   rank: Rank;
   achievements: Achievement[];
+
+  powerUpInventory: PowerUpInventoryEntry[];
+  
 
   totalScore: number;
   topScore: number;

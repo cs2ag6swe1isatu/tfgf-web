@@ -19,6 +19,7 @@ import theme from "./ui/theme";
 import { SoundContext } from "./context/SoundContext";
 import type { SoundType } from "./context/SoundContext";
 import { usePreloader, lazyPreloadAudio } from "./hooks/usePreloader";
+import PowerUpsPage from "./pages/PowerUpsPage";
 
 const styles = {
   screenRoot: {
@@ -122,11 +123,29 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
 
   useEffect(() => {
     const files: Record<SoundType, string> = {
-      hover:  assetUrl("sounds/hover.mp3"),
+      hover: assetUrl("sounds/hover.mp3"),
       select: assetUrl("sounds/select.mp3"),
-      tab:    assetUrl("sounds/tab.mp3"),
-      back:   assetUrl("sounds/back.mp3"),
-      error:  assetUrl("sounds/error.mp3"),
+      tab: assetUrl("sounds/tab.mp3"),
+      back: assetUrl("sounds/back.mp3"),
+      error: assetUrl("sounds/error.mp3"),
+      bunny_sleep: "",
+      bunny_cheer: "",
+      bunny_panic: "",
+      bunny_sad: "",
+      bunny_think: "",
+      bunny_hyper: "",
+      emote_ez: "",
+      emote_fire: "",
+      emote_no: "",
+      emote_dead: "",
+      emote_watch: "",
+      emote_speed: "",
+      emote_gogo: "",
+      powerup_fifty_fifty: "",
+      powerup_time_freeze: "",
+      powerup_double_xp: "",
+      powerup_bunny_hint: "",
+      powerup_earned: ""
     };
 
     let loaded = 0;
@@ -318,6 +337,7 @@ export default function App() {
       break;
     case "multiplayer-discovery": screenContent = <MultiplayerDiscoveryPage />; break;
     case "multiplayer-results":   screenContent = <MultiplayerResults />;        break;
+    case "powerups":              screenContent = <PowerUpsPage />;              break;
     case "home":
       default:                    screenContent = <HomePage />;                  break;
   }
