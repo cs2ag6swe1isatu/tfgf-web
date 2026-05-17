@@ -1,3 +1,4 @@
+// File: LevelProgressionScreen.tsx
 import { useEffect, useRef, useState } from "react";
 import { motion, useAnimation, animate } from "framer-motion";
 
@@ -82,21 +83,37 @@ function ProgressBar({ pct, color, glow, animate: doAnim = false }: ProgressBarP
 // ── main component ────────────────────────────────────────────────────────────
 interface LevelProgressionScreenProps {
   xp: number;
+  previousXp: number;
   onContinue?: () => void;
 }
 
-export default function LevelProgressionScreen({ xp, onContinue }: LevelProgressionScreenProps) {
+export default function LevelProgressionScreen({
+  xp,
+  previousXp,
+  onContinue,
+}: LevelProgressionScreenProps) {
+
   const curLevel = levelFromXp(xp);
+  const prevLevel = levelFromXp(previousXp);
   const nextLevel = Math.min(curLevel + 1, MAX_LEVEL);
-  const curRank   = rankFromLevel(curLevel);
-  const nextRank  = rankFromLevel(nextLevel);
-  const [curLo, curHi]   = levelRange(curLevel);
+
+  // FIX: Guard — only render this screen when a level-up actually occurred.
+  // Caller is responsible for gating, but we also protect here.
+  const leveledUp = curLevel > prevLevel;
+
+  const curRank = rankFromLevel(curLevel);
+  const nextRank = rankFromLevel(nextLevel);
+
+  const [curLo, curHi] = levelRange(curLevel);
   const [nextLo, nextHi] = levelRange(nextLevel);
-  const progress   = (xp - (curLevel - 1) * XP_PER_LEVEL) / XP_PER_LEVEL * 100;
+
+  const progress = ((xp - (curLevel - 1) * XP_PER_LEVEL) / XP_PER_LEVEL) * 100;
   const progressPct = Math.min(progress, 100);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Enter") onContinue?.(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter") onContinue?.();
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onContinue]);
@@ -222,6 +239,7 @@ export default function LevelProgressionScreen({ xp, onContinue }: LevelProgress
             </div>
           </div>
 
+          {/* FIX: Removed redundant showLevelUp wrapper — this screen only mounts when leveled up */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -243,6 +261,7 @@ export default function LevelProgressionScreen({ xp, onContinue }: LevelProgress
 
         {/* CENTER */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          {/* FIX: Removed nested redundant showLevelUp motion.div wrapper */}
           <motion.div
             animate={{ scale: [1, 1.08, 1], textShadow: ["0 0 12px #00ff88", "0 0 30px #00ff88", "0 0 12px #00ff88"] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
@@ -320,6 +339,7 @@ export default function LevelProgressionScreen({ xp, onContinue }: LevelProgress
             </div>
           </div>
 
+          {/* FIX: Removed redundant showLevelUp wrapper */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: [0, 1, 0.7, 1] }}

@@ -1,3 +1,4 @@
+// File: ResultPage.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Typography, Button, LinearProgress, GlobalStyles } from '@mui/material';
 import { useGameStore } from '../store/gameStore';
@@ -7,10 +8,10 @@ import { getLevelProgressPercent, getXpIntoLevel } from '../utils/progression';
 import { getLastXpGained } from '../progression/progressionRules';
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from '../components/ui/RankIcon';
 import { keyframes, styled } from '@mui/material/styles';
-import { LevelUpPopup } from '../components/rewards/LevelUpPopup';
-import LevelUpTransition from '../components/LevelUpTransition';
+import LevelProgressionScreen from './LevelProgressionScreen';
+import RankProgressionScreen from './RankProgressionScreen';
 
-// ─── Keyframes (kept minimal – only entrance animations) ─────────────────
+// ─── Keyframes ────────────────────────────────────────────────────────────────
 
 const slideDown = keyframes`
   from { opacity: 0; transform: translateY(-36px); }
@@ -27,7 +28,7 @@ const fadeIn = keyframes`
   to   { opacity: 1; }
 `;
 
-// ─── Root wrapper ─────────────────────────────────────────────────────────
+// ─── Root wrapper ─────────────────────────────────────────────────────────────
 
 const ScaleRoot = styled(Box)({
   width: '100%',
@@ -39,7 +40,10 @@ const ScaleRoot = styled(Box)({
   background: '#031533',
 });
 
-// ─── Component ────────────────────────────────────────────────────────────
+// ─── Rank milestone levels ────────────────────────────────────────────────────
+const RANK_MILESTONE_LEVELS = [11, 21, 31, 41, 51, 61, 71, 81, 91];
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const ResultPage: React.FC = () => {
   const setScreen             = useGameStore((s) => s.setScreen);
@@ -49,48 +53,43 @@ const ResultPage: React.FC = () => {
   const userAnswers           = useTriviaStore((s) => s.userAnswers ?? {});
   const playerTotalXp         = usePlayerStore((s) => s.getPlayer().totalXp);
 
-  // ── Level-up popup state from the store ──────────────────────────────────
-  const levelUpSession        = useGameStore((s) => s.levelUpSession);
-  const clearLevelUpSession   = useGameStore((s) => s.clearLevelUpSession);
+  // ── XP / level computations (stable, computed once) ──────────────────────
+  const xpGained      = getLastXpGained();
+  const totalXpBefore = playerTotalXp - xpGained;
+  const oldLevel      = Math.min(Math.floor(totalXpBefore / 1000) + 1, 100);
+  const newLevel      = Math.min(Math.floor(playerTotalXp  / 1000) + 1, 100);
 
-  // Local open/close state driven by the store flag
-  const [popupOpen, setPopupOpen] = useState(false);
-  const popupLevels = useRef({ prev: 1, next: 1 });
+  // ── Sequential flow state ─────────────────────────────────────────────────
+  // FIX: Replaced automatic useEffect transitions with explicit user-driven flags.
+  // showLevelUp  → LevelProgressionScreen is visible
+  // showRankUp   → RankProgressionScreen is visible
+  // Both default false; they are set on mount and cleared only by user clicking CONTINUE.
 
-  useEffect(() => {
-    if (levelUpSession.showLevelUpPopup && !popupOpen) {
-      popupLevels.current = {
-        prev: levelUpSession.sessionStartLevel,
-        next: levelUpSession.sessionEndLevel,
-      };
-      setPopupOpen(true);
+  const didLevelUp   = newLevel > oldLevel;
+  const rankMilestone = RANK_MILESTONE_LEVELS.includes(newLevel) ? newLevel : null;
+
+  // FIX: Initialise directly from computed values — no useEffect needed for initial state.
+  const [showLevelUp, setShowLevelUp] = useState<boolean>(() => didLevelUp);
+  const [showRankUp,  setShowRankUp]  = useState<boolean>(false);
+
+  // FIX: When level-up CONTINUE is clicked → close level screen, then open rank screen if applicable.
+  const handleLevelUpContinue = () => {
+    setShowLevelUp(false);
+    if (rankMilestone !== null) {
+      setShowRankUp(true);
     }
-  }, [levelUpSession.showLevelUpPopup]);
-
-  const handlePopupClose = () => {
-    setPopupOpen(false);
-    clearLevelUpSession();
   };
 
-  // ── Cinematic level-up transition state ──────────────────────────────────
-  const [showLevelUpTransition, setShowLevelUpTransition] = useState(false);
-
-  const xpGained = getLastXpGained();
-const totalXpBefore = playerTotalXp - xpGained;
-const oldLevel = xpGained > 0 ? Math.floor(totalXpBefore / 1000) + 1 : Math.floor(playerTotalXp / 1000) + 1;
-const newLevel = Math.floor(playerTotalXp / 1000) + 1;
-
-useEffect(() => {
-  if (xpGained > 0 && newLevel > oldLevel) {
-    setShowLevelUpTransition(true);
-  }
-}, []); // run once on mount — values are already settled
+  // FIX: When rank-up CONTINUE is clicked → close rank screen, return to result.
+  const handleRankUpContinue = () => {
+    setShowRankUp(false);
+  };
 
   // Pull rank / level data from player store
-  const player = usePlayerStore((s) => s.getPlayer());
+  const player          = usePlayerStore((s) => s.getPlayer());
   const playerRankTitle = player.rank.name.toUpperCase();
-  const rankSymbolType = getRankSymbolType(player.rank.name);
-  const rankColors = RANK_COLORS[rankSymbolType];
+  const rankSymbolType  = getRankSymbolType(player.rank.name);
+  const rankColors      = RANK_COLORS[rankSymbolType];
 
   // Compute layout from the user's stored resolution
   const base = {
@@ -114,28 +113,44 @@ useEffect(() => {
     rankTitle: Math.max(16, Math.round(base.rankTitle * layoutScale)),
   } as const;
 
-  const totalQ    = questions.length;
-  const correct   = questions.reduce(
+  const totalQ   = questions.length;
+  const correct  = questions.reduce(
     (acc: number, q: any, i: number) =>
       acc + (userAnswers[i] === q.correctAnswer ? 1 : 0),
     0
   );
-  const accuracy  = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
-  const rankProg  = getLevelProgressPercent(playerTotalXp);
+  const accuracy = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0;
+  const rankProg = getLevelProgressPercent(playerTotalXp);
+  const avgTime  = useTriviaStore((s) => s.avgTime);
 
-  // Average time per question – derived from available data (0 if unavailable)
-  const avgTime   = useTriviaStore((s) => s.avgTime);
+  // ── Overlay screens (rendered on top, cover the result page) ─────────────
+  // FIX: Removed LevelUpPopup and old LevelUpTransition — replaced by the two
+  // standalone screens below, gated by showLevelUp / showRankUp flags.
+  // Neither screen auto-advances; both require explicit CONTINUE click.
 
+  if (showLevelUp) {
+    return (
+      <LevelProgressionScreen
+        xp={playerTotalXp}
+        previousXp={totalXpBefore}
+        onContinue={handleLevelUpContinue}
+      />
+    );
+  }
+
+  if (showRankUp && rankMilestone !== null) {
+    return (
+      <RankProgressionScreen
+        newLevel={rankMilestone}
+        playerXp={playerTotalXp}
+        onContinue={handleRankUpContinue}
+      />
+    );
+  }
+
+  // ── Result screen (final resting state) ──────────────────────────────────
   return (
     <ScaleRoot>
-      {/* ── Level-up popup ──────────────────────────────────────────────── */}
-      <LevelUpPopup
-        open={popupOpen}
-        previousLevel={popupLevels.current.prev}
-        newLevel={popupLevels.current.next}
-        onClose={handlePopupClose}
-      />
-
       <Box
         sx={{
           width:      '100%',
@@ -144,9 +159,7 @@ useEffect(() => {
           flexShrink: 0,
           overflow:   'hidden',
           fontFamily: `'Press Start 2P', monospace`,
-
           background: '#031533',
-
           display:        'flex',
           flexDirection:  'column',
           alignItems:     'center',
@@ -380,7 +393,7 @@ useEffect(() => {
             </Typography>
           </Box>
 
-          {/* Right: Rank info — fills remaining space */}
+          {/* Right: Rank info */}
           <Box sx={{
             flex: 1,
             display: 'flex',
@@ -388,7 +401,6 @@ useEffect(() => {
             gap: `${Math.round(L.gap * 0.35)}px`,
             minWidth: 0,
           }}>
-            {/* CURRENT RANK badge + rank name (inline) */}
             <Box sx={{
               display: 'flex',
               alignItems: 'center',
@@ -432,7 +444,6 @@ useEffect(() => {
               </Box>
             </Box>
 
-            {/* XP progress bar */}
             <Box sx={{ width: '100%' }}>
               <LinearProgress
                 variant="determinate"
@@ -449,14 +460,13 @@ useEffect(() => {
               />
             </Box>
 
-            {/* XP to next level label */}
             <Typography sx={{
               fontFamily: `'Press Start 2P', monospace`,
               color: '#A0A0A0',
               fontSize: `${Math.max(6, Math.round(L.label * 0.5))}px`,
               letterSpacing: '0.5px',
             }}>
-              {playerTotalXp} / {player.xpToNextLevel} 
+              {playerTotalXp} / {player.xpToNextLevel}
             </Typography>
           </Box>
         </Box>
@@ -526,20 +536,6 @@ useEffect(() => {
           </Button>
         </Box>
       </Box>
-
-      {/* ── Cinematic level-up transition ──────────────────────────────── */}
-    {showLevelUpTransition && (
-  <LevelUpTransition
-    oldLevel={oldLevel}
-    newLevel={newLevel}
-    oldXP={getXpIntoLevel(totalXpBefore)}
-    newXP={getXpIntoLevel(playerTotalXp)}
-    xpForOldLevel={1000}
-    xpForNewLevel={1000}
-    levelRangeLabel={`LV ${Math.floor((oldLevel - 1) / 10) * 10 + 1}–${Math.floor((oldLevel - 1) / 10) * 10 + 10}`}
-    onContinue={() => setShowLevelUpTransition(false)}
-  />
-)}
     </ScaleRoot>
   );
 };
