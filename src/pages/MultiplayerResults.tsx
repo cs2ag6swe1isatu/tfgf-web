@@ -326,6 +326,7 @@ export default function MultiplayerResults() {
   const gameConfig = useGameStore((s) => s.gameConfig);
   const localPlayer = usePlayerStore((s) => s.getPlayer());
   const lobbyPlayers = useMultiplayerStore((s) => s.players);
+  const lobbySpectators = useMultiplayerStore((s) => s.spectators); 
 
   const setScreen = useGameStore((s) => s.setScreen);
   const resetTrivia = useTriviaStore((s) => s.resetGame);
@@ -340,7 +341,7 @@ export default function MultiplayerResults() {
 
   const players = buildPlayerResults(
     triviaRankings,
-    lobbyPlayers,
+    [...lobbyPlayers, ...lobbySpectators],
     localMpId,
     triviaQuestions,
     triviaUserAnswers,

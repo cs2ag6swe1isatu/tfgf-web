@@ -93,6 +93,19 @@ const MultiplayerLobby = () => {
       if (lobbyRole !== "client") return;
       if (isTransitioningToGameRef.current) return;
       
+      if (payload.phase === "ranking") {
+      const role = useMultiplayerStore.getState().participantRole;
+      if (role === "spectator") {
+        if (payload.rankings) {
+          useTriviaStore.setState({
+            rankings: payload.rankings.map((r) => ({ ...r, xp: r.xp ?? 0 })),
+          });
+        }
+        setScreen("multiplayer-results");
+        return;
+      }
+    }
+
       console.log(`[Lobby Client] Received game-state, phase=${payload.phase}, starting game transition`);
       isTransitioningToGameRef.current = true;
       const transitionStartTime = Date.now();
@@ -348,7 +361,7 @@ useTriviaStore.setState(nextState);
         }
         return;
       }
-      if (hasConfirmedJoinRef.current) handleHostExit();
+     if (hasConfirmedJoinRef.current && !isSpectator) handleHostExit();
     };
 
     const onHostExitCb = (payload: { lobbyId: string }) => {

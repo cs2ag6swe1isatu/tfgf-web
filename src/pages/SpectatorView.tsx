@@ -198,13 +198,14 @@ const SpectatorView = () => {
         ...(payload.playerScores  !== undefined ? { playerScores:  payload.playerScores  } : {}),
         ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
         ...(payload.category      !== undefined ? { category:      payload.category      } : {}),
+        ...(payload.rankings      !== undefined ? { rankings: payload.rankings.map((r) => ({ ...r, xp: r.xp ?? 0 })) } : {}),
       });
     });
     return () => { bridge.offGameStateSync?.("SpectatorView"); };
   }, []);
 
   useEffect(() => {
-    if (phase === "end") setScreen("multiplayer-menu");
+    if (phase === "end") setScreen("multiplayer-results");
   }, [phase, setScreen]);
 
   // Grid columns: 1 → 1col, 2 → 2col, 3-4 → 2x2, 5+ → 3col
