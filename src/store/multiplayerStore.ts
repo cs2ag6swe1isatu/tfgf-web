@@ -262,6 +262,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   resetMultiplayer: () => set({ ...initialState }),
   resetPlayerStatuses: () =>
   set((state) => ({
-    players: state.players.map((p) => ({ ...p, isReady: false })),
+    // Reset readiness and ensure players are placed back into the lobby
+    // (restore `status` to 'lobby'). Do NOT touch `spectators` or
+    // `participantRole` so new spectator behavior remains intact.
+    players: state.players.map((p) => ({
+      ...p,
+      // Keep host always ready after reset; others are cleared
+      isReady: p.id === state.hostId ? true : false,
+      status: 'lobby',
+    })),
   })),
 }));

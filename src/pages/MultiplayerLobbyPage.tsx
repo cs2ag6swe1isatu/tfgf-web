@@ -402,7 +402,14 @@ useTriviaStore.setState(nextState);
     };
     const handlePlayerStatusChanged = (playerId: string, connectionState: "connected" | "disconnected") =>
       useMultiplayerStore.getState().setPlayerConnectionState(playerId, connectionState);
-    const handlePlayerLeft = (playerId: string) => removePlayer(playerId);
+    const handlePlayerLeft = (playerId: string) => {
+      // Player might be a spectator — clean up from both lists
+      removePlayer(playerId);
+      const mpState = useMultiplayerStore.getState();
+      if (mpState.spectators.some((s) => s.id === playerId)) {
+        mpState.removeSpectator(playerId);
+      }
+    };
 
     multiplayerBridge.onPlayerJoined("Lobby", handlePlayerJoined);
     multiplayerBridge.onPlayerReadyChanged("Lobby", handlePlayerReadyChanged);
