@@ -494,20 +494,9 @@ const QuestionPage = () => {
   // Packets can be in-flight for up to ~500ms on a LAN, so we add a 300ms buffer
   // after entering scoring phase to collect as many answers as possible.
 
-  const hasScoredRef = useRef(false);
-
-  useEffect(() => {
-    if (phase !== "scoring" || mode !== "multiplayer" || lobbyRole !== "host") {
-      if (phase !== "scoring") hasScoredRef.current = false;
-      return;
-    }
-    if (hasScoredRef.current) return;
-    hasScoredRef.current = true;
-
-    scoreCurrentQuestion();
-    finalizeRankings();
-    broadcastMultiplayerState();
-  }, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, nextPhase, broadcastMultiplayerState]);
+const ANSWER_COLLECTION_BUFFER_MS = 300;
+const hasScoredRef = useRef(false);
+const scoringStartTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (phase !== "scoring" || mode !== "multiplayer" || lobbyRole !== "host") {
