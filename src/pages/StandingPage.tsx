@@ -393,13 +393,13 @@ export default function RankingPage() {
       <main style={{ position:"relative", zIndex:10, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", width:"100%", minHeight:"100%", paddingTop:"clamp(28px,4.5vw,56px)", paddingBottom:"clamp(20px,3.5vw,44px)", gap:0 }}>
 
         {/* Title */}
-        <div style={{ textAlign:"center", marginBottom:"clamp(10px,1.8vw,28px)", display:"flex", flexDirection:"column", alignItems:"center", animation:"fadeUp 0.35s both" }}>
+        <div style={{ textAlign:"center", marginBottom:"8px", display:"flex", flexDirection:"column", alignItems:"center", animation:"fadeUp 0.35s both" }}>
           <h1 style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(0.8rem,2.2vw,1.55rem)", color:C.green, margin:0, letterSpacing:"0.07em", animation:"titleGlow 2.5s ease-in-out infinite" }}>
             STANDING / RANKS
           </h1>
-          <p style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(6px,0.78vw,9px)", color:C.cyan, letterSpacing:"0.28em", opacity:0.55, textShadow:`0 0 8px ${C.cyan}`, marginTop:7, marginBottom:0, animation:"fadeUp 0.45s 0.1s both" }}>
+          {/* <p style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(6px,0.78vw,9px)", color:C.cyan, letterSpacing:"0.28em", opacity:0.55, textShadow:`0 0 8px ${C.cyan}`, marginTop:7, marginBottom:0, animation:"fadeUp 0.45s 0.1s both" }}>
             {page===0?"YOUR CURRENT STANDING":"RANK PROGRESSION TREE"}
-          </p>
+          </p> */}
         </div>
 
         {/* Grid + arrows row
@@ -435,7 +435,7 @@ export default function RankingPage() {
           />
         </div> */}
         {/* Tab switcher */}
-        <div style={{ display:"flex", gap:4, marginBottom:"clamp(10px,1.8vw,22px)", animation:"fadeUp 0.3s 0.1s both" }}>
+        <div style={{ display:"flex", gap:4,  animation:"fadeUp 0.3s 0.1s both" }}>
           {["MY RANK","ALL RANKS"].map((label,i)=>(
             <button key={i} className="tab-btn" onClick={()=>setPage(i)} style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(6px,0.7vw,8px)", color:page===i?C.bg:C.cyan, background:page===i?C.cyan:"transparent", border:`1.5px solid ${C.cyan}`, borderRadius:3, padding:"5px clamp(9px,1.3vw,16px)", cursor:"pointer", letterSpacing:"0.12em", transition:"background 0.15s,color 0.15s", boxShadow:page===i?`0 0 14px ${C.cyan}66`:undefined, outline:"none", opacity:page===i?1:0.7 }}>
               {label}
