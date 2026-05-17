@@ -251,7 +251,10 @@ const QuestionPage = () => {
 
   const currentQuestion = questions[currentIndex];
   
-  const derivedBunnyState: BunnyState = useMemo(() => {
+const currentStreak = useTriviaStore((state) => state.currentStreak);
+const sessionXpRef = useRef<number>(0);
+
+const derivedBunnyState: BunnyState = useMemo(() => {
     if (phase === 'end') return 'winner';
     if (phase === 'scoring') return selectedAnswer === currentQuestion?.correctAnswer ? 'happy' : 'sad';
     if (phase === 'answering') {
@@ -262,8 +265,7 @@ const QuestionPage = () => {
       return 'idle'; 
     }
     return 'sleeping';
-  }, [phase, timer, selectedAnswer, currentQuestion?.correctAnswer, currentStreak, rewardState.showXPBar]);
-
+ }, [phase, timer, selectedAnswer, currentQuestion?.correctAnswer, rewardState.showXPBar]);
   const didLevelUpThisSessionRef = useRef<boolean>(false);
   const levelAfterSessionRef     = useRef<number>(0);
   const endDataRef = useRef<{ achievements: Achievement[]; postUnlockScreen: "result" | "multiplayer-results"; } | null>(null);
@@ -344,11 +346,6 @@ const QuestionPage = () => {
     [submitAnswer, questions, currentIndex, timer, answerTimer, triggerReward, mode]
   );
 
-      if (currentNewLevel > currentOldLevel) {
-        didLevelUpThisSessionRef.current = true;
-        levelAfterSessionRef.current     = currentNewLevel;
-      }
-    }, [submitAnswer, questions, currentIndex, timer, answerTimer, localPlayer, triggerReward]);
 
   useEffect(() => {
     if (
@@ -506,14 +503,14 @@ useEffect(() => {
     ).length;
 
     const currentPlayerScore =
-      cfgMode === "multiplayer"
+      mode === "multiplayer"
         ? finalRankings.find((entry) => entry.playerId === localPlayerId)?.score
           ?? finalPlayerScores[localPlayerId]
           ?? 0
         : triviaState.score;
 
     const playerRank =
-      cfgMode === "multiplayer"
+      mode === "multiplayer"
         ? finalRankings.find((entry) => entry.playerId === localPlayerId)?.rank
           ?? 1 + Object.values(finalPlayerScores).filter((s) => s > currentPlayerScore).length
         : 0;
@@ -526,10 +523,10 @@ useEffect(() => {
     useTriviaStore.setState({ avgTime });
 
     const postUnlockScreen = mode === "multiplayer" ? "multiplayer-results" : "result";
-    const progressionInput: SessionProgressInput = {
-      mode: cfgMode,
-      category: cfgCategory,
-      difficulty: cfgDifficulty,
+   const progressionInput: SessionProgressInput = {
+      mode,
+      category,
+      difficulty,
       totalQuestions: finalQuestions.length,
       correctAnswers: correctAnswersCount,
       score: currentPlayerScore,
@@ -538,12 +535,12 @@ useEffect(() => {
       userAnswers: finalUserAnswers,
       timeTaken: elapsedSeconds,
       mastered: correctAnswersCount === finalQuestions.length,
-      won: cfgMode === "multiplayer" ? playerRank === 1 : false,
-      topThreeFinish: cfgMode === "multiplayer" ? playerRank <= 3 : false,
-      hostedLobby: cfgMode === "multiplayer" && lobbyRole === "host",
+       won: mode === "multiplayer" ? playerRank === 1 : false,
+      topThreeFinish: mode === "multiplayer" ? playerRank <= 3 : false,
+      hostedLobby: mode === "multiplayer" && lobbyRole === "host",
       fellBehindByHalfAndWon:
-        cfgMode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
-      rank: cfgMode === "multiplayer" ? playerRank : undefined,
+        mode === "multiplayer" && playerRank === 1 && fellBehindByHalfRef.current,
+      rank: mode === "multiplayer" ? playerRank : undefined,
     };
 
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);
