@@ -401,31 +401,44 @@ const derivedBunnyState: BunnyState = useMemo(() => {
   }, [mode, lobbyRole, phase, currentIndex, selectedAnswer, playerAnswers, players, broadcastMultiplayerState]);
 
   // ── Multiplayer: score current question (host) ──────────────────────────────
+  // CRITICAL: Host waits for answer-submission packets to arrive before scoring.
+  // Packets can be in-flight for up to ~500ms on a LAN, so we add a 300ms buffer
+  // after entering scoring phase to collect as many answers as possible.
 
   const hasScoredRef = useRef(false);
-
-useEffect(() => {
-  if (phase !== "scoring" || mode !== "multiplayer" || lobbyRole !== "host") {
-    if (phase !== "scoring") hasScoredRef.current = false;
-    return;
-  }
-  if (hasScoredRef.current) return;
-  hasScoredRef.current = true;
-
-  scoreCurrentQuestion();
-  finalizeRankings();
-  broadcastMultiplayerState();
-}, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, nextPhase, broadcastMultiplayerState]);
+  const scoringStartTimeRef = useRef<number | null>(null);
+  const ANSWER_COLLECTION_BUFFER_MS = 300;
 
   useEffect(() => {
-    if (hasScoredRef.current) return;
-    if (phase === "scoring" && mode === "multiplayer" && lobbyRole === "host") {
-      hasScoredRef.current = true;
-      scoreCurrentQuestion(); finalizeRankings(); broadcastMultiplayerState();
+    if (phase !== "scoring" || mode !== "multiplayer" || lobbyRole !== "host") {
+      if (phase !== "scoring") {
+        hasScoredRef.current = false;
+        scoringStartTimeRef.current = null;
+      }
+      return;
     }
-  }, [phase, mode, lobbyRole, multiplayerBridge, scoreCurrentQuestion, finalizeRankings, broadcastMultiplayerState]);
 
-  useEffect(() => { if (phase !== "scoring") hasScoredRef.current = false; }, [phase]);
+    if (hasScoredRef.current) return;
+
+    // Record when scoring phase started to enforce answer collection buffer
+    if (scoringStartTimeRef.current === null) {
+      scoringStartTimeRef.current = Date.now();
+      console.log('[QuestionPage] Scoring phase started, waiting for in-flight answers for', ANSWER_COLLECTION_BUFFER_MS, 'ms');
+      return;
+    }
+
+    // Wait for buffer period to allow in-flight answer-submission packets to arrive
+    const elapsedMs = Date.now() - scoringStartTimeRef.current;
+    if (elapsedMs < ANSWER_COLLECTION_BUFFER_MS) {
+      return;
+    }
+
+    hasScoredRef.current = true;
+    console.log('[QuestionPage] Answer collection buffer complete, computing scores');
+    scoreCurrentQuestion();
+    finalizeRankings();
+    broadcastMultiplayerState();
+  }, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, broadcastMultiplayerState]);
 
   useEffect(() => {
     if (mode !== "multiplayer" || lobbyRole !== "host") return;
