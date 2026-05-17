@@ -238,6 +238,7 @@ const BottomHud = styled(Box)({
 });
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
+const ANSWER_COLLECTION_BUFFER_MS = 300;
 
 const CorrectCountPill = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'hasCorrect',
@@ -306,6 +307,8 @@ const QuestionPage = () => {
   const sessionXpRef = useRef<number>(0);
   const [sessionXpState, setSessionXpState] = useState<number>(0);
   const [revealScore, setRevealScore] = useState<number | null>(null);
+  const [liveCorrectCount, setLiveCorrectCount] = useState(0);
+  const [correctAnimKey, setCorrectAnimKey] = useState<number>(0);
 
   // ── Power-up state ────────────────────────────────────────────────────────
   const [bunnyMessage, setBunnyMessage] = useState<string | null>(null);
@@ -381,6 +384,8 @@ const derivedBunnyState: BunnyState = useMemo(() => {
   const totalAnsweredRef = useRef<number>(0);
   const endProgressAppliedRef = useRef(false);
   const fellBehindByHalfRef = useRef(false);
+  const hasExitedRef = useRef(false);
+  
 
   useEffect(() => {
     if (phase === "answering" || phase === "asking") {
@@ -503,18 +508,11 @@ const handleAnswerClick = useCallback((answer: string) => {
   const hasScoredRef = useRef(false);
 
   useEffect(() => {
-    if (phase !== "scoring" || mode !== "multiplayer" || lobbyRole !== "host") {
-      if (phase !== "scoring") hasScoredRef.current = false;
+    if (mode !== "multiplayer" || lobbyRole !== "host") return;
+    if (phase !== "scoring") {
+      hasScoredRef.current = false;
       return;
     }
-    if (hasScoredRef.current) return;
-    hasScoredRef.current = true;
-    scoreCurrentQuestion();
-    finalizeRankings();
-    broadcastMultiplayerState();
-  }, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, nextPhase, broadcastMultiplayerState]);
-
-    if (mode !== "multiplayer" || lobbyRole !== "host") return;
     if (hasScoredRef.current) return;
 
     // Mark immediately to prevent a second effect run from queuing a second timeout.
