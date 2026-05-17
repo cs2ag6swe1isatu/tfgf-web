@@ -198,7 +198,7 @@ function CurrentRankPage({ totalXp, onNext }: { totalXp:number; onNext:()=>void 
   return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:0, width:"100%", animation:"fadeUp 0.4s both" }}>
       {/* Label */}
-      <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(7px,0.9vw,10px)", color:C.cyan, letterSpacing:"0.35em", textShadow:`0 0 10px ${C.cyan}`, marginBottom:12, opacity:0.75 }}>
+      <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(7px,0.9vw,10px)", color:C.cyan, letterSpacing:"0.35em", textShadow:`0 0 10px ${C.cyan}`, marginBottom:12, marginTop:12, opacity:0.75 }}>
         ◈ CURRENT RANK ◈
       </div>
 
@@ -265,9 +265,9 @@ function CurrentRankPage({ totalXp, onNext }: { totalXp:number; onNext:()=>void 
       </div>
 
       {/* See all ranks hint */}
-      <button className="hint-btn" onClick={onNext} style={{ marginTop:14, fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(6px,0.75vw,8px)", color:C.cyan, background:"transparent", border:`1px solid ${C.cyan}44`, borderRadius:3, padding:"7px 16px", cursor:"pointer", letterSpacing:"0.18em", opacity:0.6, transition:"opacity 0.2s,border-color 0.2s", outline:"none" }}>
+      {/* <button className="hint-btn" onClick={onNext} style={{ marginTop:14, fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(6px,0.75vw,8px)", color:C.cyan, background:"transparent", border:`1px solid ${C.cyan}44`, borderRadius:3, padding:"7px 16px", cursor:"pointer", letterSpacing:"0.18em", opacity:0.6, transition:"opacity 0.2s,border-color 0.2s", outline:"none" }}>
         VIEW ALL RANKS ▶
-      </button>
+      </button> */}
     </div>
   );
 }
@@ -282,7 +282,7 @@ function AllRanksPage({ totalXp }: { totalXp:number }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:0, width:"100%", animation:"fadeUp 0.4s both" }}>
-      <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(7px,0.9vw,10px)", color:C.cyan, letterSpacing:"0.3em", textShadow:`0 0 10px ${C.cyan}`, marginBottom:14, opacity:0.75 }}>
+      <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize:"clamp(7px,0.9vw,10px)", color:C.cyan, letterSpacing:"0.3em", textShadow:`0 0 10px ${C.cyan}`, marginBottom:14, marginTop:14, opacity:0.75 }}>
         ◈ ALL RANKS ◈
       </div>
 

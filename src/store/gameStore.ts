@@ -112,6 +112,7 @@ interface GameState {
   clearLevelUpSession: () => void;
 
   setCreditsBgmActive: (v: boolean) => void;
+  resetSettingsToDefaults: () => void;
   clearAllData: () => void;
 
   setMode: (mode: Mode) => void;
@@ -247,6 +248,20 @@ export const useGameStore = create<GameState>()(
         set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, answerTimer: seconds } })),
       setAutoJoinLan: (enabled: boolean) =>
         set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, autoJoinLan: enabled } })),
+
+      resetSettingsToDefaults: () => {
+        set({
+          settings: {
+            bgmEnabled: true,
+            sfxEnabled: true,
+            volume: 5,
+            useCase: false,
+            useScanlines: false,
+            useFlicker: false,
+          },
+          resolution: { width: 1024, height: 768, label: "XGA" },
+        });
+      },
 
       // Permanently clear all persisted data (game store + player) and reset in-memory state
       clearAllData: () => {

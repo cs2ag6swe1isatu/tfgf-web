@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { Player } from "../types/player";
 import type { DiscoveredHost, LobbyMember, MultiplayerGameState, MultiplayerLobbySnapshot, PlayerConnectionState } from "../types/multiplayer";
 import { getRankForLevel } from "../constants";
+import { getMultiplayerPlayerId, usePlayerStore } from "./playerStore";
 
 
 type LobbyRole = "host" | "client";
@@ -48,6 +49,7 @@ export interface MultiplayerActions {
   setCurrentPlayerId: (id: string | null) => void;
   setLobbyState: (state: LobbyState) => void;
   resetMultiplayer: () => void;
+  resetPlayerStatuses: () => void;
   syncLobbySnapshot: (snapshot: MultiplayerLobbySnapshot, hostAddress?: string | null) => void;
   addOrUpdateDiscoveredHost: (host: Partial<DiscoveredHost>) => void;
   removeDiscoveredHost: (lobbyId: string) => void;
@@ -258,4 +260,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   // ─────────────────────────────────────────────────────────────────────────
 
   resetMultiplayer: () => set({ ...initialState }),
+  resetPlayerStatuses: () =>
+  set((state) => ({
+    players: state.players.map((p) => ({ ...p, isReady: false })),
+  })),
 }));

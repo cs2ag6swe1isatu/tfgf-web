@@ -20,6 +20,7 @@ import theme from "./ui/theme";
 import { SoundContext } from "./context/SoundContext";
 import type { SoundType } from "./context/SoundContext";
 import { usePreloader, lazyPreloadAudio } from "./hooks/usePreloader";
+import { registerBundledAssets } from "./utils/registerBundledAssets";
 import PowerUpsPage from "./pages/PowerUpsPage";
 
 const styles = {
@@ -234,6 +235,14 @@ export default function App() {
   // ── Asset preloader ──────────────────────────────────────
   const preloader = usePreloader();
   const audioUpgradedRef = useRef(false);
+
+  // Register module-imported assets (bundler-emitted URLs) with
+  // the AssetPreloader so they're RAM-cached like public/ assets.
+  useEffect(() => {
+    registerBundledAssets()
+      .then(() => console.log('[Assets] registered bundled module assets'))
+      .catch((err) => console.warn('[Assets] registration failed', err));
+  }, []);
 
   // On first user interaction, upgrade audio to Web Audio API buffers
   const handleFirstInteraction = useCallback(() => {
