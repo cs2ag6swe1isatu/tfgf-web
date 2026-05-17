@@ -28,7 +28,9 @@ const Track = styled(Box)({
   overflow: 'visible',
 });
 
-const Fill = styled(Box)<{ progress: number; isAnimating: boolean }>(({ progress, isAnimating }) => ({
+const Fill = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'progress' && prop !== 'isAnimating',
+})<{ progress: number; isAnimating: boolean }>(({ progress, isAnimating }) => ({
   height: '100%',
   backgroundColor: '#00E5FF',
   borderRadius: '2px',
