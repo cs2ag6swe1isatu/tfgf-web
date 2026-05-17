@@ -1,3 +1,4 @@
+// File: RankProgressionScreen.tsx
 import { useEffect, useState } from "react";
 
 const RANKS = [
@@ -27,16 +28,13 @@ const RANK_COLORS: Record<string, { primary: string; glow: string; secondary: st
 };
 
 function getRankKey(name: string) { return name.toLowerCase(); }
-function getRankForXp(xp: number) {
-  return RANKS.find(r => xp >= r.xp[0] && xp <= r.xp[1]) ?? RANKS[RANKS.length - 1];
+
+// FIX: Accept newLevel directly — rank is determined by level milestone, not XP
+function getRankForLevel(level: number) {
+  return RANKS.find(r => level >= r.level[0] && level <= r.level[1]) ?? RANKS[RANKS.length - 1];
 }
 function getNextRank(cur: typeof RANKS[0]) {
   return RANKS.find(r => r.id === cur.id + 1) ?? null;
-}
-function getProgress(xp: number, rank: typeof RANKS[0]) {
-  const range = rank.xp[1] - rank.xp[0];
-  const done = xp - rank.xp[0];
-  return Math.min(Math.max((done / range) * 100, 0), 100);
 }
 
 const cr = { rx: 0, ry: 0 };
@@ -154,29 +152,37 @@ const CSS = `
 @keyframes levelUpPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.7;transform:scale(1.08)} }
 `;
 
-interface PlayerState { level: number; xp: number; }
+// FIX: Props updated — accepts newLevel (the rank-milestone level) instead of player xp/level
+// so the screen correctly shows the NEW rank being unlocked, not the current in-progress rank.
+interface RankProgressionScreenProps {
+  newLevel: number;       // the level just reached (e.g. 11, 21, 31 …)
+  playerXp: number;       // total XP (used only for display)
+  onContinue?: () => void;
+}
 
 export default function RankProgressionScreen({
-  player = { level: 5, xp: 1000 },
+  newLevel,
+  playerXp,
   onContinue,
-}: {
-  player?: PlayerState;
-  onContinue?: () => void;
-}) {
+}: RankProgressionScreenProps) {
   const [barPct, setBarPct] = useState(0);
-  const curRank = getRankForXp(player.xp);
-  const nextRank = getNextRank(curRank);
-  const progress = getProgress(player.xp, curRank);
-  const curKey = getRankKey(curRank.name);
-  const curC = RANK_COLORS[curKey] ?? RANK_COLORS.novice;
-  const nextKey = nextRank ? getRankKey(nextRank.name) : null;
-  const nextC = nextKey ? (RANK_COLORS[nextKey] ?? RANK_COLORS.novice) : RANK_COLORS.oracle;
-  const goalReached = progress >= 100;
+
+  // FIX: Derive ranks from the milestone level, not from XP lookup
+  // newLevel IS the first level of the new rank tier (e.g. 11 = Student)
+  const newRank = getRankForLevel(newLevel);
+  const prevRank = RANKS.find(r => r.id === newRank.id - 1) ?? RANKS[0];
+  const nextRank = getNextRank(newRank);
+
+  const newKey  = getRankKey(newRank.name);
+  const prevKey = getRankKey(prevRank.name);
+  const newC    = RANK_COLORS[newKey]  ?? RANK_COLORS.novice;
+  const prevC   = RANK_COLORS[prevKey] ?? RANK_COLORS.novice;
 
   useEffect(() => {
-    const t = setTimeout(() => setBarPct(progress), 500);
+    // Bar shows 0% into the new rank (just unlocked)
+    const t = setTimeout(() => setBarPct(0), 500);
     return () => clearTimeout(t);
-  }, [progress]);
+  }, []);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Enter") onContinue?.(); };
@@ -184,7 +190,7 @@ export default function RankProgressionScreen({
     return () => window.removeEventListener("keydown", h);
   }, [onContinue]);
 
-  const panelStyle = (c: typeof curC): React.CSSProperties => ({
+  const panelStyle = (c: typeof newC): React.CSSProperties => ({
     position:"relative",
     background:"rgba(0,20,30,0.88)",
     border:`1px solid ${c.primary}44`,
@@ -250,56 +256,54 @@ export default function RankProgressionScreen({
           marginBottom:"clamp(16px,3.5vh,32px)", zIndex:2,
         }}>
 
-          {/* LEFT PANEL */}
-          <div style={panelStyle(curC)}>
-            <Corners color={curC.primary}/>
+          {/* LEFT PANEL — previous rank */}
+          <div style={panelStyle(prevC)}>
+            <Corners color={prevC.primary}/>
             <div style={{animation:`borderPulse 2s ease-in-out infinite`,position:"absolute",inset:0,borderRadius:10,
-              boxShadow:`0 0 32px ${curC.glow}0.2)`,pointerEvents:"none"}}/>
+              boxShadow:`0 0 32px ${prevC.glow}0.2)`,pointerEvents:"none"}}/>
 
-            <div style={{fontSize:"clamp(8px,1.1vw,11px)",letterSpacing:"0.25em",color:"rgba(0,255,255,0.5)"}}>CURRENT RANK</div>
+            <div style={{fontSize:"clamp(8px,1.1vw,11px)",letterSpacing:"0.25em",color:"rgba(0,255,255,0.5)"}}>PREVIOUS RANK</div>
 
             <div style={{animation:"float 3s ease-in-out infinite"}}>
-              <RankSymbol name={curRank.name} size={Math.max(56, Math.min(80, 72))} color={curC.primary}/>
+              <RankSymbol name={prevRank.name} size={72} color={prevC.primary}/>
             </div>
 
             <div style={{textAlign:"center"}}>
               <div style={{
-                color:curC.primary, fontSize:"clamp(18px,3vw,32px)", fontWeight:900,
-                letterSpacing:"0.12em", textShadow:`0 0 20px ${curC.primary}`,
-              }}>{curRank.name.toUpperCase()}</div>
+                color:prevC.primary, fontSize:"clamp(18px,3vw,32px)", fontWeight:900,
+                letterSpacing:"0.12em", textShadow:`0 0 20px ${prevC.primary}`,
+              }}>{prevRank.name.toUpperCase()}</div>
               <div style={{color:"rgba(0,255,255,0.5)",fontSize:"clamp(8px,1vw,11px)",letterSpacing:"0.18em",marginTop:3}}>
-                LV {curRank.level[0]}–{curRank.level[1]}
+                LV {prevRank.level[0]}–{prevRank.level[1]}
               </div>
             </div>
 
             <div style={{width:"100%"}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
                 <span style={{fontSize:"clamp(7px,0.9vw,9px)",letterSpacing:"0.2em",color:"rgba(0,255,255,0.45)"}}>XP PROGRESS</span>
-                <span style={{fontSize:"clamp(7px,0.9vw,9px)",color:"rgba(0,255,255,0.45)"}}>{player.xp.toLocaleString()}/{curRank.xp[1].toLocaleString()}</span>
+                <span style={{fontSize:"clamp(7px,0.9vw,9px)",color:"rgba(0,255,255,0.45)"}}>{playerXp.toLocaleString()}/{prevRank.xp[1].toLocaleString()}</span>
               </div>
-              <div style={{height:9,background:"rgba(255,255,255,0.06)",borderRadius:5,border:`1px solid ${curC.primary}33`,overflow:"hidden"}}>
+              <div style={{height:9,background:"rgba(255,255,255,0.06)",borderRadius:5,border:`1px solid ${prevC.primary}33`,overflow:"hidden"}}>
                 <div style={{
                   height:"100%", borderRadius:5,
-                  background:curC.primary,
-                  boxShadow:`0 0 12px ${curC.primary}`,
-                  width:`${barPct}%`,
-                  transition:"width 1.3s cubic-bezier(0.4,0,0.2,1)",
+                  background:prevC.primary,
+                  boxShadow:`0 0 12px ${prevC.primary}`,
+                  width:`100%`,
                   animation:"barGlow 1.5s ease-in-out infinite",
                 }}/>
               </div>
               <div style={{textAlign:"right",marginTop:3,fontSize:"clamp(7px,0.9vw,9px)",color:"rgba(0,255,255,0.4)"}}>
-                {Math.round(progress)}%
+                100%
               </div>
             </div>
 
-            {goalReached && (
-              <div style={{
-                width:"100%", border:`1px solid ${curC.primary}66`,
-                padding:"clamp(5px,1vh,8px)", textAlign:"center",
-                color:curC.primary, fontSize:"clamp(8px,1vw,11px)", letterSpacing:"0.2em",
-                background:`${curC.primary}0d`, boxShadow:`0 0 14px ${curC.glow}0.25)`,
-              }}>XP GOAL REACHED!</div>
-            )}
+            {/* FIX: Always show "XP GOAL REACHED!" on left panel — previous rank is always complete */}
+            <div style={{
+              width:"100%", border:`1px solid ${prevC.primary}66`,
+              padding:"clamp(5px,1vh,8px)", textAlign:"center",
+              color:prevC.primary, fontSize:"clamp(8px,1vw,11px)", letterSpacing:"0.2em",
+              background:`${prevC.primary}0d`, boxShadow:`0 0 14px ${prevC.glow}0.25)`,
+            }}>XP GOAL REACHED!</div>
           </div>
 
           {/* CENTER */}
@@ -308,7 +312,7 @@ export default function RankProgressionScreen({
               color:"#00ff88", fontSize:"clamp(9px,1.4vw,15px)", fontWeight:900,
               letterSpacing:"0.25em", textShadow:"0 0 16px #00ff88",
               animation:"levelUpPulse 1.6s ease-in-out infinite", textAlign:"center",
-            }}>LEVEL<br/>UP!</div>
+            }}>RANK<br/>UP!</div>
             <div style={{display:"flex",gap:3}}>
               {[0,1,2].map(i => (
                 <span key={i} style={{
@@ -321,25 +325,25 @@ export default function RankProgressionScreen({
             </div>
           </div>
 
-          {/* RIGHT PANEL */}
-          <div style={{...panelStyle(nextC), animationDelay:"0.2s", opacity: nextRank ? 1 : 0.5}}>
-            <Corners color={nextC.primary}/>
+          {/* RIGHT PANEL — new rank just unlocked */}
+          <div style={{...panelStyle(newC), animationDelay:"0.2s"}}>
+            <Corners color={newC.primary}/>
             <div style={{animation:`borderPulse 2.4s ease-in-out infinite`,position:"absolute",inset:0,borderRadius:10,
-              boxShadow:`0 0 32px ${nextC.glow}0.15)`,pointerEvents:"none"}}/>
+              boxShadow:`0 0 32px ${newC.glow}0.15)`,pointerEvents:"none"}}/>
 
-            <div style={{fontSize:"clamp(8px,1.1vw,11px)",letterSpacing:"0.25em",color:"rgba(0,255,255,0.5)"}}>NEXT RANK</div>
+            <div style={{fontSize:"clamp(8px,1.1vw,11px)",letterSpacing:"0.25em",color:"rgba(0,255,255,0.5)"}}>NEW RANK</div>
 
-            <div style={{animation:"float 3.5s ease-in-out 0.5s infinite", opacity: nextRank ? 1 : 0.35}}>
-              <RankSymbol name={nextRank?.name ?? curRank.name} size={Math.max(56, Math.min(80, 72))} color={nextC.primary}/>
+            <div style={{animation:"float 3.5s ease-in-out 0.5s infinite"}}>
+              <RankSymbol name={newRank.name} size={72} color={newC.primary}/>
             </div>
 
             <div style={{textAlign:"center"}}>
               <div style={{
-                color:nextC.primary, fontSize:"clamp(18px,3vw,32px)", fontWeight:900,
-                letterSpacing:"0.12em", textShadow:`0 0 20px ${nextC.primary}`,
-              }}>{(nextRank?.name ?? "MAX").toUpperCase()}</div>
+                color:newC.primary, fontSize:"clamp(18px,3vw,32px)", fontWeight:900,
+                letterSpacing:"0.12em", textShadow:`0 0 20px ${newC.primary}`,
+              }}>{newRank.name.toUpperCase()}</div>
               <div style={{color:"rgba(0,255,255,0.5)",fontSize:"clamp(8px,1vw,11px)",letterSpacing:"0.18em",marginTop:3}}>
-                {nextRank ? `LV ${nextRank.level[0]}–${nextRank.level[1]}` : "MAX RANK"}
+                LV {newRank.level[0]}–{newRank.level[1]}
               </div>
             </div>
 
@@ -347,21 +351,21 @@ export default function RankProgressionScreen({
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
                 <span style={{fontSize:"clamp(7px,0.9vw,9px)",letterSpacing:"0.2em",color:"rgba(0,255,255,0.45)"}}>XP REQUIRED</span>
                 <span style={{fontSize:"clamp(7px,0.9vw,9px)",color:"rgba(0,255,255,0.45)"}}>
-                  {nextRank ? `${nextRank.xp[0].toLocaleString()}–${nextRank.xp[1].toLocaleString()}` : "—"}
+                  {newRank.xp[0].toLocaleString()}–{newRank.xp[1].toLocaleString()}
                 </span>
               </div>
-              <div style={{height:9,background:"rgba(255,255,255,0.06)",borderRadius:5,border:`1px solid ${nextC.primary}33`,overflow:"hidden"}}>
-                <div style={{height:"100%",borderRadius:5,background:nextC.primary,width:"0%",boxShadow:`0 0 8px ${nextC.primary}`}}/>
+              <div style={{height:9,background:"rgba(255,255,255,0.06)",borderRadius:5,border:`1px solid ${newC.primary}33`,overflow:"hidden"}}>
+                <div style={{height:"100%",borderRadius:5,background:newC.primary,width:"0%",boxShadow:`0 0 8px ${newC.primary}`}}/>
               </div>
             </div>
 
             <div style={{
-              width:"100%", border:`1px solid ${nextC.primary}55`,
+              width:"100%", border:`1px solid ${newC.primary}55`,
               padding:"clamp(5px,1vh,8px)", textAlign:"center",
-              color:nextC.primary, fontSize:"clamp(8px,1vw,11px)", letterSpacing:"0.2em",
-              background:`${nextC.primary}0d`, boxShadow:`0 0 14px ${nextC.glow}0.2)`,
+              color:newC.primary, fontSize:"clamp(8px,1vw,11px)", letterSpacing:"0.2em",
+              background:`${newC.primary}0d`, boxShadow:`0 0 14px ${newC.glow}0.2)`,
               animation:"fadeUp 0.8s ease 1.2s both",
-            }}>NEW LEVEL UNLOCKED!</div>
+            }}>NEW RANK UNLOCKED!</div>
           </div>
         </div>
 

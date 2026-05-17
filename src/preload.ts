@@ -108,7 +108,7 @@ setInterval(() => {
 const onHostFoundCbs = new Map<string, (payload: MultiplayerDiscoveredPayload) => void>();
 const onDiscoveryResponseCbs = new Map<string, (payload: MultiplayerDiscoveredPayload) => void>();
 const onPlayerJoinedCbs = new Map<string, (player: LobbyMember) => void>();
-const onPlayerReadyChangedCbs = new Map<string, (playerId: string, ready: boolean) => void>();
+const onPlayerReadyChangedCbs = new Map<string, (playerId: string, ready: boolean, member?: Partial<LobbyMember>) => void>();
 const onPlayerLeftCbs = new Map<string, (playerId: string) => void>();
 const onPlayerStatusChangedCbs = new Map<string, (playerId: string, connectionState: PlayerConnectionState) => void>();
 const onHostExitCbs = new Map<string, (payload: MultiplayerHostExitPayload) => void>();
@@ -348,6 +348,9 @@ function broadcastSnapshot(snapshot: MultiplayerLobbySnapshot) {
   activeSnapshot = sequencedSnapshot;
   const packet: MultiplayerPacket = { ...meta, type: "lobby-broadcast", snapshot: sequencedSnapshot, isGameActive };
   sendUdpMessage(JSON.stringify(packet));
+  
+  // Also emit locally so the host renderer stays synced with the (potentially merged) snapshot
+  emitHostFound(sequencedSnapshot, sequencedSnapshot.hostAddress ?? getLocalIp(), isGameActive);
 }
 
 function pruneStalePlayers(staleMs = 10000) {
@@ -614,21 +617,23 @@ function handlePacket(raw: string, senderAddress: string) {
 
   if (packet.type === "ready-update") {
     if (!activeSnapshot || packet.payload.lobbyId !== activeSnapshot.lobbyId) return;
-    console.log('[preload] ready-update for', packet.payload.playerId, 'ready=', packet.payload.ready);
+    console.log('[preload] ready-update for', packet.payload.playerId, 'ready=', packet.payload.ready, 'member=', packet.payload.member);
 
     playerHeartbeats.set(packet.payload.playerId, Date.now());
 
     updateHostSnapshot((current) => ({
       ...current,
       players: current.players.map((player) =>
-        player.id === packet.payload.playerId ? { ...player, isReady: packet.payload.ready, connectionState: "connected", lastSeenAt: Date.now() } : player,
+        player.id === packet.payload.playerId 
+          ? { ...player, ...packet.payload.member, isReady: packet.payload.ready, connectionState: "connected", lastSeenAt: Date.now() } 
+          : player,
       ),
       playerCount: countConnectedPlayers(current.players),
     }));
 
     emitPlayerStatusChanged(packet.payload.playerId, "connected");
 
-    onPlayerReadyChangedCbs.forEach((cb) => cb(packet.payload.playerId, packet.payload.ready));
+    onPlayerReadyChangedCbs.forEach((cb) => cb(packet.payload.playerId, packet.payload.ready, packet.payload.member));
     return;
   }
 
@@ -837,7 +842,7 @@ contextBridge.exposeInMainWorld("multiplayer", {
   onPlayerJoined: (id: string, cb: (player: LobbyMember) => void) => { onPlayerJoinedCbs.set(id, cb); },
   offPlayerJoined: (id: string) => { onPlayerJoinedCbs.delete(id); },
   
-  onPlayerReadyChanged: (id: string, cb: (playerId: string, ready: boolean) => void) => { onPlayerReadyChangedCbs.set(id, cb); },
+  onPlayerReadyChanged: (id: string, cb: (playerId: string, ready: boolean, member?: Partial<LobbyMember>) => void) => { onPlayerReadyChangedCbs.set(id, cb); },
   offPlayerReadyChanged: (id: string) => { onPlayerReadyChangedCbs.delete(id); },
   
   onPlayerLeft: (id: string, cb: (playerId: string) => void) => { onPlayerLeftCbs.set(id, cb); },

@@ -618,7 +618,9 @@ const QuestionPage = () => {
     const gameConfig = useGameStore.getState().gameConfig;
     const { mode, category, difficulty } = gameConfig || {};
     if (!mode || !category || !difficulty) return;
-    if (mode === "multiplayer") finalizeRankings();
+    if (mode === "multiplayer") {
+      finalizeRankings();
+    }
 
     const triviaState = useTriviaStore.getState();
     const { userAnswers: finalUserAnswers, questions: finalQuestions, rankings: finalRankings, playerScores: finalPlayerScores, maxStreak } = triviaState;
@@ -669,6 +671,31 @@ const QuestionPage = () => {
     };
 
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);
+
+    if (mode === "multiplayer") {
+      // Update our status to 'results' so others in lobby see we are finishing
+      // We do this AFTER applySessionProgress so we have the latest level/rank
+      const latestPlayer = usePlayerStore.getState().getPlayer();
+      const mpState = useMultiplayerStore.getState();
+      const currentMpPlayer = mpState.players.find(p => p.id === localPlayerId);
+      
+      if (currentMpPlayer) {
+        mpState.addOrUpdatePlayer({ ...latestPlayer, id: localPlayerId }, { status: "results", isReady: false });
+        if (mpState.lobbyRole === "client" && mpState.lobbyId && mpState.hostAddress) {
+          window.multiplayer?.setReady({
+            lobbyId: mpState.lobbyId,
+            hostAddress: mpState.hostAddress,
+            playerId: localPlayerId,
+            ready: false,
+            member: { 
+              status: "results",
+              level: latestPlayer.level,
+              rank: latestPlayer.rank
+            }
+          });
+        }
+      }
+    }
 
     if (didLevelUpThisSessionRef.current) {
       endDataRef.current = { achievements: newlyUnlockedAchievements, postUnlockScreen };

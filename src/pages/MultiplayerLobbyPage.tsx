@@ -252,6 +252,18 @@ const MultiplayerLobby = () => {
       return;
     }
 
+    // Reset ready state for all players for the next game (so they aren't auto-ready when returning to lobby)
+    const mpState = useMultiplayerStore.getState();
+    mpState.players.forEach(p => {
+      // Host stays ready usually, but let's reset everyone for consistency if needed, 
+      // or just clients. The UI usually forces host to be 'ready' to click PLAY.
+      if (!p.isHost) {
+        mpState.setPlayerReady(p.id, false);
+      }
+      // Set status to playing for everyone
+      mpState.addOrUpdatePlayer(p, { status: "playing" } as any);
+    });
+
     // Now broadcast game-state with the port (even if port is 0/undefined, still broadcast)
     const state = useTriviaStore.getState();
     console.log(`[Lobby] Broadcasting game-state, port=${httpPort}, phase=${state.phase}`);
@@ -386,7 +398,13 @@ const MultiplayerLobby = () => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
     const handlePlayerJoined = (p: LobbyMember) => addOrUpdatePlayer(p, { isHost: false, isReady: false, connectionState: "connected" });
-    const handlePlayerReadyChanged = (playerId: string, ready: boolean) => setPlayerReady(playerId, ready);
+    const handlePlayerReadyChanged = (playerId: string, ready: boolean, member?: Partial<LobbyMember>) => {
+      // Sync player ready state and any additional member info (like level/rank/status)
+      const existing = useMultiplayerStore.getState().players.find(p => p.id === playerId);
+      if (existing) {
+        addOrUpdatePlayer({ ...existing, ...member }, { isReady: ready, connectionState: "connected" });
+      }
+    };
     const handlePlayerStatusChanged = (playerId: string, connectionState: "connected" | "disconnected") =>
       useMultiplayerStore.getState().setPlayerConnectionState(playerId, connectionState);
     const handlePlayerLeft = (playerId: string) => removePlayer(playerId);
@@ -652,12 +670,12 @@ const MultiplayerLobby = () => {
       letterSpacing: "1px",
       flexShrink: 0,
     },
-    statusDot: (status: "ready" | "notReady" | "disconnected") => ({
+    statusDot: (status: "ready" | "notReady" | "disconnected" | "playing" | "results") => ({
       width: "14px",
       height: "14px",
       borderRadius: "50%",
-      background: status === "ready" ? "#35E52B" : status === "disconnected" ? "#A15A5A" : "#E33232",
-      boxShadow: status === "ready" ? "0 0 7px #35E52B" : status === "disconnected" ? "0 0 7px #A15A5A" : "0 0 7px #E33232",
+      background: status === "ready" ? "#35E52B" : status === "disconnected" ? "#A15A5A" : status === "playing" ? "#00DFFF" : status === "results" ? "#D9E600" : "#E33232",
+      boxShadow: status === "ready" ? "0 0 7px #35E52B" : status === "disconnected" ? "0 0 7px #A15A5A" : status === "playing" ? "0 0 7px #00DFFF" : status === "results" ? "0 0 7px #D9E600" : "0 0 7px #E33232",
       flexShrink: 0,
     }),
     kickBtn: {
@@ -781,6 +799,16 @@ const MultiplayerLobby = () => {
                   <span style={styles.playerName}>{p.name || "NAME"}</span>
                   {p.isHost && <span style={styles.hostBadge}>HOST</span>}
                   {p.connectionState === "disconnected" && <span style={styles.connectionBadge}>OFFLINE</span>}
+                  {p.connectionState !== "disconnected" && p.status && p.status !== "lobby" && (
+                    <span style={{ 
+                      ...styles.hostBadge, 
+                      background: p.status === "playing" ? "rgba(0,223,255,0.15)" : "rgba(217,230,0,0.15)",
+                      color: p.status === "playing" ? "#00DFFF" : "#D9E600",
+                      border: `1px solid ${p.status === "playing" ? "#00DFFF44" : "#D9E60044"}`
+                    }}>
+                      {p.status.toUpperCase()}
+                    </span>
+                  )}
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <RankIcon
@@ -800,7 +828,12 @@ const MultiplayerLobby = () => {
                   KICK
                 </button>
               )}
-              <Box sx={styles.statusDot(p.connectionState === "disconnected" ? "disconnected" : p.isReady ? "ready" : "notReady")} />
+              <Box sx={styles.statusDot(
+                p.connectionState === "disconnected" ? "disconnected" : 
+                p.status === "playing" ? "playing" :
+                p.status === "results" ? "results" :
+                p.isReady ? "ready" : "notReady"
+              )} />
             </Box>
           ))}
 

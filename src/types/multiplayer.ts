@@ -14,6 +14,7 @@ export interface LobbyMember {
   connectionState?: PlayerConnectionState;
   lastSeenAt?: number;
   disconnectedAt?: number;
+  status?: "lobby" | "playing" | "results";
 }
 
 export interface MultiplayerBroadcastPayload {
@@ -96,6 +97,7 @@ export interface MultiplayerReadyUpdate {
   hostAddress: string;
   playerId: string;
   ready: boolean;
+  member?: Partial<LobbyMember>;
 }
 
 export interface MultiplayerHostExitPayload {
@@ -134,7 +136,7 @@ export interface MultiplayerBridge {
   offHostFound: (id: string) => void;
   onPlayerJoined: (id: string, cb: (player: LobbyMember) => void) => void;
   offPlayerJoined: (id: string) => void;
-  onPlayerReadyChanged: (id: string, cb: (playerId: string, ready: boolean) => void) => void;
+  onPlayerReadyChanged: (id: string, cb: (playerId: string, ready: boolean, member?: Partial<LobbyMember>) => void) => void;
   offPlayerReadyChanged: (id: string) => void;
   onPlayerLeft: (id: string, cb: (playerId: string) => void) => void;
   offPlayerLeft: (id: string) => void;
