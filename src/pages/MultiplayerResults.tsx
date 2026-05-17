@@ -329,6 +329,7 @@ export default function MultiplayerResults() {
 
   const setScreen = useGameStore((s) => s.setScreen);
   const resetTrivia = useTriviaStore((s) => s.resetGame);
+  const resetPlayerStatuses = useMultiplayerStore((s) => s.resetPlayerStatuses);
   const resetMultiplayer = useMultiplayerStore((s) => s.resetMultiplayer);
 
   const localMpId = getMultiplayerPlayerId(localPlayer.id);
@@ -418,6 +419,9 @@ export default function MultiplayerResults() {
   }, [rankPct, you?.score, you?.xp, you?.acc]);
 
   const handleBackToLobby = () => {
+    // Reset player statuses from 'results'/'playing' back to 'lobby' so the
+    // lobby page renders them correctly (green ready dots, not status badges).
+    resetPlayerStatuses();
     resetTrivia();
     setScreen("multiplayer-lobby");
   };

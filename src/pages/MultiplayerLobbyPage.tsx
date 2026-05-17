@@ -73,7 +73,8 @@ const MultiplayerLobby = () => {
   const handleCreateLobby = () => {
     setLobbyId(currentLobbyId);
     setLobbyRole("host");
-    addOrUpdatePlayer(multiplayerPlayer, { isHost: true, isReady: true, connectionState: "connected" });
+    // Explicitly set status to "lobby" to override stale "results"/"playing" from a previous game
+    addOrUpdatePlayer(multiplayerPlayer, { isHost: true, isReady: true, connectionState: "connected", status: "lobby" });
     setCurrentPlayerId(multiplayerPlayer.id);
   };
 

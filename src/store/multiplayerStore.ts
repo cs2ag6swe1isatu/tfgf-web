@@ -41,6 +41,7 @@ export interface MultiplayerActions {
   setCurrentPlayerId: (id: string | null) => void;
   setLobbyState: (state: LobbyState) => void;
   resetMultiplayer: () => void;
+  resetPlayerStatuses: () => void;
   syncLobbySnapshot: (snapshot: MultiplayerLobbySnapshot, hostAddress?: string | null) => void;
   addOrUpdateDiscoveredHost: (host: Partial<DiscoveredHost>) => void;
   removeDiscoveredHost: (lobbyId: string) => void;
@@ -189,6 +190,19 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
   setCurrentPlayerId: (id) => set({ currentPlayerId: id }),
   setLobbyState: (stateValue) => set({ lobbyState: stateValue }),
+
+  resetPlayerStatuses: () => {
+    set((state) => ({
+      players: state.players.map((p) => ({
+        ...p,
+        status: "lobby",
+        isReady: p.isHost ? true : false,
+        connectionState: "connected",
+        lastSeenAt: Date.now(),
+        disconnectedAt: undefined,
+      })),
+    }));
+  },
 
   syncLobbySnapshot: (snapshot, hostAddress) =>
     set((state) => ({
