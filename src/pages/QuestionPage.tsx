@@ -35,7 +35,6 @@ const pulseGlow = keyframes`
   50%       { box-shadow: 0 0 16px #00E5FFaa, inset 0 0 12px rgba(0,229,255,0.1); }
 `;
 
-// NEW: Tagline Flicker
 const retroFlicker = keyframes`
   0%, 100% { opacity: 1; text-shadow: 0 0 8px #35E52B, 0 0 15px #35E52B; }
   50% { opacity: 0.8; text-shadow: 0 0 4px #35E52B; }
@@ -44,7 +43,6 @@ const retroFlicker = keyframes`
   65% { opacity: 1; text-shadow: 0 0 8px #35E52B; }
 `;
 
-// Correct-count pill: brief scale-pop when the number increments
 const correctCountPop = keyframes`
   0%   { transform: scale(1); }
   35%  { transform: scale(1.22); box-shadow: 0 0 10px #35E52Baa, 0 0 20px #35E52B55; }
@@ -54,18 +52,17 @@ const correctCountPop = keyframes`
 
 // ─── Styled Components ─────────────────────────────────────────────────────
 
-// NEW: Outer container to center the strict-resolution game screen
 const OuterSpace = styled(Box)({
   minHeight: "100vh",
   width: "100%",
-  backgroundColor: "#020408", // Pitch black behind the arcade screen
+  backgroundColor: "#020408",
   display: "flex",
   justifyContent: "center",
   alignItems: "flex-start",
 });
 
 const GameScreen = styled(Box)({
-  backgroundColor: "#060A10", 
+  backgroundColor: "#060A10",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
@@ -74,8 +71,7 @@ const GameScreen = styled(Box)({
   padding: "20px 25px 25px",
   boxSizing: "border-box",
   position: "relative",
-  // Optional: adds a subtle CRT border around the game area
-  boxShadow: "0 0 30px rgba(0, 229, 255, 0.1), inset 0 0 15px rgba(0, 0, 0, 0.5)", 
+  boxShadow: "0 0 30px rgba(0, 229, 255, 0.1), inset 0 0 15px rgba(0, 0, 0, 0.5)",
 });
 
 const TopArea = styled(Box)({
@@ -99,7 +95,7 @@ const QuestionPanel = styled(Box)({
   maxWidth: "900px",
   minHeight: "140px",
   borderRadius: "4px",
-  border: "2px solid #00E5FF", 
+  border: "2px solid #00E5FF",
   background: "rgba(0, 229, 255, 0.02)",
   display: "flex",
   alignItems: "center",
@@ -124,7 +120,7 @@ const AnswerButton = styled(Button, {
   shouldForwardProp: (prop) => prop !== 'selected' && prop !== 'correct' && prop !== 'incorrect' && prop !== 'revealed',
 })<{ selected?: boolean; correct?: boolean; incorrect?: boolean; revealed?: boolean; }>(({ selected, correct, incorrect, revealed }) => {
   let borderColor = "#00E5FF";
-  let color = "#35E52B"; 
+  let color = "#35E52B";
   let glow = "none";
   let bg = "transparent";
 
@@ -154,7 +150,7 @@ const AnswerButton = styled(Button, {
     lineHeight: 1.6,
     color: color,
     border: `2px solid ${borderColor}`,
-    borderRadius: "8px", 
+    borderRadius: "8px",
     background: bg,
     boxShadow: glow,
     display: "flex",
@@ -179,10 +175,9 @@ const AnswerButton = styled(Button, {
   };
 });
 
-// FIXED: Narrower Max-Width (800px instead of 900px) pushes elements inwards!
 const BottomHud = styled(Box)({
   width: "100%",
-  maxWidth: "800px", 
+  maxWidth: "800px",
   display: "grid",
   gridTemplateColumns: "120px 1fr 120px",
   alignItems: "center",
@@ -191,7 +186,6 @@ const BottomHud = styled(Box)({
   padding: "0 20px",
 });
 
-// FIXED: Interactive Carrot for future Emotes
 const CarrotCircle = styled(Box)({
   width: "80px",
   height: "80px",
@@ -202,19 +196,16 @@ const CarrotCircle = styled(Box)({
   alignItems: "center",
   boxShadow: "0 0 15px rgba(77, 182, 172, 0.5)",
   justifySelf: "end",
-  cursor: "pointer", // Makes it look clickable
+  cursor: "pointer",
   transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s",
   "&:hover": {
-    transform: "scale(1.1) rotate(5deg)", // Bounces up on hover
-    boxShadow: "0 0 25px rgba(77, 182, 172, 0.9)", // Glows brighter on hover
+    transform: "scale(1.1) rotate(5deg)",
+    boxShadow: "0 0 25px rgba(77, 182, 172, 0.9)",
   }
 });
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
 
-// ── Correct-count pill — lives in TopArea between TopBar and BunnyXPBar ────
-// Styled as a prop-driven component so the animation re-triggers on each
-// increment via a changing `key` prop (React remounts → CSS animation replays).
 const CorrectCountPill = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'hasCorrect',
 })<{ hasCorrect?: boolean }>(({ hasCorrect }) => ({
@@ -238,8 +229,7 @@ const CorrectCountPill = styled(Box, {
 
 const QuestionPage = () => {
   const { playSound } = useSoundContext();
-  
-  // NEW: Fetch resolution from the store!
+
   const resolution = useGameStore((state) => state.resolution);
 
   const {
@@ -279,25 +269,15 @@ const QuestionPage = () => {
   const currentLevel = localPlayer.level;
 
   const currentQuestion = questions[currentIndex];
-  
+
   const currentStreak = useTriviaStore((state) => state.currentStreak);
   const sessionXpRef = useRef<number>(0);
   const [sessionXpState, setSessionXpState] = useState<number>(0);
 
-  // ── Live correct-answer counter ───────────────────────────────────────────
-  // Incremented in the phase==="scoring" effect (same gate as triggerReward)
-  // so it only ticks up after the official reveal — never on click.
-  // Resets to 0 at the start of each session (phase==="readying", index===0).
   const [liveCorrectCount, setLiveCorrectCount] = useState<number>(0);
-  // animKey changes on every increment so React remounts CorrectCountPill,
-  // replaying the CSS pop animation each time without needing JS timers.
   const [correctAnimKey, setCorrectAnimKey] = useState<number>(0);
 
-  // ── FIX: Track pending reward data to fire ONLY at reveal phase ──────────
-  // Stores the calculated reward data from handleAnswerClick so it can be
-  // fired by the phase==="scoring" effect instead of immediately on click.
   const pendingRewardRef = useRef<Parameters<typeof triggerReward>[0] | null>(null);
-  // Prevents the reveal-phase effect from double-firing for the same question.
   const rewardFiredForIndexRef = useRef<number>(-1);
 
   const derivedBunnyState: BunnyState = useMemo(() => {
@@ -308,7 +288,7 @@ const QuestionPage = () => {
       if (!selectedAnswer) return 'thinking';
       if (rewardState.showXPBar) return 'running';
       if (currentStreak >= 5) return 'hyper';
-      return 'idle'; 
+      return 'idle';
     }
     return 'sleeping';
   }, [phase, timer, selectedAnswer, currentQuestion?.correctAnswer, rewardState.showXPBar]);
@@ -321,9 +301,7 @@ const QuestionPage = () => {
   const totalSessionTimeRef = useRef<number>(0);
   const totalAnsweredRef = useRef<number>(0);
 
-  // ── Guard: prevents the end-of-game handler running more than once ─────────
   const endProgressAppliedRef = useRef(false);
-
   const fellBehindByHalfRef = useRef(false);
 
   useEffect(() => {
@@ -345,11 +323,58 @@ const QuestionPage = () => {
     });
   }, [mode, lobbyRole, multiplayerBridge]);
 
-  // ── FIXED: handleAnswerClick no longer calls triggerReward directly ──────
-  // It still accumulates sessionXp and stores the *pending* reward data
-  // (score, xp, streak) in a ref. The actual triggerReward call is deferred
-  // to the phase==="scoring" useEffect below, which fires for BOTH host and
-  // client only after the answer has officially been revealed to everyone.
+  // ── Back button exit handler ─────────────────────────────────────────────
+  const hasExitedRef = useRef(false);
+
+  const handleExit = useCallback(() => {
+    if (mode === "solo") {
+      endProgressAppliedRef.current = true;
+      setScreen("home");
+      return;
+    }
+
+    if (hasExitedRef.current) return;
+    hasExitedRef.current = true;
+
+    if (multiplayerBridge) {
+      broadcastMultiplayerState();
+
+      const lobbyId = useMultiplayerStore.getState().lobbyId ?? "";
+      const hostAddress = useMultiplayerStore.getState().hostAddress ?? "";
+
+      multiplayerBridge.leaveLobby({
+        lobbyId,
+        hostAddress,
+        playerId: localPlayerId,
+      });
+    }
+
+    if (lobbyRole === "host") {
+      // Host abandoning cancels the session for everyone.
+      // endProgressAppliedRef blocks the phase==="end" progression handler
+      // so no XP, scores, or achievements are saved for the host.
+      endProgressAppliedRef.current = true;
+      useTriviaStore.setState({ phase: "end" });
+      // Broadcast the abandoned state before navigating away so clients
+      // receive hostAbandoned=true and skip to home instead of results.
+      const abandonState = useTriviaStore.getState();
+      multiplayerBridge?.broadcastGameState?.({
+        phase: "end",
+        timer: 0,
+        currentIndex: abandonState.currentIndex,
+        playerScores: abandonState.playerScores,
+        rankings: abandonState.rankings,
+        hostAbandoned: true,
+      });
+      setScreen("home");
+      return;
+    }
+
+    useMultiplayerStore.getState().setPlayerConnectionState(localPlayerId, "disconnected");
+    endProgressAppliedRef.current = true;
+    setTimeout(() => setScreen("multiplayer-results"), 50);
+  }, [mode, localPlayerId, lobbyRole, multiplayerBridge, broadcastMultiplayerState, setScreen]);
+
   const handleAnswerClick = useCallback((answer: string) => {
       submitAnswer(answer);
       const questionToScore = questions[currentIndex];
@@ -371,7 +396,6 @@ const QuestionPage = () => {
         answerTimer,
       );
 
-      // streak is already incremented by submitAnswer → selectAnswer
       const currentStreak = useTriviaStore.getState().currentStreak;
       const xpEarned = calculateXP(finalScore, currentStreak);
 
@@ -384,8 +408,6 @@ const QuestionPage = () => {
 
       const visualLevel = getLevel(newXP);
 
-      // FIX: Store the reward data in the ref instead of firing immediately.
-      // triggerReward will be called by the phase==="scoring" effect below.
       pendingRewardRef.current = {
         score: finalScore,
         xp: xpEarned,
@@ -401,35 +423,22 @@ const QuestionPage = () => {
     [submitAnswer, questions, currentIndex, timer, answerTimer, mode]
   );
 
-  // ── FIX: Fire all feedback effects ONLY when the reveal phase begins ─────
-  // This is the single source of truth for XP effects, correct-answer
-  // effects, and streak/combo effects. Both host and client reach this
-  // effect at the same logical moment: when phase transitions to "scoring".
-  // The host drives that transition; the client receives it via onGameStateSync.
   useEffect(() => {
     if (phase !== "scoring") return;
-
-    // Already fired for this question — guard against re-renders re-triggering.
     if (rewardFiredForIndexRef.current === currentIndex) return;
     rewardFiredForIndexRef.current = currentIndex;
 
-    // Increment the live correct counter if the local player got it right.
-    // pendingRewardRef is only populated for correct answers (handleAnswerClick
-    // returns early for incorrect ones), so its presence is the correct-answer signal.
     if (pendingRewardRef.current) {
       setLiveCorrectCount((n) => n + 1);
       setCorrectAnimKey((k) => k + 1);
     }
 
-    // Only trigger visual rewards if the local player answered correctly.
     if (!pendingRewardRef.current) return;
 
     triggerReward(pendingRewardRef.current);
     pendingRewardRef.current = null;
   }, [phase, currentIndex, triggerReward]);
 
-  // ── Reset pending reward ref when moving to a new question ───────────────
-  // Ensures stale data from the previous question never leaks into the next.
   useEffect(() => {
     if (phase === "answering" || phase === "readying") {
       pendingRewardRef.current = null;
@@ -446,7 +455,7 @@ const QuestionPage = () => {
       return;
 
     if (phase === "answering" && mode === "solo" && selectedAnswer) return;
-    
+
     let timerInterval: number;
     if (mode === "solo" || lobbyRole === "host") {
       timerInterval = window.setInterval(() => {
@@ -489,44 +498,41 @@ const QuestionPage = () => {
     broadcastMultiplayerState();
   }, [mode, lobbyRole, phase, currentIndex, selectedAnswer, playerAnswers, players, broadcastMultiplayerState]);
 
-  // ── Multiplayer: score current question (host) ──────────────────────────────
-  // CRITICAL: Host waits for answer-submission packets to arrive before scoring.
-  // Packets can be in-flight for up to ~500ms on a LAN, so we add a 300ms buffer
-  // after entering scoring phase to collect as many answers as possible.
-
-const ANSWER_COLLECTION_BUFFER_MS = 300;
-const hasScoredRef = useRef(false);
-const scoringStartTimeRef = useRef<number | null>(null);
+  // ── Multiplayer: score current question (host only) ───────────────────────
+  // Uses a one-shot setTimeout so in-flight answer packets from clients have
+  // time to arrive before scores are committed. The previous implementation
+  // used a useEffect with an early-return guard, but that never re-triggered
+  // after the buffer elapsed — so scoreCurrentQuestion() never actually ran.
+  //
+  // FIX: replaced the broken early-return pattern with a single setTimeout
+  // that fires once, ANSWER_COLLECTION_BUFFER_MS after the scoring phase
+  // begins. hasScoredRef prevents double-firing if the effect re-runs.
+  const ANSWER_COLLECTION_BUFFER_MS = 300;
+  const hasScoredRef = useRef(false);
 
   useEffect(() => {
-    if (phase !== "scoring" || mode !== "multiplayer" || lobbyRole !== "host") {
-      if (phase !== "scoring") {
-        hasScoredRef.current = false;
-        scoringStartTimeRef.current = null;
-      }
+    // Reset guard when leaving scoring phase so next question can score.
+    if (phase !== "scoring") {
+      hasScoredRef.current = false;
       return;
     }
 
+    if (mode !== "multiplayer" || lobbyRole !== "host") return;
     if (hasScoredRef.current) return;
 
-    // Record when scoring phase started to enforce answer collection buffer
-    if (scoringStartTimeRef.current === null) {
-      scoringStartTimeRef.current = Date.now();
-      console.log('[QuestionPage] Scoring phase started, waiting for in-flight answers for', ANSWER_COLLECTION_BUFFER_MS, 'ms');
-      return;
-    }
-
-    // Wait for buffer period to allow in-flight answer-submission packets to arrive
-    const elapsedMs = Date.now() - scoringStartTimeRef.current;
-    if (elapsedMs < ANSWER_COLLECTION_BUFFER_MS) {
-      return;
-    }
-
+    // Mark immediately to prevent a second effect run from queuing a second timeout.
     hasScoredRef.current = true;
-    console.log('[QuestionPage] Answer collection buffer complete, computing scores');
-    scoreCurrentQuestion();
-    finalizeRankings();
-    broadcastMultiplayerState();
+
+    console.log('[QuestionPage] Scoring phase started, collecting answers for', ANSWER_COLLECTION_BUFFER_MS, 'ms');
+
+    const timeoutId = window.setTimeout(() => {
+      console.log('[QuestionPage] Answer collection buffer complete, computing scores');
+      scoreCurrentQuestion();
+      finalizeRankings();
+      broadcastMultiplayerState();
+    }, ANSWER_COLLECTION_BUFFER_MS);
+
+    return () => window.clearTimeout(timeoutId);
   }, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, broadcastMultiplayerState]);
 
   useEffect(() => {
@@ -540,6 +546,16 @@ const scoringStartTimeRef = useRef<number | null>(null);
       const currentState = useTriviaStore.getState();
       const shouldResetSelectedAnswer =
         payload.currentIndex !== currentState.currentIndex;
+
+      // ── Host abandoned the match ─────────────────────────────────────────
+      // Skip results entirely: block progression save and return to home.
+      // Nothing earned in this session should be persisted.
+      if (payload.hostAbandoned) {
+        endProgressAppliedRef.current = true;
+        useTriviaStore.setState({ phase: "end" });
+        setTimeout(() => setScreen("home"), 50);
+        return;
+      }
 
       const mappedRankings = payload.rankings?.map((r) => ({
         playerId: r.playerId,
@@ -565,6 +581,11 @@ const scoringStartTimeRef = useRef<number | null>(null);
         ...(mappedRankings !== undefined ? { rankings: mappedRankings } : {}),
       };
       if (shouldResetSelectedAnswer) nextState.selectedAnswer = "";
+
+      if (payload.phase === "end" && hasExitedRef.current) {
+        setTimeout(() => setScreen("multiplayer-results"), 50);
+      }
+
       useTriviaStore.setState(nextState);
     };
     multiplayerBridge.onGameStateSync("QuestionPage", handleGameStateSync);
@@ -590,8 +611,6 @@ const scoringStartTimeRef = useRef<number | null>(null);
       levelAfterSessionRef.current     = 0;
     }
   }, [phase, currentIndex, recordSessionStartLevel]);
-
-
 
   useEffect(() => {
     if (phase !== "end" || endProgressAppliedRef.current) return;
@@ -677,16 +696,42 @@ const scoringStartTimeRef = useRef<number | null>(null);
 
   return (
     <OuterSpace>
-      {/* ── RESOLUTION LOCK ── Game strictly follows width/height from store */}
       <GameScreen sx={{ width: resolution.width, height: resolution.height }}>
-        
-        {/* ── TOP HUD (XP BAR AND CATEGORY) ────────────────────────────────── */}
+
+        {/* ── TOP HUD ───────────────────────────────────────────────────────── */}
         <TopArea>
           <TopBar>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-               <Typography sx={{ fontFamily: "'Courier New', monospace", fontSize: '14px', color: '#888' }}>
-                 {currentIndex + 1}/{questionLimit}
-               </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+              <Typography sx={{ fontFamily: "'Courier New', monospace", fontSize: '14px', color: '#888' }}>
+                {currentIndex + 1}/{questionLimit}
+              </Typography>
+              <Box
+                component="button"
+                onClick={handleExit}
+                sx={{
+                  fontFamily: "'Press Start 2P', monospace",
+                  fontSize: '7px',
+                  color: '#00E5FFaa',
+                  border: '1px solid #00E5FF55',
+                  borderRadius: '4px',
+                  background: 'transparent',
+                  padding: '4px 10px',
+                  cursor: 'pointer',
+                  letterSpacing: '1.5px',
+                  lineHeight: 1.6,
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  '&:hover': {
+                    color: '#00E5FF',
+                    borderColor: '#00E5FF',
+                    background: 'rgba(0,229,255,0.08)',
+                    boxShadow: '0 0 10px rgba(0,229,255,0.3)',
+                  },
+                  '&:active': { transform: 'scale(0.95)' },
+                }}
+              >
+                ← BACK
+              </Box>
             </Box>
 
             <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: '14px', color: '#35E52B', textAlign: 'center' }}>
@@ -701,9 +746,6 @@ const scoringStartTimeRef = useRef<number | null>(null);
             </Box>
           </TopBar>
 
-          {/* ── LIVE CORRECT COUNTER — sits between nav row and XP bar ─────── */}
-          {/* Right-aligned so it pairs visually with the XP label below it.    */}
-          {/* Uses a key-swap to replay the pop animation on every increment.   */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: '6px', mt: '-2px' }}>
             <CorrectCountPill key={correctAnimKey} hasCorrect={liveCorrectCount > 0}>
               <Typography sx={{
@@ -731,7 +773,7 @@ const scoringStartTimeRef = useRef<number | null>(null);
             </CorrectCountPill>
           </Box>
 
-           <BunnyXPBar
+          <BunnyXPBar
             oldXP={previousXP + (sessionXpState - (rewardState.data?.xp ?? 0))}
             newXP={previousXP + sessionXpState}
             xpPerLevel={1000}
@@ -773,34 +815,29 @@ const scoringStartTimeRef = useRef<number | null>(null);
           })}
         </AnswerGrid>
 
-        {/* ── BOTTOM HUD (MASCOT, TAGLINE, COLLECTIBLE) ─────────────────────── */}
+        {/* ── BOTTOM HUD ────────────────────────────────────────────────────── */}
         <BottomHud>
-          {/* Left: Mascot */}
           <Box sx={{ width: '120px', height: '120px', display: 'flex', alignItems: 'flex-end' }}>
             <BunnyMascot state={derivedBunnyState} size={110} />
           </Box>
 
-          {/* Center: Tagline & Emote Spawner */}
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-            
-            {/* Render flying emotes for EVERY player who sends one */}
             {Object.keys(activeEmotes).map((pid) => (
               <PlayerEmoteOverlay key={pid} playerId={pid} emotes={activeEmotes} />
             ))}
 
-            <Typography sx={{ 
-              fontFamily: "'Press Start 2P', monospace", 
-              fontSize: '14px', 
-              color: '#35E52B', 
-              textAlign: 'center', 
+            <Typography sx={{
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: '14px',
+              color: '#35E52B',
+              textAlign: 'center',
               lineHeight: 1.8,
-              animation: `${retroFlicker} 3s infinite` 
+              animation: `${retroFlicker} 3s infinite`
             }}>
               THINK FAST<br />GUESS FASTER
             </Typography>
           </Box>
 
-          {/* Right: Interactive Emote Carrot */}
           <Box sx={{ justifySelf: 'end' }}>
             <EmoteControls sendEmote={sendEmote} isOnCooldown={isOnCooldown} />
           </Box>
