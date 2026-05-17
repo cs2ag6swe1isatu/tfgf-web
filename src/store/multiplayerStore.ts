@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { Player } from "../types/player";
 import type { DiscoveredHost, LobbyMember, MultiplayerGameState, MultiplayerLobbySnapshot, PlayerConnectionState } from "../types/multiplayer";
 import { getRankForLevel } from "../constants";
+import { getMultiplayerPlayerId, usePlayerStore } from "./playerStore";
 
 
 type LobbyRole = "host" | "client";
@@ -192,15 +193,38 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   setLobbyState: (stateValue) => set({ lobbyState: stateValue }),
 
   resetPlayerStatuses: () => {
+    const playerStoreState = usePlayerStore.getState();
+    const localPlayer = playerStoreState.getPlayer();
+    const localMultiplayerId = getMultiplayerPlayerId(localPlayer.id);
+
     set((state) => ({
-      players: state.players.map((p) => ({
-        ...p,
-        status: "lobby",
-        isReady: p.isHost ? true : false,
-        connectionState: "connected",
-        lastSeenAt: Date.now(),
-        disconnectedAt: undefined,
-      })),
+      players: state.players.map((p) => {
+        // Refresh local player's level/rank from player store (may have gained XP/leveled up)
+        if (p.id === localMultiplayerId || p.id === state.hostId) {
+          const refreshFromPlayer = p.id === localMultiplayerId ? localPlayer : null;
+          return {
+            ...p,
+            status: "lobby",
+            isReady: p.isHost ? true : false,
+            connectionState: "connected",
+            lastSeenAt: Date.now(),
+            disconnectedAt: undefined,
+            level: refreshFromPlayer?.level ?? p.level,
+            rank: refreshFromPlayer ? getRankForLevel(refreshFromPlayer.level) : getRankForLevel(p.level),
+            avatar: refreshFromPlayer?.avatar ?? p.avatar,
+          };
+        }
+        return {
+          ...p,
+          status: "lobby",
+          isReady: false,
+          connectionState: "connected",
+          lastSeenAt: Date.now(),
+          disconnectedAt: undefined,
+          level: p.level,
+          rank: getRankForLevel(p.level),
+        };
+      }),
     }));
   },
 
