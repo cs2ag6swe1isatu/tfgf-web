@@ -20,7 +20,9 @@ type Screen =
   | "multiplayer-menu"
   | "multiplayer-lobby"
   | "multiplayer-discovery"
-  | "multiplayer-results";
+  | "multiplayer-results"
+  | "spectator-view";
+  
 
 export interface GameConfig {
   mode: Mode | null;

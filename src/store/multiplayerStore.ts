@@ -7,12 +7,19 @@ import { getRankForLevel } from "../constants";
 type LobbyRole = "host" | "client";
 type LobbyState = "lobby" | "discovering";
 
+// ── NEW: spectator role this client is occupying ──────────────────────────
+export type ParticipantRole = "player" | "spectator";
+
 export interface MultiplayerStateData {
   lobbyRole: LobbyRole | null;
   lobbyId: string | null;
   hostId: string | null;
   hostAddress: string | null;
   players: LobbyMember[];
+  // ── NEW ──────────────────────────────────────────
+  spectators: LobbyMember[];
+  participantRole: ParticipantRole;
+  // ─────────────────────────────────────────────────
   lobbyState: LobbyState;
   isPrivate: boolean;
   currentPlayerId: string | null;
@@ -47,6 +54,11 @@ export interface MultiplayerActions {
   pruneStaleDiscoveredHosts: (ttlMs: number) => void;
   clearDiscoveredHosts: () => void;
   setJoinStatus: (status: 'idle' | 'joining' | 'joined') => void;
+  // ── NEW ──────────────────────────────────────────
+  setParticipantRole: (role: ParticipantRole) => void;
+  addOrUpdateSpectator: (spectator: LobbyMember) => void;
+  removeSpectator: (spectatorId: string) => void;
+  // ─────────────────────────────────────────────────
 }
 
 export type MultiplayerState = MultiplayerStateData & MultiplayerSelectors & MultiplayerActions;
@@ -57,6 +69,10 @@ const initialState: MultiplayerStateData = {
   hostId: null,
   hostAddress: null,
   players: [],
+  // ── NEW ──────────────────────────────────────────
+  spectators: [],
+  participantRole: "player",
+  // ─────────────────────────────────────────────────
   lobbyState: "lobby",
   isPrivate: false,
   currentPlayerId: null,
@@ -86,7 +102,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   currentPlayer: () => {
     const id = get().currentPlayerId;
     if (!id) return null;
-    return get().players.find((p) => p.id === id) ?? null;
+    // Search both players and spectators so currentPlayer() works for spectators too
+    return get().players.find((p) => p.id === id) ?? get().spectators.find((p) => p.id === id) ?? null;
   },
 
   // Actions
@@ -96,6 +113,25 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   setHostAddress: (address) => set({ hostAddress: address }),
   setPrivate: (isPrivate) => set({ isPrivate }),
   setJoinStatus: (status) => set({ joinStatus: status }),
+
+  // ── NEW actions ───────────────────────────────────────────────────────────
+  setParticipantRole: (role) => set({ participantRole: role }),
+
+  addOrUpdateSpectator: (spectator) => {
+    set((state) => {
+      const existingIndex = state.spectators.findIndex((s) => s.id === spectator.id);
+      if (existingIndex >= 0) {
+        const spectators = [...state.spectators];
+        spectators[existingIndex] = { ...spectators[existingIndex], ...spectator };
+        return { spectators };
+      }
+      return { spectators: [...state.spectators, spectator] };
+    });
+  },
+
+  removeSpectator: (spectatorId) =>
+    set((state) => ({ spectators: state.spectators.filter((s) => s.id !== spectatorId) })),
+  // ─────────────────────────────────────────────────────────────────────────
 
   addOrUpdateDiscoveredHost: (host) => {
     if (!host.lobbyId || !host.hostId) return;
@@ -141,8 +177,6 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     set((state) => {
       const existingIndex = state.players.findIndex((p) => p.id === player.id);
       const existing = existingIndex >= 0 ? state.players[existingIndex] : null;
-      // FIX: preserve avatar from existing player if incoming value is empty,
-      // and preserve isReady/isHost from existing if opts don't explicitly set them.
       const member: LobbyMember = {
         id: player.id,
         name: player.name,
@@ -155,6 +189,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         lastSeenAt: existing?.lastSeenAt,
         disconnectedAt: opts?.connectionState === "disconnected" ? existing?.disconnectedAt ?? Date.now() : undefined,
         status: opts?.status ?? existing?.status ?? "lobby",
+        // Preserve role field if present on the incoming player object
+        role: (player as LobbyMember).role ?? existing?.role ?? "player",
       };
 
       if (existingIndex >= 0) {
@@ -190,23 +226,36 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   setCurrentPlayerId: (id) => set({ currentPlayerId: id }),
   setLobbyState: (stateValue) => set({ lobbyState: stateValue }),
 
+  // ── UPDATED: split snapshot players by role ──────────────────────────────
   syncLobbySnapshot: (snapshot, hostAddress) =>
-    set((state) => ({
-      lobbyRole: state.lobbyRole,
-      lobbyId: snapshot.lobbyId,
-      hostId: snapshot.hostId ?? null,
-      hostAddress: hostAddress ?? state.hostAddress ?? null,
-      players: snapshot.players.map((p) => ({
+    set((state) => {
+      const allMembers = snapshot.players.map((p) => ({
         ...p,
         rank: getRankForLevel(p.level),
         connectionState: p.connectionState ?? "connected",
         lastSeenAt: p.lastSeenAt,
         disconnectedAt: p.disconnectedAt,
         status: p.status ?? "lobby",
-      })),
-      lobbyState: state.lobbyState,
-      isPrivate: snapshot.isPrivate ?? state.isPrivate,
-    })),
+        role: p.role ?? "player",
+      }));
+
+      // Spectators live in their own list; everyone else goes to players
+      const players = allMembers.filter((p) => p.role !== "spectator");
+      const spectators = allMembers.filter((p) => p.role === "spectator");
+
+      return {
+        lobbyRole: state.lobbyRole,
+        lobbyId: snapshot.lobbyId,
+        hostId: snapshot.hostId ?? null,
+        hostAddress: hostAddress ?? state.hostAddress ?? null,
+        players,
+        spectators,
+        lobbyState: state.lobbyState,
+        isPrivate: snapshot.isPrivate ?? state.isPrivate,
+        participantRole: state.participantRole, // ← preserve, don't reset on sync
+      };
+    }),
+  // ─────────────────────────────────────────────────────────────────────────
 
   resetMultiplayer: () => set({ ...initialState }),
 }));

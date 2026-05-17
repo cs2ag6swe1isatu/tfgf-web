@@ -441,18 +441,14 @@ function upsertLobbyMember(snapshot: MultiplayerLobbySnapshot, member: LobbyMemb
   };
   if (existingIndex >= 0) {
     const players = [...snapshot.players];
-    players[existingIndex] = {
-      ...players[existingIndex],
-      ...nextMember,
-      connectionState: nextMember.connectionState ?? players[existingIndex].connectionState ?? "connected",
-    };
-    return { ...snapshot, players, playerCount: countConnectedPlayers(players) };
+    players[existingIndex] = { ...players[existingIndex], ...nextMember };
+    return { ...snapshot, players, playerCount: countConnectedPlayers(players.filter(p => p.role !== "spectator")) };
   }
-
+  const nextPlayers = [...snapshot.players, nextMember];
   return {
     ...snapshot,
-    players: [...snapshot.players, nextMember],
-    playerCount: countConnectedPlayers([...snapshot.players, nextMember]),
+    players: nextPlayers,
+    playerCount: countConnectedPlayers(nextPlayers.filter(p => p.role !== "spectator")), // ✅
   };
 }
 
@@ -793,6 +789,7 @@ function requestJoin(payload: MultiplayerJoinRequest) {
     rank: payload.player.rank,
     isHost: payload.player.isHost,
     isReady: payload.player.isReady,
+    role: payload.player.role,
   }
 };
 

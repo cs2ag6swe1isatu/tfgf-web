@@ -15,6 +15,7 @@ export interface LobbyMember {
   lastSeenAt?: number;
   disconnectedAt?: number;
   status?: "lobby" | "playing" | "results";
+  role?: "player" | "spectator"; 
 }
 
 export interface MultiplayerBroadcastPayload {
@@ -121,6 +122,8 @@ export type DiscoveredHost = {
 };
 
 export interface MultiplayerBridge {
+  onHttpServerStarted(arg0: string, arg1: (port: any) => void): unknown;
+  offHttpServerStarted(arg0: string): unknown;
   // ── HTTP question server (host only) ──────────────────────────────────────
   // Starts a local HTTP server that serves the serialized question list to
   // clients fetching from http://<hostAddress>:<questionPort>/questions.
