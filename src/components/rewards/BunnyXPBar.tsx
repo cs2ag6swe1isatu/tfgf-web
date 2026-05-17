@@ -44,9 +44,9 @@ export const BunnyXPBar: React.FC<BunnyXPBarProps> = ({ oldXP, newXP, xpPerLevel
   const startPercent = (oldXP % xpPerLevel) / xpPerLevel * 100;
   const endPercent = (newXP % xpPerLevel) / xpPerLevel * 100;
 
-  useEffect(() => {
+ useEffect(() => {
     if (!animate) {
-      setDisplayProgress(startPercent);
+      setDisplayProgress(endPercent);
       return;
     }
     if (levelUp) {
