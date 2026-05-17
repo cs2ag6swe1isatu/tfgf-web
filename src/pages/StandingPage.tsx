@@ -402,7 +402,7 @@ export default function RankingPage() {
           </p>
         </div>
 
-        {/* Grid + arrows row */}
+        {/* Grid + arrows row
         <div style={styles.gridRow}>
 
           <ArrowBtn
@@ -411,9 +411,7 @@ export default function RankingPage() {
             onClick={() => { setPage(p => p - 1); playSound("select"); }}
           />
 
-          {/* 5-card grid (3 + 2 centered) */}
           <div style={styles.grid}>
-            {/* Top row: 3 cards */}
             <div style={styles.topRow}>
               {currentRanks.slice(0, 3).map((rank: RankDef, i: number) => (
                 <div key={rank.title} style={styles.gridCell}>
@@ -421,7 +419,6 @@ export default function RankingPage() {
                 </div>
               ))}
             </div>
-            {/* Bottom row: 2 cards centered */}
             <div style={styles.bottomRow}>
               {currentRanks.slice(3, 5).map((rank: RankDef, i: number) => (
                 <div key={rank.title} style={styles.gridCell}>
@@ -436,7 +433,7 @@ export default function RankingPage() {
             disabled={page === totalPages - 1}
             onClick={() => { setPage(p => p + 1); playSound("select"); }}
           />
-        </div>
+        </div> */}
         {/* Tab switcher */}
         <div style={{ display:"flex", gap:4, marginBottom:"clamp(10px,1.8vw,22px)", animation:"fadeUp 0.3s 0.1s both" }}>
           {["MY RANK","ALL RANKS"].map((label,i)=>(
