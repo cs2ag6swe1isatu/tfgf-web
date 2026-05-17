@@ -1,5 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo } from "react";
-import { Box, Typography, Button } from "@mui/material";
+import { useEffect, useRef, useCallback, useMemo, useState } from "react";import { Box, Typography, Button } from "@mui/material";
 import { useTriviaStore, useMultiplayerStore, useGameStore } from "../store";
 import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { Clock } from 'pixelarticons/react';
@@ -253,6 +252,7 @@ const QuestionPage = () => {
   
 const currentStreak = useTriviaStore((state) => state.currentStreak);
 const sessionXpRef = useRef<number>(0);
+const [sessionXpState, setSessionXpState] = useState<number>(0);
 
 const derivedBunnyState: BunnyState = useMemo(() => {
     if (phase === 'end') return 'winner';
@@ -323,7 +323,8 @@ const derivedBunnyState: BunnyState = useMemo(() => {
       const currentStreak = useTriviaStore.getState().currentStreak;
       const xpEarned = calculateXP(finalScore, currentStreak);
 
-      sessionXpRef.current += xpEarned;
+       sessionXpRef.current += xpEarned;
+      setSessionXpState(sessionXpRef.current);
 
       const persistedTotalXp = usePlayerStore.getState().getPlayer().totalXp;
       const oldXP = persistedTotalXp + (sessionXpRef.current - xpEarned);
@@ -475,7 +476,8 @@ useEffect(() => {
       fellBehindByHalfRef.current = false;
       totalSessionTimeRef.current = 0;
       totalAnsweredRef.current = 0;
-      sessionXpRef.current = 0;
+         sessionXpRef.current = 0;
+      setSessionXpState(0);
       endProgressAppliedRef.current = false;
       gameStartTimeRef.current = null;
 
@@ -595,13 +597,13 @@ useEffect(() => {
             </Box>
           </TopBar>
 
-          <BunnyXPBar
-            oldXP={previousXP}
-            newXP={previousXP + xpEarned}
+           <BunnyXPBar
+            oldXP={previousXP + (sessionXpState - (rewardState.data?.xp ?? 0))}
+            newXP={previousXP + sessionXpState}
             xpPerLevel={1000}
             level={currentLevel}
             animate={rewardState.showXPBar}
-            levelUp={rewardState.showLevelUp} 
+            levelUp={rewardState.showLevelUp}
           />
         </TopArea>
 
