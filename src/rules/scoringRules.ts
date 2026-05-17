@@ -69,6 +69,8 @@ export function applyRoundScores(input: RoundScoreInput): Record<string, number>
   }
 
   Object.entries(playerAnswers).forEach(([playerId, answers]) => {
+    // Host is already scored via hostAnswer path — skip to avoid double-counting.
+    if (playerId === hostPlayerId) return;
     const answerData = answers[questionIndex];
     if (!answerData) return;
 

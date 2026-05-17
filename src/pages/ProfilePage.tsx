@@ -94,41 +94,48 @@ const createEmptyProfileStatsView = (): ProfileStatsView => ({
   }, {} as Record<Difficulty, DifficultySummary>),
 });
 
-const buildProfileStatsView = (player: Player, mode: HistoryView): ProfileStatsView => {
-  const view = createEmptyProfileStatsView();
+  const buildProfileStatsView = (player: Player, mode: HistoryView): ProfileStatsView => {
+    const view = createEmptyProfileStatsView();
 
-  for (const categoryStats of Object.values(player.individualStats)) {
-    const modeEntries = mode === "all" ? Object.values(categoryStats) : [categoryStats[mode]];
+    for (const categoryStats of Object.values(player.individualStats)) {
+      const modeEntries = mode === "all" ? Object.values(categoryStats) : [categoryStats[mode]];
 
-    for (const modeStats of modeEntries) {
-      for (const [difficulty, playData] of Object.entries(modeStats) as Array<[Difficulty, PlayData]>) {
-        const summary = view.difficultyStats[difficulty];
-        summary.score += playData.scoreGained;
-        summary.gamesPlayed += playData.gamesPlayed;
-        summary.questionsAnswered += playData.totalQuestionsAnswered;
-        summary.correctAnswers += playData.correctAnswers;
+      for (const modeStats of modeEntries) {
+        for (const [difficulty, playData] of Object.entries(modeStats) as Array<[Difficulty, PlayData]>) {
+          const summary = view.difficultyStats[difficulty];
+          summary.score += playData.scoreGained;
+          summary.gamesPlayed += playData.gamesPlayed;
+          summary.questionsAnswered += playData.totalQuestionsAnswered;
+          summary.correctAnswers += playData.correctAnswers;
 
-        view.score += playData.scoreGained;
-        view.gamesPlayed += playData.gamesPlayed;
-        view.questionsAnswered += playData.totalQuestionsAnswered;
-        view.correctAnswers += playData.correctAnswers;
+          view.score += playData.scoreGained;
+          view.gamesPlayed += playData.gamesPlayed;
+          view.questionsAnswered += playData.totalQuestionsAnswered;
+          view.correctAnswers += playData.correctAnswers;
+        }
       }
     }
-  }
 
-  view.accuracy =
-    view.questionsAnswered > 0 ? Math.round((view.correctAnswers / view.questionsAnswered) * 100) : 0;
+    view.score = Math.round(view.score);
 
-  for (const difficulty of DIFFICULTIES) {
-    const summary = view.difficultyStats[difficulty];
-    summary.accuracy =
-      summary.questionsAnswered > 0
-        ? Math.round((summary.correctAnswers / summary.questionsAnswered) * 100)
-        : 0;
-  }
+    for (const difficulty of DIFFICULTIES) {
+      const summary = view.difficultyStats[difficulty];
+      summary.score = Math.round(summary.score);
+    }
 
-  return view;
-};
+    view.accuracy =
+      view.questionsAnswered > 0 ? Math.round((view.correctAnswers / view.questionsAnswered) * 100) : 0;
+
+    for (const difficulty of DIFFICULTIES) {
+      const summary = view.difficultyStats[difficulty];
+      summary.accuracy =
+        summary.questionsAnswered > 0
+          ? Math.round((summary.correctAnswers / summary.questionsAnswered) * 100)
+          : 0;
+    }
+
+    return view;
+  };
 
 const formatHistoryDate = (date: Date): string =>
   new Intl.DateTimeFormat(undefined, {
@@ -198,11 +205,11 @@ const ProfilePage = () => {
   const level = player.level;
   const xp = player.totalXp;
   const xpToNextLevel = player.xpToNextLevel;
-  const displayedTopScore = historyView === "all"
+  const displayedTopScore = Math.round(historyView === "all"
     ? Math.max(player.soloTopScore ?? 0, player.multiplayerTopScore ?? 0)
     : historyView === "solo"
       ? (player.soloTopScore ?? 0)
-      : (player.multiplayerTopScore ?? 0);
+      : (player.multiplayerTopScore ?? 0));
 
   const profileStats = useMemo(() => buildProfileStatsView(player, historyView), [player, historyView]);
   const difficultyStats = profileStats.difficultyStats;

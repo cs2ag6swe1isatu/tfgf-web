@@ -1,6 +1,6 @@
 import { Mode, Category, Difficulty, getRankForLevel } from "../constants";
 import { Question } from '../types/question';
-import { calculateXP } from '../utils/progression';
+import { calculateXP, calculateMultiplayerXP } from '../utils/progression';
 import { applyXpMultiplier } from "../tests/xpMultiplierTester";
 
 /** Progression Rules - Game Progression and Player Advancement Logic
@@ -34,6 +34,12 @@ export interface SessionProgressInput {
     topThreeFinish: boolean; // for multiplayer
     hostedLobby?: boolean; // multiplayer host who completed a saved match
     fellBehindByHalfAndWon?: boolean; // achieved comeback from <=50% of leader score and still won
+    /**
+     * Player's final rank in the match.
+     * Used for multiplayer XP calculation (placement bonuses).
+     * 0 or undefined for solo.
+     */
+    rank?: number;
 }
 
 export interface SessionDelta {
@@ -59,7 +65,16 @@ export function getLastXpGained(): number {
 }
 
 export function buildSessionDelta(input: SessionProgressInput): SessionDelta {
-    const rawXp = calculateXP(input.score, input.maxStreak ?? 0);
+    let rawXp: number;
+
+    if (input.mode === 'multiplayer' && input.rank !== undefined && input.rank > 0) {
+      // Multiplayer XP: (score × streakMultiplier) + placementBonus + winBonus
+      rawXp = calculateMultiplayerXP(input.score, input.maxStreak ?? 0, input.rank);
+    } else {
+      // Solo XP: Score × 1.5 × Streak Multiplier
+      rawXp = calculateXP(input.score, input.maxStreak ?? 0);
+    }
+
     const finalXp = applyXpMultiplier(rawXp);
     _lastXpGained = finalXp;
 

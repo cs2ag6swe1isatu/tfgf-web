@@ -79,6 +79,7 @@ interface RankingEntry {
   questionsAnswered?: number;
   accuracy?: number;
   avgTime?: number;
+  xp?: number;
 }
 
 interface LobbyMemberInfo {
@@ -115,8 +116,9 @@ function buildPlayerResults(
     return count + (question && entry.answer === question.correctAnswer ? 1 : 0);
   }, 0);
 
-  const localAccuracy = localAnswered.length > 0
-    ? Math.round((localCorrectCount / localAnswered.length) * 100)
+  const totalQuestions = questions.length;
+  const localAccuracy = totalQuestions > 0
+    ? Math.round((localCorrectCount / totalQuestions) * 100)
     : 0;
 
   return rankings
@@ -126,10 +128,9 @@ function buildPlayerResults(
 
       const isLocalPlayer = entry.playerId === localPlayerId;
       const correctCount = entry.correctCount ?? (isLocalPlayer ? localCorrectCount : 0);
-      const qAnswered = entry.questionsAnswered ?? (isLocalPlayer ? localAnswered.length : 0);
-      const acc = entry.accuracy ?? (isLocalPlayer ? localAccuracy : (qAnswered > 0 ? Math.round((correctCount / qAnswered) * 100) : 0));
+      const acc = entry.accuracy ?? (totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0);
       const avg = entry.avgTime ?? (isLocalPlayer ? localAvgTime : null);
-      const xp = isLocalPlayer ? (getLastXpGained() || entry.score) : entry.score;
+      const xp = entry.xp ?? 0;
 
       return {
         id: entry.playerId,
