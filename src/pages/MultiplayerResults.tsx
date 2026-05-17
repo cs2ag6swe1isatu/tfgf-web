@@ -44,14 +44,21 @@ function getRankTier(xp: number): { tier: RankTier; pct: number } {
 function useCountUp(target: number, duration = 1700, active = false): number {
   const [val, setVal] = useState(0);
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      console.log(`[useCountUp] Not active, target=${target}`);
+      return;
+    }
+    console.log(`[useCountUp] Starting animation: target=${target}, duration=${duration}ms, active=${active}`);
     let start: number | null = null;
     const anim = (ts: number) => {
       if (!start) start = ts;
       const p = Math.min((ts - start) / duration, 1);
       setVal(Math.floor(p * target));
       if (p < 1) requestAnimationFrame(anim);
-      else setVal(target);
+      else {
+        setVal(target);
+        console.log(`[useCountUp] Animation complete: final value=${target}`);
+      }
     };
     requestAnimationFrame(anim);
   }, [target, duration, active]);
@@ -133,6 +140,21 @@ function buildPlayerResults(
       const acc = entry.accuracy ?? (totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0);
       const avg = entry.avgTime ?? (isLocalPlayer ? localAvgTime : null);
       const xp = entry.xp ?? 0;
+
+      // Diagnostic: log fallback values for local player
+      if (isLocalPlayer) {
+        console.log('[buildPlayerResults] Local player:', {
+          id: entry.playerId.slice(0, 8),
+          name: info.name,
+          hostProvidedAccuracy: entry.accuracy,
+          hostProvidedCorrectCount: entry.correctCount,
+          hostProvidedQuestionsAnswered: entry.questionsAnswered,
+          localCorrectCount,
+          localAnswersCount: localAnswers.filter(a => !!a).length,
+          calculatedAccuracy: acc,
+          fallbackUsed: !entry.accuracy,
+        });
+      }
 
       return {
         id: entry.playerId,
@@ -328,6 +350,36 @@ export default function MultiplayerResults() {
 
   const localXp = localPlayer?.totalXp ?? 0;
 
+  // ── Diagnostic logging ────────────────────────────────────────────────────
+  useEffect(() => {
+    console.log('[MultiplayerResults] Component mounted / updated', {
+      youId: you?.id?.slice(0, 8),
+      youScore: you?.score,
+      youAcc: you?.acc,
+      youCorrectCount: you?.correctCount,
+      youXp: you?.xp,
+      youRank: you?.rank,
+      triviaRankingsLength: triviaRankings.length,
+      triviaQuestionsLength: triviaQuestions.length,
+      triviaUserAnswersLength: triviaUserAnswers.length,
+      triviaAvgTime,
+      totalQuestions,
+      ready,
+    });
+    console.log('[MultiplayerResults] Host ranking entry', 
+      triviaRankings.find(r => r.playerId === you?.id)
+    );
+    console.log('[MultiplayerResults] All player results:', 
+      players.map(p => ({ 
+        name: p.name.slice(0, 8), 
+        score: p.score, 
+        acc: p.acc, 
+        correctCount: p.correctCount, 
+        xp: p.xp 
+      }))
+    );
+  }, [you, triviaRankings, triviaQuestions, triviaUserAnswers, triviaAvgTime, totalQuestions, ready, players]);
+
   // ── Cinematic level-up transition state ──────────────────────────────────
   const [showLevelUp, setShowLevelUp] = useState(false);
   const xpGainedThisGame = getLastXpGained() || you?.xp || 0;
@@ -353,11 +405,17 @@ export default function MultiplayerResults() {
 
   useEffect(() => {
     const t = setTimeout(() => {
+      console.log('[MultiplayerResults] Setting ready=true after 480ms delay');
+      console.log('[MultiplayerResults] Count-up targets:', {
+        scoreTarget: you?.score || 0,
+        xpTarget: getLastXpGained() || you?.xp || 0,
+        accTarget: you?.acc || 0,
+      });
       setReady(true);
       setTimeout(() => setProgWidth(rankPct), 300);
     }, 480);
     return () => clearTimeout(t);
-  }, [rankPct]);
+  }, [rankPct, you?.score, you?.xp, you?.acc]);
 
   const handleBackToLobby = () => {
     resetTrivia();
@@ -369,6 +427,19 @@ export default function MultiplayerResults() {
     resetMultiplayer();
     setScreen("home");
   };
+
+  // ── Ready state change logging ────────────────────────────────────────────
+  useEffect(() => {
+    console.log('[MultiplayerResults] Ready state changed:', {
+      ready,
+      scoreDisplay,
+      xpDisplay,
+      accDisplay,
+      youAcc: you?.acc,
+      youScore: you?.score,
+      youXp: you?.xp,
+    });
+  }, [ready, scoreDisplay, xpDisplay, accDisplay, you?.acc, you?.score, you?.xp]);
 
   return (
     <div style={s.root}>

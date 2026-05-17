@@ -428,22 +428,29 @@ const MultiplayerMenuPage = () => {
 
         {/* --- BACK BUTTON --- */}
         <Box sx={{ position: "relative", zIndex: 10 }}>
-          <Button
-  onClick={() => { setScreen("mode-select"); playSound("select"); }}
-  onMouseEnter={() => playSound("hover")}
-  sx={{
-              width: layout.backW, // Fixed
-              height: layout.backH, // Fixed
-              borderRadius: "14px",
-              background: "#10363A",
-              border: "1.5px solid #00DFFF",
-              "&:hover": { background: "#164249" }
-            }}
+          {/* Back button */}
+          <style>{`
+            @keyframes navGlow {
+              0%,100% { box-shadow: 0 0 10px rgba(0,223,255,0.35), 0 0 20px rgba(0,223,255,0.12); }
+              50%     { box-shadow: 0 0 16px rgba(0,223,255,0.55), 0 0 32px rgba(0,223,255,0.22); }
+            }
+
+            .back-btn:hover {
+              background: rgba(0,223,255,0.06) !important;
+              box-shadow: 0 0 14px rgba(0,223,255,0.45) !important;
+              color: #00E5FF !important;
+              border-color: #00E5FF !important;
+            }
+            .back-btn:active { transform: scale(0.97); }
+          `}</style>
+          <button
+            className="back-btn"
+            onClick={() => { setScreen("mode-select"); playSound("select"); }}
+            onMouseEnter={() => { playSound("hover"); }}
+            style={styles.backBtn}
           >
-            <Typography sx={{ fontSize: `${layout.backPx}px`, color: "#31D94A" }}>
-              BACK
-            </Typography>
-          </Button>
+            BACK
+          </button>
         </Box>
       </Box>
     </Box>
@@ -451,3 +458,21 @@ const MultiplayerMenuPage = () => {
 };
 
 export default MultiplayerMenuPage;
+
+const styles: Record<string, React.CSSProperties> = {
+  backBtn: {
+    fontFamily: "'Press Start 2P', monospace",
+    fontSize: 11,
+    letterSpacing: "0.1em",
+    color: "#35E52B",
+    background: "#10353A",
+    border: `2px solid #00E5FF`,
+    borderRadius: 8,
+    padding: "14px 40px",
+    cursor: "pointer",
+    animation: `navGlow 3s ease-in-out infinite`,
+    transition: "background 0.15s, box-shadow 0.15s, color 0.15s, border-color 0.15s",
+    outline: "none",
+    textShadow: `0 0 8px #35E52B`,
+  },
+};
