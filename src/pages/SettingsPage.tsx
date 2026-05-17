@@ -2,6 +2,16 @@ import { useState, useRef, useEffect, ReactNode } from "react";
 import { useGameStore } from "../store/gameStore";
 import { usePlayerStore, PlayerState } from "../store/playerStore";
 
+// ─── AUDIO PATHS (public/sounds — production-safe for Electron) ───────────
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const sfxHover      = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Cursor 2 (Square).mp3`;
+const sfxSelect     = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Select 1 (Square).mp3`;
+const sfxTab        = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Popup Open 1 (Square).mp3`;
+const sfxBack       = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Cancel 1 (Square).mp3`;
+const sfxError      = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Error 1 (Square).mp3`;
+const creditsBgmSrc = `${BASE}/sounds/djartmusic-8-bit-console-from-my-childhood-301286.mp3`;
+
 const NEON = "#35E52B";
 const CYAN = "#00E5FF";
 const BG   = "#010707";
@@ -217,17 +227,19 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
   const audioBank = useRef<Partial<Record<SoundType, HTMLAudioElement>>>({});
   const audioCtx  = useRef<AudioContext | null>(null);
   const mp3Ready  = useRef(false);
-  // Keep a ref in sync with sfxEnabled so playSound always reads the latest value
   const sfxEnabledRef = useRef(sfxEnabled);
   useEffect(() => { sfxEnabledRef.current = sfxEnabled; }, [sfxEnabled]);
 
   useEffect(() => {
+    // FIX: use Vite-imported asset URLs instead of bare "/sounds/..." strings.
+    // Vite resolves these at build time and hashes them into the assets bundle,
+    // so they load correctly in both dev and the packaged Electron .exe.
     const files: Record<SoundType, string> = {
-      hover:  "/sounds/JDSherbert - Pixel UI SFX Pack - Cursor 2 (Square).mp3",
-      select: "/sounds/JDSherbert - Pixel UI SFX Pack - Select 1 (Square).mp3",
-      tab:    "/sounds/JDSherbert - Pixel UI SFX Pack - Popup Open 1 (Square).mp3",
-      back:   "/sounds/JDSherbert - Pixel UI SFX Pack - Cancel 1 (Square).mp3",
-      error:  "/sounds/JDSherbert - Pixel UI SFX Pack - Error 1 (Square).mp3",
+      hover:  sfxHover,
+      select: sfxSelect,
+      tab:    sfxTab,
+      back:   sfxBack,
+      error:  sfxError,
     };
     let loaded = 0;
     (Object.entries(files) as [SoundType, string][]).forEach(([key, src]) => {
@@ -359,7 +371,6 @@ export default function SettingsPage() {
   // ── Store ──────────────────────────────────────────────
   const setScreen            = useGameStore((s) => s.setScreen);
   const updateSettings       = useGameStore((s) => s.updateSettings);
-  // Used to signal App.tsx to pause/resume the global BGM around Credits
   const setCreditsBgmActive  = useGameStore((s) => s.setCreditsBgmActive);
   const setResolution  = useGameStore((s) => s.setResolution);
   const setGameConfig  = useGameStore((s) => s.setGameConfig);
@@ -383,8 +394,6 @@ export default function SettingsPage() {
   const [draftResKey,      setDraftResKey]      = useState<string>(storedRes.label ?? "XGA");
   const [draftAutoJoinLan, setDraftAutoJoinLan] = useState<boolean>(gameConfig.autoJoinLan ?? false);
 
-  // FIX: drive the audio engine from the persisted setting, not the draft.
-  // This prevents sounds from playing/stopping based on unsaved toggle state.
   const { playSound } = useAudioEngine(storedSettings.sfxEnabled ?? true, draftVolume);
 
   // ── Credits state & refs ───────────────────────────────
@@ -396,7 +405,6 @@ export default function SettingsPage() {
   const creditsBgmRef       = useRef<HTMLAudioElement | null>(null);
   const creditsFadeRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const [creditsMuted,      setCreditsMuted]      = useState(false);
-  // Initialise credits BGM volume from the saved master volume (0–1 scale)
   const [creditsBgmVol,     setCreditsBgmVol]     = useState(() => (storedSettings.volume ?? 5) / 10);
   const [creditsBgmPlaying, setCreditsBgmPlaying] = useState(false);
 
@@ -421,20 +429,20 @@ export default function SettingsPage() {
   }
 
   function startCreditsBgm() {
-    // Guard: only one instance, and respect the saved BGM enabled setting
     if (creditsBgmRef.current) return;
     if (!storedSettings.bgmEnabled) return;
-    // ← swap filename here if the track ever changes
-    const audio = new Audio("/sounds/djartmusic-8-bit-console-from-my-childhood-301286.mp3");
+    // FIX: use the Vite-imported asset URL (creditsBgmSrc) instead of the
+    // bare "/sounds/..." string, which is not resolvable in the packaged .exe.
+    const audio = new Audio(creditsBgmSrc);
     audio.loop   = true;
-    audio.volume = 0; // always start silent, then fade in
+    audio.volume = 0;
     creditsBgmRef.current = audio;
     audio.play()
       .then(() => {
         setCreditsBgmPlaying(true);
         fadeCreditsBgm(creditsMuted ? 0 : creditsBgmVol, 1800);
       })
-      .catch(() => {}); // autoplay blocked — silently ignored
+      .catch(() => {});
   }
 
   function stopCreditsBgm() {
@@ -515,7 +523,6 @@ export default function SettingsPage() {
   // ── Mount / unmount credits effects on tab change ──────
   useEffect(() => {
     if (tab === "CREDITS") {
-      // Signal App.tsx to pause the global BGM while Credits is shown
       setCreditsBgmActive(true);
       startCreditsBgm();
       startCreditsScroll();
@@ -525,7 +532,6 @@ export default function SettingsPage() {
         stopCreditsScroll();
         cleanupParticles?.();
         creditsPausedRef.current = false;
-        // Signal App.tsx to resume the global BGM
         setCreditsBgmActive(false);
       };
     }
@@ -639,8 +645,6 @@ export default function SettingsPage() {
             <PixelToggle
               value={draftSfx} label="UI SOUND EFFECTS"
               onHover={() => playSound("hover")}
-              // FIX: only play the click sound when turning SFX ON (new state = true).
-              // When turning OFF, the new state is false so no sound should play.
               onToggle={() => { if (!draftSfx) playSound("select"); setDraftSfx(!draftSfx); }}
             />
             <SectionLabel>MUSIC</SectionLabel>
@@ -813,7 +817,6 @@ export default function SettingsPage() {
                   {/* Sections */}
                   {CREDITS_SECTIONS.map((sec) => (
                     <div key={sec.heading} style={{ marginBottom: 28, textAlign: "left" }}>
-                      {/* Section heading */}
                       <div style={{
                         fontFamily: font, fontSize: 8, letterSpacing: 2, color: CYAN,
                         textShadow: `0 0 8px ${CYAN}`,
@@ -828,14 +831,12 @@ export default function SettingsPage() {
                           display: "flex", alignItems: "flex-start",
                           marginBottom: 8, gap: 4,
                         }}>
-                          {/* Row label */}
                           <span style={{
                             fontFamily: font, fontSize: 7, color: `${NEON}88`,
                             minWidth: 150, flexShrink: 0, letterSpacing: 0.5, lineHeight: 1.8,
                           }}>
                             {row.label}
                           </span>
-                          {/* Dots */}
                           <span style={{
                             fontFamily: font, fontSize: 7, color: `${NEON}33`,
                             flex: 1, letterSpacing: 2, overflow: "hidden",
@@ -843,7 +844,6 @@ export default function SettingsPage() {
                           }}>
                             {DOTS}
                           </span>
-                          {/* Names */}
                           <span style={{
                             fontFamily: font, fontSize: 7, color: NEON,
                             textAlign: "right", minWidth: 170, lineHeight: 1.8,
