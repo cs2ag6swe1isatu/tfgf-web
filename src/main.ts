@@ -8,6 +8,11 @@ import * as http from 'node:http';
 import mdns from 'multicast-dns';
 import started from 'electron-squirrel-startup';
 
+// Disable sandbox if running as root OR if explicitly requested via environment
+if ((process.getuid && process.getuid() === 0) || process.env.DISABLE_ELECTRON_SANDBOX === '1') {
+  app.commandLine.appendSwitch('no-sandbox');
+}
+
 const BROADCAST_PORT = 41234;
 const BROADCAST_ADDR = "255.255.255.255";
 const MDNS_NAME = 'tfgf-discovery.local';
