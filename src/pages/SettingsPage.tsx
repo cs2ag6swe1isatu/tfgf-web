@@ -386,6 +386,7 @@ export default function SettingsPage() {
   const player       = usePlayerStore((s) => s.player);
   const updatePlayer = usePlayerStore((s: PlayerState) => s.updatePlayer);
   const resetPlayer  = usePlayerStore((s: PlayerState) => s.resetPlayer);
+  const clearAllData = useGameStore((s) => (s as any).clearAllData as (() => void));
 
   // ── Local draft state ──────────────────────────────────
   const [nameInput,        setNameInput]        = useState<string>(player?.name ?? "PLAYER_01");
@@ -676,8 +677,17 @@ export default function SettingsPage() {
           <div>
             <SectionLabel>MANAGE DATA</SectionLabel>
             {([
-              ["RESET PROGRESS", () => { if (window.confirm("RESET PROGRESS?")) resetPlayer(); }],
-              ["CLEAR DATA",     () => { if (window.confirm("CLEAR ALL DATA?")) resetPlayer(); }],
+              ["RESET PROGRESS", () => {
+                const ok = window.confirm("Reset progress? This will erase levels, history, and achievements but keep your settings. Continue?");
+                if (ok) resetPlayer();
+              }],
+              ["CLEAR ALL DATA", () => {
+                const ok = window.confirm("Clear ALL data? This will erase player progress, settings, and any saved data. This cannot be undone. Continue?");
+                if (ok) {
+                  // clear game and player persistence
+                  clearAllData?.();
+                }
+              }],
             ] as DataAction[]).map(([label, fn]) => (
               <button key={label}
                 onMouseEnter={(e) => { playSound("hover"); e.currentTarget.style.background = NEON; e.currentTarget.style.color = BG; }}
