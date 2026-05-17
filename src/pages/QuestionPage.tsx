@@ -58,6 +58,13 @@ const retroFlicker = keyframes`
   65% { opacity: 1; text-shadow: 0 0 8px #35E52B; }
 `;
 
+const correctCountPop = keyframes`
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.22); box-shadow: 0 0 10px #35E52Baa, 0 0 20px #35E52B55; }
+  65%  { transform: scale(0.96); }
+  100% { transform: scale(1); }
+`;
+
 // ─── Styled Components ─────────────────────────────────────────────────────
 
 const OuterSpace = styled(Box)({
@@ -231,6 +238,25 @@ const BottomHud = styled(Box)({
 });
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
+
+const CorrectCountPill = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'hasCorrect',
+})<{ hasCorrect?: boolean }>(({ hasCorrect }) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '3px 10px 3px 8px',
+  borderRadius: '4px',
+  border: `1px solid ${hasCorrect ? '#35E52B' : '#1a2a1a'}`,
+  background: hasCorrect ? 'rgba(53, 229, 43, 0.06)' : 'rgba(255,255,255,0.02)',
+  boxShadow: hasCorrect
+    ? '0 0 8px rgba(53,229,43,0.18), inset 0 0 6px rgba(53,229,43,0.04)'
+    : 'none',
+  transition: 'border-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease',
+  animation: hasCorrect ? `${correctCountPop} 0.45s cubic-bezier(0.22,1,0.36,1) both` : 'none',
+  cursor: 'default',
+  userSelect: 'none',
+}));
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -488,7 +514,23 @@ const handleAnswerClick = useCallback((answer: string) => {
     broadcastMultiplayerState();
   }, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, nextPhase, broadcastMultiplayerState]);
 
-  useEffect(() => { if (phase !== "scoring") hasScoredRef.current = false; }, [phase]);
+    if (mode !== "multiplayer" || lobbyRole !== "host") return;
+    if (hasScoredRef.current) return;
+
+    // Mark immediately to prevent a second effect run from queuing a second timeout.
+    hasScoredRef.current = true;
+
+    console.log('[QuestionPage] Scoring phase started, collecting answers for', ANSWER_COLLECTION_BUFFER_MS, 'ms');
+
+    const timeoutId = window.setTimeout(() => {
+      console.log('[QuestionPage] Answer collection buffer complete, computing scores');
+      scoreCurrentQuestion();
+      finalizeRankings();
+      broadcastMultiplayerState();
+    }, ANSWER_COLLECTION_BUFFER_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, broadcastMultiplayerState]);
 
   useEffect(() => {
     if (mode !== "multiplayer" || lobbyRole !== "host") return;
@@ -500,6 +542,16 @@ const handleAnswerClick = useCallback((answer: string) => {
     const handleGameStateSync = (payload: MultiplayerGameState) => {
       const currentState = useTriviaStore.getState();
       const shouldResetSelectedAnswer = payload.currentIndex !== currentState.currentIndex;
+
+      // ── Host abandoned the match ─────────────────────────────────────────
+      // Skip results entirely: block progression save and return to home.
+      // Nothing earned in this session should be persisted.
+      if (payload.hostAbandoned) {
+        endProgressAppliedRef.current = true;
+        useTriviaStore.setState({ phase: "end" });
+        setTimeout(() => setScreen("home"), 50);
+        return;
+      }
 
       const mappedRankings = payload.rankings?.map((r) => ({
         playerId: r.playerId, name: r.name, score: r.score, rank: r.rank,
@@ -519,6 +571,11 @@ const handleAnswerClick = useCallback((answer: string) => {
         ...(mappedRankings !== undefined ? { rankings: mappedRankings } : {}),
       };
       if (shouldResetSelectedAnswer) nextState.selectedAnswer = "";
+
+      if (payload.phase === "end" && hasExitedRef.current) {
+        setTimeout(() => setScreen("multiplayer-results"), 50);
+      }
+
       useTriviaStore.setState(nextState);
     };
     multiplayerBridge.onGameStateSync("QuestionPage", handleGameStateSync);
@@ -534,6 +591,8 @@ const handleAnswerClick = useCallback((answer: string) => {
       totalAnsweredRef.current = 0;
       sessionXpRef.current = 0;
       setSessionXpState(0);
+      setLiveCorrectCount(0);
+      setCorrectAnimKey(0);
       endProgressAppliedRef.current = false;
       gameStartTimeRef.current = null;
       recordSessionStartLevel();
@@ -549,7 +608,9 @@ const handleAnswerClick = useCallback((answer: string) => {
     const gameConfig = useGameStore.getState().gameConfig;
     const { mode, category, difficulty } = gameConfig || {};
     if (!mode || !category || !difficulty) return;
-    if (mode === "multiplayer") finalizeRankings();
+    if (mode === "multiplayer") {
+      finalizeRankings();
+    }
 
     const triviaState = useTriviaStore.getState();
     const { userAnswers: finalUserAnswers, questions: finalQuestions, rankings: finalRankings, playerScores: finalPlayerScores, maxStreak } = triviaState;
@@ -617,6 +678,31 @@ for (const entry of sessionInventory) {
 }
 
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);
+
+    if (mode === "multiplayer") {
+      // Update our status to 'results' so others in lobby see we are finishing
+      // We do this AFTER applySessionProgress so we have the latest level/rank
+      const latestPlayer = usePlayerStore.getState().getPlayer();
+      const mpState = useMultiplayerStore.getState();
+      const currentMpPlayer = mpState.players.find(p => p.id === localPlayerId);
+      
+      if (currentMpPlayer) {
+        mpState.addOrUpdatePlayer({ ...latestPlayer, id: localPlayerId }, { status: "results", isReady: false });
+        if (mpState.lobbyRole === "client" && mpState.lobbyId && mpState.hostAddress) {
+          window.multiplayer?.setReady({
+            lobbyId: mpState.lobbyId,
+            hostAddress: mpState.hostAddress,
+            playerId: localPlayerId,
+            ready: false,
+            member: { 
+              status: "results",
+              level: latestPlayer.level,
+              rank: latestPlayer.rank
+            }
+          });
+        }
+      }
+    }
 
     if (didLevelUpThisSessionRef.current) {
       endDataRef.current = { achievements: newlyUnlockedAchievements, postUnlockScreen };

@@ -634,9 +634,9 @@ const ProfilePage = () => {
                        <Box key={i} sx={{ overflow: "hidden" }}>
                          <Typography sx={{ fontFamily: pixelFont, fontSize: "0.75rem", color: row.color, mb: "0.35rem" }}>{row.diff}</Typography>
                          <Typography sx={{ fontFamily: pixelFont, fontSize: "0.55rem", color: themeColors.textMuted, lineHeight: 1.45 }}>
-                           GAMES PLAYED: {row.data.gamesPlayed}<br/>
-                           QUESTIONS ANSWERED: {row.data.questionsAnswered}<br/>
-                           CORRECT ANSWERS: {row.data.correctAnswers}<br/>
+                           GAMES: {row.data.gamesPlayed}<br/>
+                           QUESTIONS: {row.data.questionsAnswered}<br/>
+                           CORRECT: {row.data.correctAnswers}<br/>
                            ACCURACY: {row.data.accuracy}%
                          </Typography>
                        </Box>

@@ -14,6 +14,7 @@ export interface LobbyMember {
   connectionState?: PlayerConnectionState;
   lastSeenAt?: number;
   disconnectedAt?: number;
+  status?: "lobby" | "playing" | "results";
 }
 
 export interface MultiplayerBroadcastPayload {
@@ -36,13 +37,16 @@ export interface MultiplayerGameState {
   currentIndex: number;
   seed?: number;
   category?: Category;
-  sessionId?: string; 
+  sessionId?: string;
   difficulty?: Difficulty;
   questionLimit?: number;
   questionTimer?: number;
   answerTimer?: number;
   questionPort?: number;
   playerScores?: Record<string, number>;
+  // Set to true when the host exits mid-game to signal clients that the
+  // session was abandoned and no progression should be saved.
+  hostAbandoned?: boolean;
   rankings?: Array<{
     playerId: string;
     name: string;
@@ -82,10 +86,10 @@ export interface MultiplayerJoinRequest {
   player: LobbyMember;
 }
 
-export interface MultiplayerLeaveRequest { 
-  lobbyId: string; 
-  hostAddress: string; 
-  playerId: string
+export interface MultiplayerLeaveRequest {
+  lobbyId: string;
+  hostAddress: string;
+  playerId: string;
 }
 
 export interface MultiplayerReadyUpdate {
@@ -93,6 +97,7 @@ export interface MultiplayerReadyUpdate {
   hostAddress: string;
   playerId: string;
   ready: boolean;
+  member?: Partial<LobbyMember>;
 }
 
 export interface MultiplayerHostExitPayload {
@@ -116,17 +121,22 @@ export type DiscoveredHost = {
 };
 
 export interface MultiplayerBridge {
+  // ── HTTP question server (host only) ──────────────────────────────────────
+  // Starts a local HTTP server that serves the serialized question list to
+  // clients fetching from http://<hostAddress>:<questionPort>/questions.
+  startHttpServer?: (questionsJson: string) => void;
+
   startDiscovery: () => void;
   stopDiscovery: () => void;
   discoveryRequest: () => void;
   getLocalIp?: () => string;
   onDiscoveryResponse: (id: string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
-  offDiscoveryResponse: (id:string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
+  offDiscoveryResponse: (id: string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   onHostFound: (id: string, cb: (payload: MultiplayerDiscoveredPayload) => void) => void;
   offHostFound: (id: string) => void;
   onPlayerJoined: (id: string, cb: (player: LobbyMember) => void) => void;
   offPlayerJoined: (id: string) => void;
-  onPlayerReadyChanged: (id: string, cb: (playerId: string, ready: boolean) => void) => void;
+  onPlayerReadyChanged: (id: string, cb: (playerId: string, ready: boolean, member?: Partial<LobbyMember>) => void) => void;
   offPlayerReadyChanged: (id: string) => void;
   onPlayerLeft: (id: string, cb: (playerId: string) => void) => void;
   offPlayerLeft: (id: string) => void;

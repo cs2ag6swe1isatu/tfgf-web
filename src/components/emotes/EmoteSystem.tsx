@@ -22,7 +22,9 @@ const MenuContainer = styled(Box)({
   alignItems: 'center',
 });
 
-const EmoteMenu = styled(Box)<{ isVisible: boolean }>(({ isVisible }) => ({
+const EmoteMenu = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'isVisible',
+})<{ isVisible: boolean }>(({ isVisible }) => ({
   position: 'absolute',
   bottom: '100%', 
   right: 0,
@@ -62,7 +64,9 @@ const EmoteButton = styled(Box)<{ disabled: boolean }>(({ disabled }) => ({
   }
 }));
 
-const CarrotTrigger = styled(Box)<{ onCooldown: boolean }>(({ onCooldown }) => ({
+const CarrotTrigger = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'onCooldown',
+})<{ onCooldown: boolean }>(({ onCooldown }) => ({
   width: "80px",
   height: "80px",
   borderRadius: "50%",

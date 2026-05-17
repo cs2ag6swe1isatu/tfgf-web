@@ -18,6 +18,10 @@ export interface LevelUpTransitionProps {
   xpForNewLevel: number;
   onContinue: () => void;
   levelRangeLabel?: string;
+  /** Required for multi-level: XP threshold to complete each level index.
+   *  xpThresholds[i] = total XP needed to finish level (oldLevel + i).
+   *  If omitted, intermediate levels show 0/0 XP (still displays correctly). */
+  xpThresholds?: number[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -361,6 +365,60 @@ const GlitchLayer: React.FC = () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Queue step shape — one level-up transition to display
+// ─────────────────────────────────────────────────────────────────────────────
+interface LevelUpStep {
+  fromLevel: number;
+  toLevel:   number;
+  fromXP:    number;
+  toCurrentXP: number;
+  toMaxXP:   number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build the full queue of level-up steps from props
+// Each intermediate level shows full XP (threshold/threshold).
+// The final level shows real carry-over XP (newXP / xpForNewLevel).
+// ─────────────────────────────────────────────────────────────────────────────
+function buildLevelUpQueue(
+  oldLevel:      number,
+  newLevel:      number,
+  newXP:         number,
+  xpForOldLevel: number,
+  xpForNewLevel: number,
+  xpThresholds?: number[],
+): LevelUpStep[] {
+  const steps: LevelUpStep[] = [];
+  const totalLevelsGained = newLevel - oldLevel;
+
+  for (let i = 0; i < totalLevelsGained; i++) {
+    const fromLevel = oldLevel + i;
+    const toLevel   = fromLevel + 1;
+    const isLast    = i === totalLevelsGained - 1;
+
+    // Left card: XP threshold to complete fromLevel.
+    // Index 0 → xpForOldLevel; subsequent intermediate levels → xpThresholds[i] if provided.
+    const fromXP = i === 0
+      ? xpForOldLevel
+      : (xpThresholds?.[i] ?? xpForOldLevel);
+
+    // Right card max: threshold to complete toLevel.
+    // Last step uses xpForNewLevel; intermediate steps use xpThresholds[i+1] if provided.
+    const toMaxXP = isLast
+      ? xpForNewLevel
+      : (xpThresholds?.[i + 1] ?? xpForNewLevel);
+
+    // Right card current XP:
+    // Last step → real carry-over (newXP). Intermediate steps → full bar (threshold reached).
+    const toCurrentXP = isLast ? newXP : toMaxXP;
+
+    steps.push({ fromLevel, toLevel, fromXP, toCurrentXP, toMaxXP });
+  }
+
+  return steps;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
 const LevelUpTransition: React.FC<LevelUpTransitionProps> = ({
@@ -372,14 +430,37 @@ const LevelUpTransition: React.FC<LevelUpTransitionProps> = ({
   xpForNewLevel,
   onContinue,
   levelRangeLabel = "LV 1-10",
+  xpThresholds,
 }) => {
+  // ── Queue state ────────────────────────────────────────────────────────────
+  const [queue]              = useState<LevelUpStep[]>(() =>
+    buildLevelUpQueue(oldLevel, newLevel, newXP, xpForOldLevel, xpForNewLevel, xpThresholds)
+  );
+  const [queueIndex, setQueueIndex] = useState(0);
   const [showContinue, setShowContinue] = useState(false);
+  const [stepKey, setStepKey] = useState(0);
 
-  // Single timer — cleaned up on unmount, no leak
+  const currentStep = queue[queueIndex];
+  const isLastStep  = queueIndex === queue.length - 1;
+
+  // ── Show continue button after animation completes ─────────────────────────
   useEffect(() => {
+    setShowContinue(false);
     const timer = setTimeout(() => setShowContinue(true), T.continueIn * 1000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [queueIndex]);
+
+  // ── Advance queue or finish ────────────────────────────────────────────────
+  const handleContinue = () => {
+    if (!isLastStep) {
+      setQueueIndex((idx) => idx + 1);
+      setStepKey((k) => k + 1);
+    } else {
+      onContinue();
+    }
+  };
+
+  const multiLevel = queue.length > 1;
 
   const leftCardVariants: Variants = {
     hidden:  { opacity: 0, x: -70, scale: 0.9 },
@@ -406,13 +487,8 @@ const LevelUpTransition: React.FC<LevelUpTransitionProps> = ({
         exit={{ opacity: 0 }}
         transition={{ duration: T.overlayIn }}
       >
-        {/* Scanlines */}
         <div style={styles.scanlines} />
-
-        {/* Glitch */}
         <GlitchLayer />
-
-        {/* Corners */}
         {(["tl", "tr", "bl", "br"] as const).map((pos) => (
           <Corner key={pos} pos={pos} />
         ))}
@@ -438,10 +514,23 @@ const LevelUpTransition: React.FC<LevelUpTransitionProps> = ({
           }}
         >
           LEVEL PROGRESSION
+          {multiLevel && (
+            <span style={{
+              marginLeft:    16,
+              fontSize:      9,
+              letterSpacing: 3,
+              color:         C.pink,
+              textShadow:    C.pinkGlow,
+              verticalAlign: "middle",
+            }}>
+              [{queueIndex + 1}/{queue.length}]
+            </span>
+          )}
         </motion.div>
 
-        {/* Cards row */}
+        {/* Cards row — keyed so cards remount & re-animate on each queue step */}
         <div
+          key={stepKey}
           style={{
             display:       "flex",
             flexDirection: "row",
@@ -453,12 +542,12 @@ const LevelUpTransition: React.FC<LevelUpTransitionProps> = ({
             maxWidth:      "100vw",
           }}
         >
-          {/* Left card — previous level, bar full */}
+          {/* Left card — completed level, bar full */}
           <LevelCard
-            level={oldLevel}
+            level={currentStep.fromLevel}
             rangeLabel={levelRangeLabel}
-            currentXP={xpForOldLevel}
-            maxXP={xpForOldLevel}
+            currentXP={currentStep.fromXP}
+            maxXP={currentStep.fromXP}
             badgeText="XP GOAL REACHED!"
             badgeColor={C.cyan}
             badgeGlow={C.cyanGlow}
@@ -479,12 +568,12 @@ const LevelUpTransition: React.FC<LevelUpTransitionProps> = ({
             <AnimatedArrows />
           </motion.div>
 
-          {/* Right card — new level, bar animates in */}
+          {/* Right card — newly unlocked level */}
           <LevelCard
-            level={newLevel}
+            level={currentStep.toLevel}
             rangeLabel={levelRangeLabel}
-            currentXP={newXP}
-            maxXP={xpForNewLevel}
+            currentXP={currentStep.toCurrentXP}
+            maxXP={currentStep.toMaxXP}
             badgeText="NEW LEVEL UNLOCKED!"
             badgeColor={C.pink}
             badgeGlow={C.pinkGlow}
@@ -500,12 +589,13 @@ const LevelUpTransition: React.FC<LevelUpTransitionProps> = ({
         <AnimatePresence>
           {showContinue && (
             <motion.button
+              key={`btn-${queueIndex}`}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.35 }}
               style={styles.continueBtn}
-              onClick={onContinue}
+              onClick={handleContinue}
               onMouseEnter={(e) => {
                 const btn = e.currentTarget as HTMLButtonElement;
                 btn.style.background = "#0d2a2a";
@@ -517,7 +607,7 @@ const LevelUpTransition: React.FC<LevelUpTransitionProps> = ({
                 btn.style.boxShadow  = C.cyanGlow;
               }}
             >
-              CONTINUE
+              {isLastStep ? "CONTINUE" : "NEXT LEVEL >>>"}
             </motion.button>
           )}
         </AnimatePresence>

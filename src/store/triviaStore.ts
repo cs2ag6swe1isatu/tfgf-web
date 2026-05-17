@@ -25,7 +25,7 @@ import { calculateMultiplayerXP } from '../utils/progression';
  * - loading: Fetching questions, show animations or placeholders
  * - readying: Show "Get Ready" screen, short countdown before first question
  * - asking: Showing question and starting question timer
- * - answering: User is selecting answer, answer timer is 
+ * - answering: User is selecting answer, answer timer is running
  * - scoring: Show correct answer and update score, short delay before next question
  * - ranking: Show final results and rankings (for multiplayer)
  * - end: Game over, show summary and options to view profile or return to menu
@@ -93,7 +93,13 @@ const shouldEnterCheckingPhase = (state: TriviaState): boolean => {
   const players = useMultiplayerStore.getState().players;
   if (players.length === 0) return false;
 
-  return players.every((player) => {
+  // Only wait for active (non-disconnected) players.
+  // Disconnected players will never submit answers, so excluding them
+  // prevents the scoring phase from being blocked indefinitely.
+  const activePlayers = players.filter(p => p.connectionState !== 'disconnected');
+  if (activePlayers.length === 0) return false;
+
+  return activePlayers.every((player) => {
     if (player.isHost) {
       return !!state.selectedAnswer;
     }
@@ -102,11 +108,6 @@ const shouldEnterCheckingPhase = (state: TriviaState): boolean => {
     return !!answers && !!answers[state.currentIndex];
   });
 };
-
-const enterCheckingPhase = () => ({
-  phase: 'scoring' as const,
-  timer: multiplayerCheckingDelay,
-});
 
 const initialState: TriviaState = {
   questions: [],
@@ -146,7 +147,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     const seed = cfg.seed ?? get().seed;
     const questionPort = cfg.questionPort;
 
-    // Input validation ...
     if (!category || !difficulty || !mode) {
       console.error("Invalid game parameters:", { category, difficulty, mode });
       set({ phase: 'end' });
@@ -160,31 +160,29 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
       if (mode === 'multiplayer') {
         if (multiplayerStore.lobbyRole === 'host') {
-          // Host: Load locally and then start HTTP server to share
           questions = await loadQuestions(category, difficulty, questionLimit, seed);
           if (bridge?.startHttpServer) {
             bridge.startHttpServer(JSON.stringify(questions));
           }
         } else {
-          // Client: Try to fetch from host via HTTP with retry logic
           const hostAddress = multiplayerStore.hostAddress;
           if (hostAddress && questionPort) {
             const fetchUrl = `http://${hostAddress}:${questionPort}/questions`;
-            
+
             let lastError: Error | null = null;
             const maxRetries = 3;
             const retryDelayMs = 500;
-            
+
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
               try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout per attempt
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
                 const startTime = Date.now();
-                
+
                 const response = await fetch(fetchUrl, { signal: controller.signal });
                 const fetchDurationMs = Date.now() - startTime;
                 clearTimeout(timeoutId);
-                
+
                 if (response.ok) {
                   questions = await response.json();
                   lastError = null;
@@ -204,13 +202,12 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
                 }
               }
             }
-            
+
             if (lastError || questions.length === 0) {
               console.warn('[TriviaStore] Failed to fetch questions from host after all retries, falling back to local load', lastError);
               questions = await loadQuestions(category, difficulty, questionLimit, seed);
             }
           } else {
-            // Fallback for missing address/port
             questions = await loadQuestions(category, difficulty, questionLimit, seed);
           }
         }
@@ -258,7 +255,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
   /* ---------- Answer handling ---------- */
   selectAnswer: (answer) => {
-    // Missed/no answer — zero score contribution and reset streak
     if (!answer) {
       set({ currentStreak: 0 });
       return;
@@ -280,14 +276,14 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       return;
     }
 
-    const isCorrect         = answer === currentQuestion.correctAnswer;
+    const isCorrect           = answer === currentQuestion.correctAnswer;
     const answerRemainingTime = mode === 'multiplayer'
       ? get().selectedAnswerRemainingTime || timer
       : timer;
     const nextStreak    = isCorrect ? currentStreak + 1 : 0;
     const nextMaxStreak = isCorrect ? Math.max(maxStreak, nextStreak) : maxStreak;
 
-    const newUserAnswers       = [...userAnswers];
+    const newUserAnswers         = [...userAnswers];
     newUserAnswers[currentIndex] = answer;
 
     if (mode === 'solo') {
@@ -295,11 +291,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         isCorrect, difficulty ?? 'easy', answerRemainingTime, answerTimer,
       );
 
-      // FIX (BUG 5): Always go to 'scoring' (never jump straight to 'end').
-      // The scoring → tickTimer → ranking → nextPhase() chain reaches 'end'
-      // correctly for both mid-game and last questions. This ensures the user
-      // always sees the correct-answer reveal on the final question AND that the
-      // QuestionPage end-handler fires only after the scoring delay completes.
       set({
         selectedAnswer: answer,
         selectedAnswerRemainingTime: answerRemainingTime,
@@ -311,7 +302,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         maxStreak: nextMaxStreak,
       });
     } else if (mode === 'multiplayer') {
-      // In multiplayer, don't change phase immediately — timer controls when scoring starts
       set({
         selectedAnswer: answer,
         selectedAnswerRemainingTime: answerRemainingTime,
@@ -335,7 +325,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     ) return;
 
     if (phase === 'answering' && shouldEnterCheckingPhase(state)) {
-      set(enterCheckingPhase());
+      set({ phase: 'scoring', timer: multiplayerCheckingDelay });
       return;
     }
 
@@ -357,16 +347,15 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
           get().selectAnswer(selectedAnswer);
           return;
         }
-        // In multiplayer, host still needs to advance phase when timer expires
+        // ── FIX: score before entering checking phase (timer-expiry + answered path) ──
         if (mode === 'multiplayer') {
-          set({
-            ...enterCheckingPhase(),
-            currentStreak: 0,
-          });
+          set({ phase: 'scoring', timer: multiplayerCheckingDelay, currentStreak: 0 });
           return;
         }
       }
-            const scoringDelay = mode === 'solo' ? soloScoringDelay : soloScoringDelay;
+
+      // Timer expired, no answer selected
+      const scoringDelay = soloScoringDelay;
       set({ phase: 'scoring', timer: scoringDelay, currentStreak: 0 });
       return;
     }
@@ -382,7 +371,8 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       return;
     }
 
-    // Last question scored — go to ranking, then nextPhase() → end
+    // ── FIX: last question scored — finalize rankings before entering ranking phase ──
+    get().finalizeRankings();
     set({ phase: 'ranking', timer: 0 });
   },
 
@@ -431,7 +421,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         break;
 
       case 'end':
-        // Stay at end — QuestionPage navigates away via setScreen()
         break;
 
       default:
@@ -450,12 +439,11 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       return;
     }
 
-    // Missed/no answer — reset streak (multiplayer)
     if (!answer || !currentQuestion || !currentQuestion.allAnswers.includes(answer)) {
       if (!answer) {
         set({ selectedAnswerRemainingTime: timer, currentStreak: 0 });
+        console.warn(`[TriviaStore] Empty/missed answer submitted`);
       }
-      if (!answer) console.warn(`[TriviaStore] Empty/missed answer submitted`);
       return;
     }
 
@@ -471,7 +459,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       userAnswers: nextAnswers,
       currentStreak: nextStreak,
       maxStreak: nextMaxStreak,
-      // No phase change — timer controls when scoring starts
     });
 
     if (mode === 'multiplayer' && useMultiplayerStore.getState().lobbyRole === 'host') {
@@ -489,12 +476,11 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       });
     }
 
-    // ── Check if all players have answered → immediately advance to checking ──
     if (shouldEnterCheckingPhase(get())) {
-      set(enterCheckingPhase());
+      set({ phase: 'scoring', timer: multiplayerCheckingDelay });
       return;
     }
-    
+
     if (mode === "multiplayer" && useMultiplayerStore.getState().lobbyRole === "client") {
       const bridge: MultiplayerBridge | undefined = window.multiplayer;
       const lobbyId     = useMultiplayerStore.getState().lobbyId;
@@ -518,8 +504,10 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   },
 
   receiveRemoteAnswer: (playerId, questionIndex, answer, remainingTime?) => {
-    const answers           = { ...get().playerAnswers };
-    const playerAnswerList  = [...(answers[playerId] ?? [])];
+    const answers          = { ...get().playerAnswers };
+    const playerAnswerList = [...(answers[playerId] ?? [])];
+    const prevAnswer = playerAnswerList[questionIndex];
+
     playerAnswerList[questionIndex] = {
       answer,
       remainingTime: remainingTime ?? get().timer,
@@ -527,9 +515,13 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     answers[playerId] = playerAnswerList;
     set({ playerAnswers: answers });
 
-    // ── Check if all players have answered → immediately advance to checking ──
+    const state = get();
+    console.log(`[TriviaStore] Answer received: playerId=${playerId.slice(0, 8)}, Q${questionIndex}, answer=${answer}, overwriting=${!!prevAnswer}, phase=${state.phase}`);
+
+    // ── FIX: score before entering checking phase (last remote answer arrives) ──
     if (shouldEnterCheckingPhase(get())) {
-      set(enterCheckingPhase());
+      console.log('[TriviaStore] All players answered, entering checking phase');
+      set({ phase: 'scoring', timer: multiplayerCheckingDelay });
     }
   },
 
@@ -538,18 +530,24 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     const question = state.questions[state.currentIndex];
     if (!question) return;
 
-    const hostId = getMultiplayerPlayerId(usePlayerStore.getState().getPlayer().id);
+    const hostId     = getMultiplayerPlayerId(usePlayerStore.getState().getPlayer().id);
     const nextScores = applyRoundScores({
-      currentScores:        state.playerScores,
-      hostPlayerId:         hostId,
-      hostAnswer:           state.selectedAnswer,
-      hostRemainingTime:    state.selectedAnswerRemainingTime,
-      playerAnswers:        state.playerAnswers,
-      questionIndex:        state.currentIndex,
-      correctAnswer:        question.correctAnswer,
-      difficulty:           state.difficulty ?? 'easy',
-      totalTime:            state.answerTimer,
+      currentScores:         state.playerScores,
+      hostPlayerId:          hostId,
+      hostAnswer:            state.selectedAnswer,
+      hostRemainingTime:     state.selectedAnswerRemainingTime,
+      playerAnswers:         state.playerAnswers,
+      questionIndex:         state.currentIndex,
+      correctAnswer:         question.correctAnswer,
+      difficulty:            state.difficulty ?? 'easy',
+      totalTime:             state.answerTimer,
     });
+
+    const playersWithAnswers = Object.entries(state.playerAnswers)
+      .filter(([_, answers]) => answers && answers[state.currentIndex])
+      .map(([playerId]) => playerId.slice(0, 8));
+    console.log(`[TriviaStore] scoreCurrentQuestion Q${state.currentIndex}: players with answers=${playersWithAnswers.join(',')}, scores=${JSON.stringify(nextScores)}`);
+
     set({ playerScores: nextScores });
   },
 
@@ -572,7 +570,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       let maxStreak = 0;
       let currentStreak = 0;
       const correctCount = answeredEntries.reduce((count, { entry, index }) => {
-        const question = questions[index];
+        const question  = questions[index];
         const isCorrect = question && entry.answer === question.correctAnswer;
         if (isCorrect) {
           currentStreak++;
@@ -598,6 +596,13 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
           ) / 10
         : 0;
 
+      const hasAnswers = answeredEntries.length > 0;
+      if (!hasAnswers) {
+        console.warn(`[TriviaStore] Player ${playerId.slice(0, 8)}: NO ANSWERS FOUND! questionsAnswered=0, score=${scores[playerId] ?? 0}`);
+      } else if (correctCount === 0 && scores[playerId] && scores[playerId] > 0) {
+        console.warn(`[TriviaStore] Player ${playerId.slice(0, 8)}: Mismatch! correctCount=0 but score=${scores[playerId]}`);
+      }
+
       return { correctCount, maxStreak, questionsAnswered, accuracy, avgTime };
     };
 
@@ -622,9 +627,9 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     const sorted = Array.from(rankingMap.values())
       .sort((a, b) => b.score - a.score)
       .map((entry, index) => {
-        const summary = summarizePlayer(entry.playerId);
+        const summary     = summarizePlayer(entry.playerId);
         const playerScore = entry.score;
-        const xp = calculateMultiplayerXP(playerScore, summary.maxStreak, index + 1);
+        const xp          = calculateMultiplayerXP(playerScore, summary.maxStreak, index + 1);
         return {
           ...entry,
           rank: index + 1,
@@ -632,6 +637,10 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
           xp,
         };
       });
+
+    console.log('[TriviaStore] finalizeRankings complete:', sorted.map(r =>
+      `${r.name.slice(0, 8)}(score=${r.score},correct=${r.correctCount}/${r.questionsAnswered},acc=${r.accuracy}%,xp=${r.xp})`
+    ).join(' | '));
 
     set({ rankings: sorted });
   },

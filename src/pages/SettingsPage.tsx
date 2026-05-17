@@ -236,9 +236,6 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
   useEffect(() => { sfxEnabledRef.current = sfxEnabled; }, [sfxEnabled]);
 
   useEffect(() => {
-    // FIX: use Vite-imported asset URLs instead of bare "/sounds/..." strings.
-    // Vite resolves these at build time and hashes them into the assets bundle,
-    // so they load correctly in both dev and the packaged Electron .exe.
     const files: Record<SoundType, string> = {
       hover:  sfxHover,
       select: sfxSelect,
@@ -316,14 +313,14 @@ const CREDITS_SECTIONS = [
   {
     heading: "PROGRAMMING",
     rows: [
-      { label: "FRONTEND DEVELOPMENT", names: ["Nicolette Jyn Bautista", "Mary Claire Jordan", "Loel Joseph Hofilena", "Lianna Louise Ngitngit"] },
-      { label: "BACKEND LOGIC",        names: ["Mary Claire Jordan", "Loel Joseph Hofilena"] },
+      { label: "FRONTEND DEVELOPMENT", names: ["Nicolette Jyn Bautista", "Mary Claire Jordan", "Loel Joseph Hofileña", "Lianna Louise Ngitngit", "Sharyn May Allonar"] },
+      { label: "BACKEND LOGIC",        names: ["Mary Claire Jordan", "Loel Joseph Hofileña"] },
     ],
   },
   {
     heading: "DESIGN & ART",
     rows: [
-      { label: "UI/UX DESIGN",     names: ["Lianna Louise Ngitngit", "Sharyn May Allonar", "Mary Claire Jordan", "Nicolette Jyn Bautista", "Loel Joseph Hofilena"] },
+      { label: "UI/UX DESIGN",     names: ["Lianna Louise Ngitngit", "Sharyn May Allonar", "Mary Claire Jordan", "Nicolette Jyn Bautista", "Loel Joseph Hofileña"] },
       { label: "PIXEL ART ASSETS", names: ["Lianna Louise Ngitngit", "Sharyn May Allonar", "Mary Claire Jordan"] },
       { label: "ANIMATIONS",       names: ["Nicolette Jyn Bautista"] },
     ],
@@ -350,17 +347,17 @@ const CREDITS_SECTIONS = [
   {
     heading: "SPECIAL THANKS",
     rows: [
-      { label: "SPECIAL THANKS", names: ["Ma'am May Florence J. Franco", "Boarding House of Nicolette", "Friends", "Family"] },
+      { label: "SPECIAL THANKS", names: ["Ma'am May Florence J. Franco", "Boarding House of Nicolette", "7/11 Convenience Store", "Friends", "Family"] },
     ],
   },
 ];
 
 const DEVS = [
   { name: "Lianna Louise Ngitngit",  file: "Girl.png"    },
-  { name: "Sharyn May Allonar",      file: "Girl2.png"   },
+  { name: "Sharyn May Allonar",      file: "Lady2.png"   },
   { name: "Nicolette Jyn Bautista",  file: "Lady.png"    },
   { name: "Loel Joseph Hofilena",    file: "Knight.png"  },
-  { name: "Mary Claire Jordan",      file: "Wizard1.png" },
+  { name: "Mary Claire Jordan",      file: "Girl2.png"   },
 ];
 
 const DOTS = "····················";
@@ -386,6 +383,7 @@ export default function SettingsPage() {
   const player       = usePlayerStore((s) => s.player);
   const updatePlayer = usePlayerStore((s: PlayerState) => s.updatePlayer);
   const resetPlayer  = usePlayerStore((s: PlayerState) => s.resetPlayer);
+  const clearAllData = useGameStore((s) => (s as any).clearAllData as (() => void));
 
   // ── Local draft state ──────────────────────────────────
   const [nameInput,        setNameInput]        = useState<string>(player?.name ?? "PLAYER_01");
@@ -450,8 +448,6 @@ export default function SettingsPage() {
   function startCreditsBgm() {
     if (creditsBgmRef.current) return;
     if (!storedSettings.bgmEnabled) return;
-    // FIX: use the Vite-imported asset URL (creditsBgmSrc) instead of the
-    // bare "/sounds/..." string, which is not resolvable in the packaged .exe.
     const audio = new Audio(creditsBgmSrc);
     audio.loop   = true;
     audio.volume = 0;
@@ -676,8 +672,16 @@ export default function SettingsPage() {
           <div>
             <SectionLabel>MANAGE DATA</SectionLabel>
             {([
-              ["RESET PROGRESS", () => { if (window.confirm("RESET PROGRESS?")) resetPlayer(); }],
-              ["CLEAR DATA",     () => { if (window.confirm("CLEAR ALL DATA?")) resetPlayer(); }],
+              ["RESET PROGRESS", () => {
+                const ok = window.confirm("Reset progress? This will erase levels, history, and achievements but keep your settings. Continue?");
+                if (ok) resetPlayer();
+              }],
+              ["CLEAR ALL DATA", () => {
+                const ok = window.confirm("Clear ALL data? This will erase player progress, settings, and any saved data. This cannot be undone. Continue?");
+                if (ok) {
+                  clearAllData?.();
+                }
+              }],
             ] as DataAction[]).map(([label, fn]) => (
               <button key={label}
                 onMouseEnter={(e) => { playSound("hover"); e.currentTarget.style.background = NEON; e.currentTarget.style.color = BG; }}
