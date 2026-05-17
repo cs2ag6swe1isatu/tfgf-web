@@ -75,6 +75,7 @@ export interface Player {
   leaderboardAppearances: number;
   lobbiesCreated: number;
   currentPlayStreak: number;
+  dailyStreak: number;
   totalQuestionsAnswered: number;
   correctAnswers: number;
   incorrectAnswers: number;

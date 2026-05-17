@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { useGameStore } from "../store/gameStore";
 import { useSoundContext } from "../context/SoundContext";
 import { usePlayerStore } from "../store/playerStore";
@@ -145,7 +145,14 @@ export default function HomePage() {
   const setScreen = useGameStore((state) => state.setScreen);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const particles = useParticles(55);
-  
+  const [dailyStreak, setDailyStreak] = useState(0);
+  const isZeroStreak = dailyStreak === 0;
+
+  // Read daily streak from player store on mount
+  useEffect(() => {
+    const player = usePlayerStore.getState().getPlayer();
+    setDailyStreak(player.dailyStreak ?? 0);
+  }, []);
 
   // Periodic glitch effect on title
   useEffect(() => {
@@ -317,6 +324,13 @@ export default function HomePage() {
           <span style={styles.playTriangle} />
         </button>
 
+        {/* Daily streak counter */}
+          <div style={{ ...styles.streakRow, ...(isZeroStreak ? styles.streakRowDisabled : {}) }}>
+            <span style={{ ...styles.streakFlame, ...(isZeroStreak ? styles.streakFlameDisabled : {}) }}>🔥</span>
+            <span style={{ ...styles.streakCount, ...(isZeroStreak ? styles.streakCountDisabled : {}) }}>{dailyStreak}</span>
+            {/* <span style={styles.streakLabel}>DAY STREAK</span> */}
+          </div>
+
         {/* Bottom nav row */}
         <nav style={styles.navRow} aria-label="Main navigation">
           <button
@@ -482,6 +496,58 @@ const styles: Record<string, React.CSSProperties> = {
     borderLeft: "32px solid #DADADA",
     filter: "drop-shadow(0 0 4px rgba(218,218,218,0.5))",
     marginLeft: 6,
+  },
+
+  // Streak counter
+  streakRow: {
+    position: "absolute",
+    top: 22,
+    right: 22,
+    zIndex: 20,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 34,
+    gap: 10,
+    userSelect: "none",
+  } as React.CSSProperties,
+  streakRowDisabled: {
+    opacity: 0.55,
+  },
+  streakFlame: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 28,
+    lineHeight: 1,
+    filter: "drop-shadow(0 0 8px rgba(255,100,0,0.6))",
+    animation: "iconPulse 2s ease-in-out infinite",
+  } as React.CSSProperties,
+  streakFlameDisabled: {
+    filter: "grayscale(1) drop-shadow(0 0 4px rgba(150,150,150,0.35))",
+    animation: "none",
+  },
+  streakCount: {
+    display: "inline-flex",
+    alignItems: "bottom",
+    fontFamily: "'Press Start 2P', monospace",
+    fontSize: 22,
+    color: "#FF6B00",
+    textShadow: "0 0 12px #FF6B00, 0 0 24px rgba(255,107,0,0.5)",
+    letterSpacing: 2,
+    lineHeight: 1,
+  },
+  streakCountDisabled: {
+    color: "#9A9A9A",
+    textShadow: "0 0 8px rgba(120,120,120,0.35)",
+  },
+  streakLabel: {
+    fontFamily: "'Press Start 2P', monospace",
+    fontSize: 9,
+    color: "#FF8C33",
+    textShadow: "0 0 6px rgba(255,140,51,0.4)",
+    letterSpacing: 1,
+    lineHeight: 1,
   },
 
   // Nav row

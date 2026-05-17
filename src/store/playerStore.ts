@@ -262,6 +262,7 @@ const createDefaultPlayer = (): Player => ({
   leaderboardAppearances: 0,
   lobbiesCreated: 0,
   currentPlayStreak: 0,
+  dailyStreak: 0,
   totalQuestionsAnswered: 0,
   correctAnswers: 0,
   incorrectAnswers: 0,
@@ -313,6 +314,7 @@ const normalizePlayer = (value: unknown): Player | null => {
     leaderboardAppearances: readNumber(value.leaderboardAppearances, 0),
     lobbiesCreated: readNumber(value.lobbiesCreated, 0),
     currentPlayStreak: readNumber(value.currentPlayStreak, 0),
+    dailyStreak: readNumber(value.dailyStreak, 0),
     totalQuestionsAnswered: readNumber(value.totalQuestionsAnswered, 0),
     correctAnswers: readNumber(value.correctAnswers, 0),
     incorrectAnswers: readNumber(value.incorrectAnswers, 0),
@@ -519,10 +521,36 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       incorrectAnswers: delta.incorrectAnswers,
     };
 
+    // ── Daily streak logic ────────────────────────────────────────────────
+    const now = new Date();
+    const lastPlayed = player.lastPlayedDate;
+    let nextDailyStreak = player.dailyStreak ?? 0;
+
+    if (lastPlayed) {
+      const sameDay =
+        lastPlayed.getFullYear() === now.getFullYear() &&
+        lastPlayed.getMonth() === now.getMonth() &&
+        lastPlayed.getDate() === now.getDate();
+      if (!sameDay) {
+        // Consecutive day? Check if last played was yesterday.
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const wasYesterday =
+          lastPlayed.getFullYear() === yesterday.getFullYear() &&
+          lastPlayed.getMonth() === yesterday.getMonth() &&
+          lastPlayed.getDate() === yesterday.getDate();
+        nextDailyStreak = wasYesterday ? nextDailyStreak + 1 : 1;
+      }
+    } else {
+      // First game ever
+      nextDailyStreak = 1;
+    }
+
     const nextGameHistory = trimGameHistory([...player.gameHistory, newHistoryEntry]);
 
     const updatedPlayer: Player = {
       ...player,
+      dailyStreak: nextDailyStreak,
       totalXp: nextTotalXp,
       xpToNextLevel: xpToNextLevel(nextTotalXp),
       level: nextLevel,

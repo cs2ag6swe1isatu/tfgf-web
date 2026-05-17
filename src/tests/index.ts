@@ -4,11 +4,13 @@
 import './achievementTester';
 import './xpMultiplierTester';
 import './devSkipToFinal';
+import './streakModifierTester';
 import './pageTesters/sessionSummaryPageTester';
 
 export * from './achievementTester';
 export * from './xpMultiplierTester';
 export * from './devSkipToFinal';
+export * from './streakModifierTester';
 export * from './pageTesters/sessionSummaryPageTester';
 
 export default {};
