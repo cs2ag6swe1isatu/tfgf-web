@@ -64,7 +64,7 @@ function AvatarImage({ fileName, selected, onClick, onHover }: {
         width: "100%",
         aspectRatio: "1 / 1",
         minHeight: 96,
-        border: selected ? `2px solid ${NEON}` : "1px solid #3A3A3A",
+        border: selected ? `4px solid ${NEON}` : "none",
         background: selected ? "rgba(53,229,43,0.1)" : "#0a0f0a",
         display: "flex", alignItems: "center", justifyContent: "center",
         boxSizing: "border-box",
@@ -81,7 +81,7 @@ function AvatarImage({ fileName, selected, onClick, onHover }: {
           src={`./img/avatars/${encodeURIComponent(fileName)}`}
           alt={fileName}
           onError={() => setImgFailed(true)}
-          style={{ width: "78%", height: "78%", imageRendering: "pixelated", objectFit: "contain" }}
+          style={{ width: "100%", height: "100%", imageRendering: "pixelated", objectFit: "contain" }}
         />
       )}
     </div>
@@ -338,7 +338,7 @@ const CREDITS_SECTIONS = [
   {
     heading: "TOOLS USED",
     rows: [
-      { label: "SOFTWARE & TECH", names: ["Visual Studio Code", "Figma", "GitHub", "Electron", "React", "Claude AI", "Chat GPT", "Gemini"] },
+      { label: "SOFTWARE & TECH", names: ["Visual Studio Code", "Figma", "GitHub", "Electron", "Node.js", "React", "Claude AI", "Chat GPT", "Gemini"] },
     ],
   },
   {
@@ -554,7 +554,6 @@ export default function SettingsPage() {
         setCreditsBgmActive(false);
       };
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   // ── Save ───────────────────────────────────────────────
@@ -587,7 +586,7 @@ export default function SettingsPage() {
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
                 style={{
-                  flex: 1, background: "transparent", border: `2px solid ${NEON}`,
+                  flex: 1, background: "transparent", border: `3px solid ${NEON}`,
                   color: NEON, fontFamily: font, fontSize: 9,
                   padding: "10px 12px", outline: "none",
                 }}
@@ -973,7 +972,7 @@ export default function SettingsPage() {
                 color: tab === t ? BG : NEON,
                 fontFamily: font, fontSize: 9, letterSpacing: 1, textTransform: "uppercase",
                 padding: "14px 12px", textAlign: "left", cursor: "pointer",
-                marginBottom: 4, transition: "background .1s, transform .1s",
+                transition: "background .1s, transform .1s",
               }}
             >
               {t}
