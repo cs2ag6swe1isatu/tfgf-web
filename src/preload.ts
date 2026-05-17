@@ -648,7 +648,12 @@ function handlePacket(raw: string, senderAddress: string) {
   }
 
   if (packet.type === "answer-submission") {
-    if (packet.payload.lobbyId !== activeSnapshot.lobbyId) return;
+    if (packet.payload.lobbyId !== activeSnapshot.lobbyId) {
+      // Mismatch but still ACK to stop retries (duplicate/late packet from old lobby)
+      console.warn('[preload] answer-submission lobbyId mismatch: expected', activeSnapshot.lobbyId, 'got', packet.payload.lobbyId);
+      sendAck(packet.packetId, packet.payload.lobbyId, senderAddress, packet.payload.playerId);
+      return;
+    }
     console.log('[preload] answer-submission from player', packet.payload.playerId, 'questionIndex', packet.payload.questionIndex, 'answer', packet.payload.answer);
     onAnswerSubmissionCbs.forEach((cb) => cb(packet.payload));
     return;

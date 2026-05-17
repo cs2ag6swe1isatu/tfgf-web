@@ -520,6 +520,8 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   receiveRemoteAnswer: (playerId, questionIndex, answer, remainingTime?) => {
     const answers           = { ...get().playerAnswers };
     const playerAnswerList  = [...(answers[playerId] ?? [])];
+    const prevAnswer = playerAnswerList[questionIndex];
+    
     playerAnswerList[questionIndex] = {
       answer,
       remainingTime: remainingTime ?? get().timer,
@@ -527,8 +529,15 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     answers[playerId] = playerAnswerList;
     set({ playerAnswers: answers });
 
+    // Diagnostic logging for answer reception
+    const state = get();
+    const isHostPlayer = useMultiplayerStore.getState().players.some(p => p.id === playerId && p.isHost) || 
+                         useMultiplayerStore.getState().lobbyRole === 'host' && playerId === getMultiplayerPlayerId(usePlayerStore.getState().getPlayer().id);
+    console.log(`[TriviaStore] Answer received: playerId=${playerId.slice(0, 8)}, Q${questionIndex}, answer=${answer}, overwriting=${!!prevAnswer}, phase=${state.phase}`);
+
     // ── Check if all players have answered → immediately advance to checking ──
     if (shouldEnterCheckingPhase(get())) {
+      console.log('[TriviaStore] All players answered, entering checking phase');
       set(enterCheckingPhase());
     }
   },
@@ -550,6 +559,13 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
       difficulty:           state.difficulty ?? 'easy',
       totalTime:            state.answerTimer,
     });
+
+    // Diagnostic: log which players have answers at this question
+    const playersWithAnswers = Object.entries(state.playerAnswers)
+      .filter(([_, answers]) => answers && answers[state.currentIndex])
+      .map(([playerId]) => playerId.slice(0, 8));
+    console.log(`[TriviaStore] scoreCurrentQuestion Q${state.currentIndex}: players with answers=${playersWithAnswers.join(',')}, scores=${JSON.stringify(nextScores)}`);
+
     set({ playerScores: nextScores });
   },
 
@@ -598,6 +614,14 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
           ) / 10
         : 0;
 
+      // Diagnostic logging
+      const hasAnswers = answeredEntries.length > 0;
+      if (!hasAnswers) {
+        console.warn(`[TriviaStore] Player ${playerId.slice(0, 8)}: NO ANSWERS FOUND! questionsAnswered=0, score=${scores[playerId] ?? 0}`);
+      } else if (correctCount === 0 && scores[playerId] && scores[playerId] > 0) {
+        console.warn(`[TriviaStore] Player ${playerId.slice(0, 8)}: Mismatch! correctCount=0 but score=${scores[playerId]}`);
+      }
+
       return { correctCount, maxStreak, questionsAnswered, accuracy, avgTime };
     };
 
@@ -632,6 +656,11 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
           xp,
         };
       });
+
+    // Diagnostic summary
+    console.log('[TriviaStore] finalizeRankings complete:', sorted.map(r => 
+      `${r.name.slice(0, 8)}(score=${r.score},correct=${r.correctCount}/${r.questionsAnswered},acc=${r.accuracy}%,xp=${r.xp})`
+    ).join(' | '));
 
     set({ rankings: sorted });
   },

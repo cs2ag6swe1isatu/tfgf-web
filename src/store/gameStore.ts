@@ -109,6 +109,7 @@ interface GameState {
   clearLevelUpSession: () => void;
 
   setCreditsBgmActive: (v: boolean) => void;
+  clearAllData: () => void;
 
   setMode: (mode: Mode) => void;
   setCategory: (category: Category) => void;
@@ -243,6 +244,37 @@ export const useGameStore = create<GameState>()(
         set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, answerTimer: seconds } })),
       setAutoJoinLan: (enabled: boolean) =>
         set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, autoJoinLan: enabled } })),
+
+      // Permanently clear all persisted data (game store + player) and reset in-memory state
+      clearAllData: () => {
+        try {
+          const storage = typeof window !== "undefined" ? window.localStorage : null;
+          if (storage) storage.removeItem("game-store");
+        } catch (e) {
+          console.warn("Failed to clear game store persistence:", e);
+        }
+
+        try {
+          // Delegate player reset to the player store implementation which handles its own persistence
+          usePlayerStore.getState().resetPlayer();
+        } catch (e) {
+          console.warn("Failed to reset player from clearAllData:", e);
+        }
+
+        // Reset in-memory values to defaults
+        set({
+          settings: {
+            bgmEnabled: true,
+            sfxEnabled: true,
+            volume: 5,
+            useCase: false,
+            useScanlines: false,
+            useFlicker: false,
+          },
+          resolution: { width: 1024, height: 768, label: "XGA" },
+          gameConfig: { ...defaultGameConfig, autoJoinLan: false },
+        });
+      },
     }),
     {
       name: "game-store",
