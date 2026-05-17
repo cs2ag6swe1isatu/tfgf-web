@@ -18,6 +18,9 @@ import type {
 } from "../types/multiplayer";
 import { defaultGameConfig } from "../config/gameConfig";
 
+const SPECTATOR_COLOR = "#A855F7";
+const SPECTATOR_DIM   = "rgba(168,85,247,0.10)";
+
 const MultiplayerLobby = () => {
   const { playSound } = useSoundContext();
   const setScreen = useGameStore((s) => s.setScreen);
@@ -28,6 +31,11 @@ const MultiplayerLobby = () => {
   const lobbyRole = useMultiplayerStore((s) => s.lobbyRole);
   const lobbyId = useMultiplayerStore((s) => s.lobbyId);
   const players = useMultiplayerStore((s) => s.players);
+  // ── NEW ──────────────────────────────────────────────────────────────────
+  const spectators = useMultiplayerStore((s) => s.spectators);
+  const participantRole = useMultiplayerStore((s) => s.participantRole);
+  const isSpectator = participantRole === "spectator";
+  // ─────────────────────────────────────────────────────────────────────────
   const hostAddress = useMultiplayerStore((s) => s.hostAddress);
   const isPrivate = useMultiplayerStore((s) => s.isPrivate);
   const setPrivate = useMultiplayerStore((s) => s.setPrivate);
@@ -97,8 +105,6 @@ const MultiplayerLobby = () => {
       const answerTimer = payload.answerTimer ?? currentConfig.answerTimer ?? defaultGameConfig.answerTimer;
       const questionPort = payload.questionPort;
 
-      console.log(`[Lobby Client] Game config: category=${category}, difficulty=${difficulty}, questionPort=${questionPort}`);
-
       setGameConfig({ category, difficulty, questionLimit, questionTimer, answerTimer, seed: payload.seed });
 
       const gameStartTime = Date.now();
@@ -119,28 +125,33 @@ const MultiplayerLobby = () => {
       console.log(`[Lobby Client] startGame completed in ${gameElapsedMs}ms`);
 
       const nextState = {
-        phase: payload.phase,
-        timer: payload.timer,
-        currentIndex: payload.currentIndex,
-        ...(payload.seed !== undefined ? { seed: payload.seed } : {}),
-        ...(payload.category !== undefined ? { category: payload.category } : {}),
-        ...(payload.difficulty !== undefined ? { difficulty: payload.difficulty } : {}),
-        ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
-        ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
-        ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
-        ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
-        ...(payload.rankings !== undefined ? { rankings: payload.rankings } : {}),
-      };
+  phase: payload.phase,
+  timer: payload.timer,
+  currentIndex: payload.currentIndex,
+  ...(payload.seed !== undefined ? { seed: payload.seed } : {}),
+  ...(payload.category !== undefined ? { category: payload.category } : {}),
+  ...(payload.difficulty !== undefined ? { difficulty: payload.difficulty } : {}),
+  ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
+  ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
+  ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
+  ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
+  ...(payload.rankings !== undefined ? {
+    rankings: payload.rankings.map((r) => ({
+      ...r,
+      xp: r.xp ?? 0,   // PlayerRanking.xp is number (required), payload has xp?: number
+    })),
+  } : {}),
+};
 
+useTriviaStore.setState(nextState);
       useTriviaStore.setState(nextState);
       const totalElapsedMs = Date.now() - transitionStartTime;
       console.log(`[Lobby Client] Game transition complete, navigating to question page (${totalElapsedMs}ms total)`);
-      setScreen("question");
+      setScreen(useMultiplayerStore.getState().participantRole === "spectator" ? "spectator-view" : "question");
     },
     [lobbyRole, setGameConfig, setScreen, startGame, multiplayerBridge]
   );
 
-  // Track mounted state
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -154,21 +165,15 @@ const MultiplayerLobby = () => {
   }, []);
 
   const handleStartGame = async () => {
-    // This function should only be called by the host (PLAY button is host-only in the UI)
+    // ── SPECTATOR GUARD: spectators cannot start the game ─────────────────
+    if (isSpectator) return;
     if (lobbyRole !== "host") {
       console.error(`[Lobby] handleStartGame called by non-host (role=${lobbyRole}), aborting`);
       return;
     }
 
-    if (!isMountedRef.current) {
-      console.warn(`[Lobby] Component not mounted, skipping game start`);
-      return;
-    }
-
-    if (!lobbyId) {
-      console.warn(`[Lobby] No lobbyId, cannot start game`);
-      return;
-    }
+    if (!isMountedRef.current) return;
+    if (!lobbyId) return;
 
     resetGame();
     const gameSessionSeed = Math.floor(Math.random() * defaultGameConfig.seedRange);
@@ -179,13 +184,9 @@ const MultiplayerLobby = () => {
 
     console.log(`[Lobby] Host starting game, seed=${gameSessionSeed}`);
 
-    // Host: start game initialization and HTTP server in sequence
-    console.log(`[Lobby] Host: waiting for HTTP server to start before broadcasting...`);
-    
     let httpPort: number | undefined = undefined;
     const httpStartTime = Date.now();
     
-    // Create a promise that resolves when HTTP server is ready (with timeout safety)
     const httpServerReady = new Promise<number>((resolve) => {
       let timeoutHandle: NodeJS.Timeout | null = null;
       
@@ -202,20 +203,16 @@ const MultiplayerLobby = () => {
           multiplayerBridge.offHttpServerStarted?.("StartGame");
         });
         
-        // Safety timeout: if HTTP server doesn't start within 10 seconds, proceed anyway
         timeoutHandle = setTimeout(() => {
           console.warn(`[Lobby] HTTP server startup timeout after 10 seconds, proceeding with port=undefined`);
           safeResolve(0);
           multiplayerBridge.offHttpServerStarted?.("StartGame");
         }, 10000);
       } else {
-        console.warn(`[Lobby] multiplayerBridge.onHttpServerStarted not available`);
         resolve(0);
       }
     });
 
-    // Start game initialization (which triggers HTTP server startup internally)
-    console.log(`[Lobby] Host calling startGame...`);
     const gameStartTime = Date.now();
     await startGame({
       category: gameConfig.category ?? "General Knowledge",
@@ -232,42 +229,23 @@ const MultiplayerLobby = () => {
     const gameElapsedMs = Date.now() - gameStartTime;
     console.log(`[Lobby] startGame completed in ${gameElapsedMs}ms, waiting for HTTP server...`);
 
-    // Check if still mounted and in lobby before continuing
-    if (!isMountedRef.current || !lobbyId) {
-      console.warn(`[Lobby] Component unmounted or left lobby during game initialization, cancelling broadcast`);
-      return;
-    }
+    if (!isMountedRef.current || !lobbyId) return;
 
-    // Wait for HTTP server to be ready (will timeout after 10s)
     httpPort = await httpServerReady;
     const totalWaitMs = Date.now() - httpStartTime;
     console.log(`[Lobby] HTTP server ready check complete, port=${httpPort} (${totalWaitMs}ms total)`);
 
-    if (!httpPort || httpPort === 0) {
-      console.warn(`[Lobby] WARNING: HTTP server port is ${httpPort || 'undefined'}, clients will fall back to local question loading`);
-    }
+    if (!isMountedRef.current || !lobbyId) return;
 
-    // Final safety check: still mounted and in lobby?
-    if (!isMountedRef.current || !lobbyId) {
-      console.warn(`[Lobby] Component unmounted or left lobby before broadcast, cancelling`);
-      return;
-    }
-
-    // Reset ready state for all players for the next game (so they aren't auto-ready when returning to lobby)
     const mpState = useMultiplayerStore.getState();
     mpState.players.forEach(p => {
-      // Host stays ready usually, but let's reset everyone for consistency if needed, 
-      // or just clients. The UI usually forces host to be 'ready' to click PLAY.
       if (!p.isHost) {
         mpState.setPlayerReady(p.id, false);
       }
-      // Set status to playing for everyone
       mpState.addOrUpdatePlayer(p, { status: "playing" } as any);
     });
 
-    // Now broadcast game-state with the port (even if port is 0/undefined, still broadcast)
     const state = useTriviaStore.getState();
-    console.log(`[Lobby] Broadcasting game-state, port=${httpPort}, phase=${state.phase}`);
     multiplayerBridge?.broadcastGameState({
       phase: state.phase,
       timer: state.timer,
@@ -278,14 +256,14 @@ const MultiplayerLobby = () => {
       questionLimit: state.questionLimit,
       questionTimer: state.questionTimer,
       answerTimer: state.answerTimer,
-      questionPort: httpPort || undefined, // undefined if port is 0
+      questionPort: httpPort || undefined,
       playerScores: state.playerScores,
       rankings: state.rankings,
     });
 
     console.log(`[Lobby] Host game-start complete, navigating to question page`);
     isTransitioningToGameRef.current = true;
-    setScreen("question");
+    setScreen(useMultiplayerStore.getState().participantRole === "spectator" ? "spectator-view" : "question");
   };
 
   const handleKick = (playerId: string) => {
@@ -308,6 +286,7 @@ const MultiplayerLobby = () => {
   };
 
   const handleLeaveLobby = () => {
+    // Spectators leave exactly like normal clients — no gameplay side effects
     if (lobbyRole === "client" && lobbyId && hostAddress) {
       multiplayerBridge?.leaveLobby({ lobbyId, hostAddress, playerId: multiplayerPlayer.id });
     } else if (lobbyRole === "host") {
@@ -346,8 +325,12 @@ const MultiplayerLobby = () => {
       if (packetTime < newestTimestampRef.current) return;
       newestTimestampRef.current = packetTime;
 
-      const amIStillInLobby = payload.players.some((p) => p.id === multiplayerPlayer.id);
-      if (amIStillInLobby) {
+      // For spectators: check if this spectator's ID is in the broadcast
+      // The host may include spectators in the snapshot with role="spectator"
+      const myId = multiplayerPlayer.id;
+      const amIInLobby = payload.players.some((p) => p.id === myId);
+
+      if (amIInLobby) {
         if (!hasConfirmedJoinRef.current) {
           hasConfirmedJoinRef.current = true;
           if (joinTimeoutRef.current !== null) {
@@ -398,9 +381,20 @@ const MultiplayerLobby = () => {
   useEffect(() => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
-    const handlePlayerJoined = (p: LobbyMember) => addOrUpdatePlayer(p, { isHost: false, isReady: false, connectionState: "connected" });
+    const handlePlayerJoined = (p: LobbyMember) => {
+  if ((p.role ?? "player") === "spectator") {
+    useMultiplayerStore.getState().addOrUpdateSpectator({
+      ...p,
+      isReady: false,
+      isHost: false,
+      connectionState: "connected",
+      role: "spectator",
+    });
+  } else {
+    addOrUpdatePlayer(p, { isHost: false, isReady: false, connectionState: "connected" });
+  }
+};
     const handlePlayerReadyChanged = (playerId: string, ready: boolean, member?: Partial<LobbyMember>) => {
-      // Sync player ready state and any additional member info (like level/rank/status)
       const existing = useMultiplayerStore.getState().players.find(p => p.id === playerId);
       if (existing) {
         addOrUpdatePlayer({ ...existing, ...member }, { isReady: ready, connectionState: "connected" });
@@ -426,8 +420,6 @@ const MultiplayerLobby = () => {
   useEffect(() => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
-    // FIX: include host (with avatar) in the initial players array so clients
-    // receive the host's avatar from the very first broadcast packet.
     const initialPayload: MultiplayerLobbySnapshot = {
       lobbyId,
       hostId: multiplayerPlayer.id,
@@ -439,7 +431,7 @@ const MultiplayerLobby = () => {
       difficulty: undefined,
       isPrivate: false,
       lastActive: new Date().toISOString(),
-      players: [{ ...multiplayerPlayer, isHost: true, isReady: true, connectionState: "connected" }], // ← FIX: was []
+      players: [{ ...multiplayerPlayer, isHost: true, isReady: true, connectionState: "connected", role: "player" }],
     };
 
     multiplayerBridge.startBroadcast(initialPayload);
@@ -449,9 +441,14 @@ const MultiplayerLobby = () => {
     };
   }, [lobbyRole, lobbyId, multiplayerBridge]);
 
+  // ── UPDATED: include spectators in broadcast so clients see them ──────────
   useEffect(() => {
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
-    const connectedPlayerCount = players.filter((player) => player.connectionState !== "disconnected").length;
+    const connectedPlayerCount = players.filter((p) => p.connectionState !== "disconnected").length;
+    const allMembers = [
+      ...players,
+      ...spectators.map((s) => ({ ...s, role: "spectator" as const })),
+    ];
     const payload: MultiplayerLobbySnapshot = {
       lobbyId,
       hostId: multiplayerPlayer.id,
@@ -463,14 +460,16 @@ const MultiplayerLobby = () => {
       difficulty: gameConfig.difficulty ?? undefined,
       isPrivate,
       lastActive: new Date().toISOString(),
-      players,
+      players: allMembers,
     };
     if (typeof multiplayerBridge.updateLobbySnapshot === "function") {
       multiplayerBridge.updateLobbySnapshot(payload);
     }
-  }, [players, gameConfig, lobbyId, lobbyRole, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level, isPrivate]);
+  }, [players, spectators, gameConfig, lobbyId, lobbyRole, multiplayerBridge, multiplayerPlayer.id, multiplayerPlayer.name, multiplayerPlayer.level, isPrivate]);
 
   const handleReadyToggle = (playerId: string, ready: boolean) => {
+    // ── SPECTATOR GUARD ────────────────────────────────────────────────────
+    if (isSpectator) return;
     const targetPlayer = players.find((p) => p.id === playerId);
     if (!targetPlayer || targetPlayer.isHost) return;
     setPlayerReady(playerId, ready);
@@ -479,42 +478,132 @@ const MultiplayerLobby = () => {
     }
   };
 
-  const allPlayers = players;
-  const connectedPlayers = allPlayers.filter((player) => player.connectionState !== "disconnected");
-  const disconnectedPlayers = allPlayers.filter((player) => player.connectionState === "disconnected");
-  const isCategorySelected = Boolean(gameConfig.category);
-  const isDifficultySelected = Boolean(gameConfig.difficulty);
-  const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
+const allPlayers = players.filter((p) => p.role !== "spectator");
+const connectedPlayers = allPlayers.filter((p) => p.connectionState !== "disconnected");
+const disconnectedPlayers = allPlayers.filter((p) => p.connectionState === "disconnected");
+const isCategorySelected = Boolean(gameConfig.category);
+const isDifficultySelected = Boolean(gameConfig.difficulty);
+const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
 
   useEffect(() => {
     if (lobbyRole === "host" && players.length === 0) {
       handleCreateLobby();
       return;
     }
-    if (lobbyRole === "client" && players.length === 0) {
+    if (lobbyRole === "client" && players.length === 0 && !isSpectator) {
       setCurrentPlayerId(multiplayerPlayer.id);
     }
   }, [lobbyRole, players.length, multiplayerPlayer, setCurrentPlayerId, handleCreateLobby]);
 
-  // ─── Styles ──────────────────────────────────────────────────────────────
+  // ─── Styles ───────────────────────────────────────────────────────────────
   const styles = {
     root: {
       width: "100%",
       height: "100%",
       display: "flex",
-      flexDirection: "column" as const,
-      alignItems: "center",
+      flexDirection: "row" as const,   // ← changed to row to support side panel
+      alignItems: "stretch",
       justifyContent: "center",
       boxSizing: "border-box" as const,
       padding: "24px 16px",
       overflow: "hidden",
+      gap: "16px",
     },
     inner: {
-      width: "100%",
+      flex: 1,
       maxWidth: "640px",
       display: "flex",
       flexDirection: "column" as const,
       gap: "16px",
+    },
+    // ── Spectator side panel ────────────────────────────────────────────────
+    spectatorPanel: {
+      width: "220px",
+      flexShrink: 0,
+      display: "flex",
+      flexDirection: "column" as const,
+      gap: "0px",
+      alignSelf: "flex-start",
+      marginTop: "0px",
+    },
+    spectatorPanelBox: {
+      border: `2px solid ${SPECTATOR_COLOR}`,
+      borderRadius: "10px",
+      padding: "14px 12px",
+      background: SPECTATOR_DIM,
+      boxShadow: `0 0 14px rgba(168,85,247,0.18)`,
+    },
+    spectatorPanelHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: "10px",
+    },
+    spectatorPanelTitle: {
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
+      fontSize: "11px",
+      color: SPECTATOR_COLOR,
+      letterSpacing: "1.5px",
+    },
+    spectatorPanelCount: {
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
+      fontSize: "10px",
+      color: SPECTATOR_COLOR,
+      opacity: 0.75,
+    },
+    spectatorRow: {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "7px 8px",
+      borderRadius: "6px",
+      background: "rgba(168,85,247,0.08)",
+      border: `1px solid rgba(168,85,247,0.25)`,
+      marginBottom: "6px",
+    },
+    spectatorAvatar: {
+      width: "28px",
+      height: "28px",
+      borderRadius: "3px",
+      background: "#BFC3C3",
+      border: `1.5px solid ${SPECTATOR_COLOR}`,
+      flexShrink: 0,
+      overflow: "hidden",
+    },
+    spectatorName: {
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
+      fontSize: "9px",
+      color: SPECTATOR_COLOR,
+      letterSpacing: "0.5px",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap" as const,
+      flex: 1,
+    },
+    spectatorStatus: {
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
+      fontSize: "8px",
+      color: SPECTATOR_COLOR,
+      opacity: 0.65,
+      background: "rgba(168,85,247,0.12)",
+      borderRadius: "3px",
+      padding: "2px 4px",
+      flexShrink: 0,
+    },
+    // ── Read-only banner shown to spectators ────────────────────────────────
+    spectatorBanner: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "8px",
+      padding: "8px 14px",
+      borderRadius: "7px",
+      border: `1.5px solid ${SPECTATOR_COLOR}`,
+      background: SPECTATOR_DIM,
+      fontFamily: "'Press Start 2P', 'Courier New', monospace",
+      fontSize: "11px",
+      color: SPECTATOR_COLOR,
+      letterSpacing: "1px",
     },
     topBar: {
       display: "flex",
@@ -744,14 +833,62 @@ const MultiplayerLobby = () => {
 
   const allPlayersReady = connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
 
+  // ── Spectator panel (left side) — only shown when there are spectators
+  //    OR when this client is a spectator (so they always see themselves) ──
+  const showSpectatorPanel = spectators.length > 0 || isSpectator;
+
   return (
     <Box sx={styles.root}>
       <GlobalStyles styles={{ [RANK_ICON_KEYFRAMES]: {} }} />
+
+      {/* ── LEFT: Spectator panel ─────────────────────────────────────────── */}
+      {showSpectatorPanel && (
+        <Box sx={styles.spectatorPanel}>
+          <Box sx={styles.spectatorPanelBox}>
+            <Box sx={styles.spectatorPanelHeader}>
+              <span style={styles.spectatorPanelTitle}>SPECTATORS</span>
+              <span style={styles.spectatorPanelCount}>
+                ({spectators.length}/{Math.max(spectators.length, 1)})
+              </span>
+            </Box>
+
+            {spectators.length === 0 ? (
+              <Box sx={{
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: "9px",
+                color: SPECTATOR_COLOR,
+                opacity: 0.45,
+                textAlign: "center",
+                padding: "12px 0",
+              }}>
+                NO SPECTATORS
+              </Box>
+            ) : (
+              spectators.map((s) => (
+                <Box key={s.id} sx={styles.spectatorRow}>
+                  <Box sx={styles.spectatorAvatar}>
+                    <img
+                      src={getAvatarSrc(s.avatar || "")}
+                      alt=""
+                      style={{ width: "100%", height: "100%", imageRendering: "pixelated", objectFit: "contain" }}
+                    />
+                  </Box>
+                  <span style={styles.spectatorName}>{s.name || "—"}</span>
+                  <span style={styles.spectatorStatus}>WATCHING</span>
+                </Box>
+              ))
+            )}
+          </Box>
+        </Box>
+      )}
+
+      {/* ── RIGHT / MAIN: existing lobby layout ─────────────────────────────── */}
       <Box sx={styles.inner}>
         {/* Top bar */}
         <Box sx={styles.topBar}>
           <Box sx={{ minWidth: "120px" }}>
-            {lobbyRole === "host" && (
+            {/* Only host can toggle visibility; spectators cannot */}
+            {lobbyRole === "host" && !isSpectator && (
               <button
                 style={styles.visibilityBtn(isPrivate)}
                 onClick={() => { setPrivate(!isPrivate); playSound("select"); }}
@@ -772,8 +909,13 @@ const MultiplayerLobby = () => {
           </button>
         </Box>
 
-        
-
+        {/* Spectator read-only banner */}
+        {isSpectator && (
+          <Box sx={styles.spectatorBanner}>
+            <span>👁</span>
+            <span>SPECTATOR MODE — READ ONLY</span>
+          </Box>
+        )}
 
         {/* Players panel */}
         <Box sx={styles.panel}>
@@ -790,7 +932,7 @@ const MultiplayerLobby = () => {
             </Box>
           )}
 
-          {allPlayers.map((p) => (
+          {players.map((p) => (
             <Box key={p.id} sx={styles.playerRow(p.connectionState !== "disconnected", p.connectionState === "disconnected")}>
               <Box sx={styles.avatar}>
                 <img src={getAvatarSrc(p.avatar || "")} alt="" style={{ width: "100%", height: "100%", imageRendering: "pixelated", objectFit: "contain", borderRadius: "3px" }} />
@@ -824,7 +966,8 @@ const MultiplayerLobby = () => {
                   </span>
                 </Box>
               </Box>
-              {lobbyRole === "host" && !p.isHost && (
+              {/* Host can kick non-spectator players; spectators cannot kick */}
+              {lobbyRole === "host" && !p.isHost && !isSpectator && (
                 <button style={styles.kickBtn} onClick={() => { handleKick(p.id); playSound("select"); }} onMouseEnter={() => playSound("hover")}>
                   KICK
                 </button>
@@ -838,7 +981,7 @@ const MultiplayerLobby = () => {
             </Box>
           ))}
 
-          {Array.from({ length: Math.max(0, (defaultGameConfig.maxPlayers ?? 4) - allPlayers.length) }).map((_, i) => (
+          {Array.from({ length: Math.max(0, (defaultGameConfig.maxPlayers ?? 4) - players.length) }).map((_, i) => (
             <Box key={`empty-${i}`} sx={styles.playerRow(false, false)}>
               <Box sx={styles.avatar} />
               <Box sx={styles.playerInfo}>
@@ -848,24 +991,40 @@ const MultiplayerLobby = () => {
             </Box>
           ))}
 
-          {!allPlayersReady && (
+          {!allPlayersReady && !isSpectator && (
             <Box sx={styles.waitingText}>Waiting for others…</Box>
+          )}
+          {isSpectator && (
+            <Box sx={{ ...styles.waitingText, color: SPECTATOR_COLOR, opacity: 0.6 }}>
+              Watching as spectator…
+            </Box>
           )}
         </Box>
 
         {/* Bottom action buttons */}
         <Box sx={styles.bottomRow}>
+          {/* Category button — DISABLED for spectators */}
           <button
-            style={{ ...styles.sideBtn, ...(lobbyRole === "client" ? styles.sideBtnDisabled : {}) }}
-            onClick={() => { if (lobbyRole === "host") { setModalScreen("category"); playSound("select"); } }}
-            onMouseEnter={() => { if (lobbyRole !== "client") playSound("hover"); }}
-            disabled={lobbyRole === "client"}
+            style={{
+              ...styles.sideBtn,
+              ...((lobbyRole === "client" || isSpectator) ? styles.sideBtnDisabled : {}),
+            }}
+            onClick={() => {
+              if (lobbyRole === "host" && !isSpectator) { setModalScreen("category"); playSound("select"); }
+            }}
+            onMouseEnter={() => { if (lobbyRole !== "client" && !isSpectator) playSound("hover"); }}
+            disabled={lobbyRole === "client" || isSpectator}
           >
             {getCategoryDisplay(gameConfig.category).toUpperCase()}
           </button>
 
-
-          {lobbyRole === "host" ? (
+          {/* Center button: PLAY (host) | READY (player) | WATCHING (spectator) */}
+          {isSpectator ? (
+            // ── Spectator sees a disabled "WATCHING" button ─────────────────
+            <button style={{ ...styles.primaryBtn(true), background: SPECTATOR_DIM, color: SPECTATOR_COLOR, border: `1.5px solid ${SPECTATOR_COLOR}`, cursor: "default" }} disabled>
+              WATCHING
+            </button>
+          ) : lobbyRole === "host" ? (
             <button
               style={styles.primaryBtn(!canStart)}
               onClick={canStart ? () => { handleStartGame(); playSound("select"); } : undefined}
@@ -885,12 +1044,17 @@ const MultiplayerLobby = () => {
             </button>
           )}
 
-
+          {/* Difficulty button — DISABLED for spectators */}
           <button
-            style={{ ...styles.sideBtn, ...(lobbyRole === "client" ? styles.sideBtnDisabled : {}) }}
-            onClick={() => { if (lobbyRole === "host") { setModalScreen("difficulty"); playSound("select"); } }}
-            onMouseEnter={() => { if (lobbyRole !== "client") playSound("hover"); }}
-            disabled={lobbyRole === "client"}
+            style={{
+              ...styles.sideBtn,
+              ...((lobbyRole === "client" || isSpectator) ? styles.sideBtnDisabled : {}),
+            }}
+            onClick={() => {
+              if (lobbyRole === "host" && !isSpectator) { setModalScreen("difficulty"); playSound("select"); }
+            }}
+            onMouseEnter={() => { if (lobbyRole !== "client" && !isSpectator) playSound("hover"); }}
+            disabled={lobbyRole === "client" || isSpectator}
           >
             {gameConfig.difficulty ? gameConfig.difficulty.toUpperCase() : "DIFFICULTY"}
           </button>

@@ -13,6 +13,7 @@ import MultiplayerMenuPage from "./pages/MultiplayerMenuPage";
 import MultiplayerLobbyPage from "./pages/MultiplayerLobbyPage";
 import MultiplayerDiscoveryPage from "./pages/MultiplayerDiscoveryPage";
 import MultiplayerResults from "./pages/MultiplayerResults";
+import SpectatorView from "./pages/SpectatorView";
 import { useGameStore } from "./store/gameStore";
 import { usePlayerStore } from "./store/playerStore";
 import theme from "./ui/theme";
@@ -346,6 +347,7 @@ export default function App() {
       break;
     case "multiplayer-discovery": screenContent = <MultiplayerDiscoveryPage />; break;
     case "multiplayer-results":   screenContent = <MultiplayerResults />;        break;
+    case "spectator-view":        screenContent = <SpectatorView />;             break;
     case "powerups":              screenContent = <PowerUpsPage />;              break;
     case "home":
       default:                    screenContent = <HomePage />;                  break;

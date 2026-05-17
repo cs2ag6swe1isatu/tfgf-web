@@ -104,10 +104,9 @@ export const getPlayerStorage = (): Storage | null => {
   if (typeof window === "undefined") return null;
 
   const isElectron = typeof navigator !== "undefined" && navigator.userAgent.toLowerCase().includes("electron");
-  const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV === true;
 
   if (isElectron) return null;
-  return isDev ? window.sessionStorage : window.localStorage;
+  return window.localStorage;
 };
 
 const getPlayerStorageAPI = (): PlayerStorageAPI | null => {

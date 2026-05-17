@@ -15,18 +15,128 @@ const COLORS = {
   surface: '#0F2A2A',
   neonGreen: '#39FF14',
   cyan: '#4AD2D2',
-  shadow: '#000000'
+  shadow: '#000000',
+  spectator: '#A855F7',   // purple accent for spectator
+  spectatorDim: '#2D1B4E',
 };
 
+// ── Role-selection modal shown after a lobby is chosen ───────────────────────
+interface RoleModalProps {
+  lobbyId: string;
+  hostName?: string;
+  onSelect: (role: "player" | "spectator") => void;
+  onCancel: () => void;
+}
+
+const RoleModal = ({ lobbyId, hostName, onSelect, onCancel }: RoleModalProps) => (
+  <Box sx={{
+    position: 'fixed', inset: 0, zIndex: 999,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'rgba(0,0,0,0.82)',
+  }}>
+    <Box sx={{
+      background: COLORS.surface,
+      border: `2px solid ${COLORS.cyan}`,
+      boxShadow: `8px 8px 0 ${COLORS.shadow}`,
+      padding: '32px 36px',
+      maxWidth: '420px',
+      width: '90%',
+      fontFamily: "'Press Start 2P', monospace",
+    }}>
+      {/* Header */}
+      <Typography sx={{ color: COLORS.neonGreen, fontSize: '1.1rem', mb: 1 }}>
+        JOIN LOBBY
+      </Typography>
+      <Typography sx={{ color: COLORS.cyan, fontSize: '0.7rem', mb: 3, opacity: 0.8 }}>
+        #{lobbyId}{hostName ? ` · ${hostName}` : ''}
+      </Typography>
+
+      <Typography sx={{ color: '#E5E5E5', fontSize: '0.75rem', mb: 3, lineHeight: 2 }}>
+        How do you want to join?
+      </Typography>
+
+      {/* Player option */}
+      <Box
+        onClick={() => onSelect("player")}
+        sx={{
+          border: `2px solid ${COLORS.neonGreen}`,
+          background: 'rgba(57,255,20,0.07)',
+          padding: '16px 20px',
+          mb: 2,
+          cursor: 'pointer',
+          transition: '0.1s',
+          '&:hover': {
+            background: 'rgba(57,255,20,0.18)',
+            boxShadow: `4px 4px 0 ${COLORS.neonGreen}`,
+            transform: 'translate(-2px,-2px)',
+          },
+        }}
+      >
+        <Typography sx={{ color: COLORS.neonGreen, fontSize: '1rem', mb: 0.5 }}>
+          ▶ PLAYER
+        </Typography>
+        <Typography sx={{ color: '#DADADA', fontSize: '0.6rem', lineHeight: 1.8 }}>
+          Join as an active player.{'\n'}Answer questions and compete.
+        </Typography>
+      </Box>
+
+      {/* Spectator option */}
+      <Box
+        onClick={() => onSelect("spectator")}
+        sx={{
+          border: `2px solid ${COLORS.spectator}`,
+          background: `rgba(168,85,247,0.07)`,
+          padding: '16px 20px',
+          mb: 3,
+          cursor: 'pointer',
+          transition: '0.1s',
+          '&:hover': {
+            background: `rgba(168,85,247,0.18)`,
+            boxShadow: `4px 4px 0 ${COLORS.spectator}`,
+            transform: 'translate(-2px,-2px)',
+          },
+        }}
+      >
+        <Typography sx={{ color: COLORS.spectator, fontSize: '1rem', mb: 0.5 }}>
+          👁 SPECTATOR
+        </Typography>
+        <Typography sx={{ color: '#DADADA', fontSize: '0.6rem', lineHeight: 1.8 }}>
+          Watch the game in read-only mode.{'\n'}Cannot answer or affect gameplay.
+        </Typography>
+      </Box>
+
+      {/* Cancel */}
+      <button
+        onClick={onCancel}
+        style={{
+          background: 'transparent',
+          color: COLORS.cyan,
+          border: `1px solid ${COLORS.cyan}`,
+          padding: '8px 20px',
+          fontFamily: 'inherit',
+          fontSize: '0.65rem',
+          cursor: 'pointer',
+          width: '100%',
+        }}
+      >
+        CANCEL
+      </button>
+    </Box>
+  </Box>
+);
+
+// ── Main discovery component ──────────────────────────────────────────────────
 const MultiplayerDiscovery = () => {
-  // Store actions/state
   const setScreen = useGameStore((s) => s.setScreen);
-  const autoJoinLan = useGameStore((s) => s.gameConfig.autoJoinLan); // Setting check 
+  const autoJoinLan = useGameStore((s) => s.gameConfig.autoJoinLan);
   
   const { 
     setLobbyId, setLobbyRole, setHostAddress, setCurrentPlayerId,
     addOrUpdatePlayer, addOrUpdateDiscoveredHost, discoveredHosts,
-    removeDiscoveredHost, pruneStaleDiscoveredHosts 
+    removeDiscoveredHost, pruneStaleDiscoveredHosts,
+    // ── NEW ──────────────────────────────────────────────────────────────
+    setParticipantRole, addOrUpdateSpectator,
+    // ─────────────────────────────────────────────────────────────────────
   } = useMultiplayerStore();
 
   const player = usePlayerStore((s) => s.getPlayer());
@@ -37,6 +147,9 @@ const MultiplayerDiscovery = () => {
   const [status, setStatus] = useState<string>("");
   const [directIp, setDirectIp] = useState<string>("");
   const [pendingDirectIp, setPendingDirectIp] = useState<string | null>(null);
+
+  // ── NEW: role-selection modal state ──────────────────────────────────────
+  const [pendingLobby, setPendingLobby] = useState<{ lobbyId: string; hostAddress: string; hostName?: string } | null>(null);
 
   const normalizeIp = (value: string) => value.trim().toLowerCase();
 
@@ -54,53 +167,84 @@ const MultiplayerDiscovery = () => {
     multiplayerBridge?.directJoin?.(targetIp);
   };
 
-  const beginJoin = (selectedLobbyId: string, discoveredHostAddress: string) => {
+  // ── UPDATED: shows role modal instead of immediately joining ─────────────
+  const beginJoin = (selectedLobbyId: string, discoveredHostAddress: string, role: "player" | "spectator") => {
     if (!discoveredHostAddress) {
       setStatus("LOBBY NOT FOUND ON LAN.");
       return;
     }
 
-    // Update global state before transition
+    // Store participant role so the lobby screen knows what this client is
+    setParticipantRole(role);
+
+    // Update global state
     setLobbyId(selectedLobbyId);
     setLobbyRole("client");
     setHostAddress(discoveredHostAddress);
     setCurrentPlayerId(multiplayerPlayer.id);
-    addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
 
-    // Send join request via bridge
+    if (role === "spectator") {
+      // Add self to spectators list instead of players list
+      addOrUpdateSpectator({
+        ...multiplayerPlayer,
+        isReady: false,
+        isHost: false,
+        connectionState: "connected",
+        status: "lobby",
+        role: "spectator",
+      });
+    } else {
+      addOrUpdatePlayer(multiplayerPlayer, { isHost: false, isReady: false });
+    }
+
+    // Send join request — pass role so host/bridge can record it
     multiplayerBridge?.requestJoin({
       lobbyId: selectedLobbyId,
       hostAddress: discoveredHostAddress,
-      player: { ...multiplayerPlayer, isReady: false, isHost: false },
+      player: { ...multiplayerPlayer, isReady: false, isHost: false, role },
     });
 
     setStatus("JOINING LOBBY...");
     setScreen("multiplayer-lobby");
   };
 
+  // Clicking a lobby now opens the role modal rather than instantly joining
   const handleJoinLobby = (selectedLobbyId: string) => {
     const discovered = discoveredHosts.find((host) => host.lobbyId === selectedLobbyId);
     if (!discovered?.hostAddress) {
       setStatus("LOBBY NOT FOUND ON LAN.");
       return;
     }
-
-    beginJoin(selectedLobbyId, discovered.hostAddress);
+    setPendingLobby({
+      lobbyId: selectedLobbyId,
+      hostAddress: discovered.hostAddress,
+      hostName: discovered.hostName,
+    });
   };
 
-  // 1. AUTO-JOIN LOGIC [cite: 975, 976]
+  const handleRoleSelected = (role: "player" | "spectator") => {
+    if (!pendingLobby) return;
+    setPendingLobby(null);
+    beginJoin(pendingLobby.lobbyId, pendingLobby.hostAddress, role);
+  };
+
+  const handleRoleCancel = () => {
+    setPendingLobby(null);
+    setStatus("");
+  };
+
+  // 1. AUTO-JOIN LOGIC — auto-join always as player
   useEffect(() => {
     if (autoJoinLan && discoveredHosts.length > 0) {
-      // Find the first public, joinable lobby
       const autoTarget = discoveredHosts.find(h => !h.isPrivate && !h.isGameActive);
       if (autoTarget) {
         setStatus("AUTO-JOINING LAN HOST...");
-        handleJoinLobby(autoTarget.lobbyId);
+        beginJoin(autoTarget.lobbyId, autoTarget.hostAddress ?? "", "player");
       }
     }
   }, [discoveredHosts, autoJoinLan]);
 
-  // 2. DISCOVERY LIFECYCLE [cite: 1017, 1020]
+  // 2. DISCOVERY LIFECYCLE
   useEffect(() => {
     if (!multiplayerBridge) return;
 
@@ -128,7 +272,12 @@ const MultiplayerDiscovery = () => {
       if (pendingDirectIp && payload.hostAddress && isSameAddress(payload.hostAddress, pendingDirectIp)) {
         setPendingDirectIp(null);
         setStatus(`HOST FOUND AT ${pendingDirectIp}. JOINING...`);
-        beginJoin(payload.lobbyId, payload.hostAddress);
+        // Direct IP join → show role modal
+        setPendingLobby({
+          lobbyId: payload.lobbyId,
+          hostAddress: payload.hostAddress,
+          hostName: payload.hostName,
+        });
       }
     };
 
@@ -150,7 +299,7 @@ const MultiplayerDiscovery = () => {
     };
   }, [multiplayerBridge, pendingDirectIp]);
 
-  // 3. STALE HOST PRUNING [cite: 1020]
+  // 3. STALE HOST PRUNING
   useEffect(() => {
     const id = setInterval(() => pruneStaleDiscoveredHosts(4500), 1500);
     return () => clearInterval(id);
@@ -165,11 +314,10 @@ const MultiplayerDiscovery = () => {
       fontFamily: "'Press Start 2P', monospace", overflow: "hidden"
     },
     container: {
-      width: "100%", maxWidth: "1024px", // Ratios [cite: 978, 979]
+      width: "100%", maxWidth: "1024px",
       height: "100%", maxHeight: "768px",
       display: "flex", flexDirection: "column", p: 4, gap: 3
     },
-    // FOLDER TAB CARD [cite: 977]
     lobbyCard: {
       position: 'relative', borderRadius: 0,
       bgcolor: COLORS.surface, p: 2, mb: 3,
@@ -178,10 +326,10 @@ const MultiplayerDiscovery = () => {
       cursor: 'pointer', transition: '0.1s',
       '&:hover': {
         transform: 'translate(-2px, -2px)',
-        boxShadow: `10px 10px 0px ${COLORS.neonGreen}`, // Hover feedback [cite: 952]
+        boxShadow: `10px 10px 0px ${COLORS.neonGreen}`,
         borderColor: COLORS.neonGreen
       },
-      '&:before': { // The Folder Tab [cite: 948, 977]
+      '&:before': {
         content: '""', position: 'absolute',
         top: '-14px', left: '-2px',
         width: '120px', height: '14px',
@@ -274,6 +422,16 @@ const MultiplayerDiscovery = () => {
           )}
         </Box>
       </Box>
+
+      {/* Role-selection modal — rendered on top of everything */}
+      {pendingLobby && (
+        <RoleModal
+          lobbyId={pendingLobby.lobbyId}
+          hostName={pendingLobby.hostName}
+          onSelect={handleRoleSelected}
+          onCancel={handleRoleCancel}
+        />
+      )}
     </Box>
   );
 };
