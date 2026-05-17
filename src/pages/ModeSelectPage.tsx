@@ -330,11 +330,11 @@ const isDailyBonusClaimed = (() => {
     style={{
       ...styles.backBtn,
       padding: "14px 18px",
-      fontSize: 20,
+      fontSize: 15,
       letterSpacing: 0,
     }}
   >
-    ⚡
+    POWER-UPS⚡
   </button>
 </div>
 
