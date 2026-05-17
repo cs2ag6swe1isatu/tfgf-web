@@ -418,47 +418,15 @@ export default function MultiplayerResults() {
   }, [rankPct, you?.score, you?.xp, you?.acc]);
 
   const handleBackToLobby = () => {
-    // Sync latest player stats (level/rank) back to the multiplayer store
-    const latestPlayer = usePlayerStore.getState().getPlayer();
-    const mpPlayer = getMultiplayerPlayer(latestPlayer);
-    
-    // 1. Update our local multiplayer store entry
-    useMultiplayerStore.getState().addOrUpdatePlayer(mpPlayer, { isReady: false, status: "lobby" });
-
-    // 2. Notify host of our new status and that we are NOT ready for the next game
-    const mpState = useMultiplayerStore.getState();
-    if (mpState.lobbyRole === "client" && mpState.lobbyId && mpState.hostAddress) {
-      window.multiplayer?.setReady({
-        lobbyId: mpState.lobbyId,
-        hostAddress: mpState.hostAddress,
-        playerId: mpPlayer.id,
-        ready: false,
-        member: {
-          level: mpPlayer.level,
-          rank: mpPlayer.rank,
-          status: "lobby",
-        }
-      });
-    }
-
     resetTrivia();
     setScreen("multiplayer-lobby");
   };
 
-  const handleExitLobby = () => {
-    const mpState = useMultiplayerStore.getState();
-    if (mpState.lobbyId && mpState.hostAddress && localMpId) {
-      window.multiplayer?.leaveLobby({ 
-        lobbyId: mpState.lobbyId, 
-        hostAddress: mpState.hostAddress, 
-        playerId: localMpId 
-      });
-    }
+   const handleExitLobby = () => {
     resetTrivia();
     resetMultiplayer();
     setScreen("home");
   };
-
   // ── Ready state change logging ────────────────────────────────────────────
   useEffect(() => {
     console.log('[MultiplayerResults] Ready state changed:', {
