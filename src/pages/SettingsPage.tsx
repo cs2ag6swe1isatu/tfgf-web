@@ -2,6 +2,16 @@ import { useState, useRef, useEffect, ReactNode } from "react";
 import { useGameStore } from "../store/gameStore";
 import { usePlayerStore, PlayerState } from "../store/playerStore";
 
+// ─── AUDIO PATHS (public/sounds — production-safe for Electron) ───────────
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const sfxHover      = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Cursor 2 (Square).mp3`;
+const sfxSelect     = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Select 1 (Square).mp3`;
+const sfxTab        = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Popup Open 1 (Square).mp3`;
+const sfxBack       = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Cancel 1 (Square).mp3`;
+const sfxError      = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Error 1 (Square).mp3`;
+const creditsBgmSrc = `${BASE}/sounds/djartmusic-8-bit-console-from-my-childhood-301286.mp3`;
+
 const NEON = "#35E52B";
 const CYAN = "#00E5FF";
 const BG   = "#010707";
@@ -222,14 +232,19 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
   const audioBank = useRef<Partial<Record<SoundType, HTMLAudioElement>>>({});
   const audioCtx  = useRef<AudioContext | null>(null);
   const mp3Ready  = useRef(false);
+  const sfxEnabledRef = useRef(sfxEnabled);
+  useEffect(() => { sfxEnabledRef.current = sfxEnabled; }, [sfxEnabled]);
 
   useEffect(() => {
+    // FIX: use Vite-imported asset URLs instead of bare "/sounds/..." strings.
+    // Vite resolves these at build time and hashes them into the assets bundle,
+    // so they load correctly in both dev and the packaged Electron .exe.
     const files: Record<SoundType, string> = {
-      hover:  "/sounds/JDSherbert - Pixel UI SFX Pack - Cursor 2 (Square).mp3",
-      select: "/sounds/JDSherbert - Pixel UI SFX Pack - Select 1 (Square).mp3",
-      tab:    "/sounds/JDSherbert - Pixel UI SFX Pack - Popup Open 1 (Square).mp3",
-      back:   "/sounds/JDSherbert - Pixel UI SFX Pack - Cancel 1 (Square).mp3",
-      error:  "/sounds/JDSherbert - Pixel UI SFX Pack - Error 1 (Square).mp3",
+      hover:  sfxHover,
+      select: sfxSelect,
+      tab:    sfxTab,
+      back:   sfxBack,
+      error:  sfxError,
     };
     let loaded = 0;
     (Object.entries(files) as [SoundType, string][]).forEach(([key, src]) => {
@@ -282,7 +297,7 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
   }
 
   function playSound(type: SoundType) {
-    if (!sfxEnabled) return;
+    if (!sfxEnabledRef.current) return;
     const mp3 = audioBank.current[type];
     if (mp3Ready.current && mp3) {
       mp3.currentTime = 0;
@@ -359,8 +374,9 @@ export default function SettingsPage() {
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Store ──────────────────────────────────────────────
-  const setScreen      = useGameStore((s) => s.setScreen);
-  const updateSettings = useGameStore((s) => s.updateSettings);
+  const setScreen            = useGameStore((s) => s.setScreen);
+  const updateSettings       = useGameStore((s) => s.updateSettings);
+  const setCreditsBgmActive  = useGameStore((s) => s.setCreditsBgmActive);
   const setResolution  = useGameStore((s) => s.setResolution);
   const setGameConfig  = useGameStore((s) => s.setGameConfig);
   const storedSettings = useGameStore((s) => s.settings) as SettingsView;
@@ -383,7 +399,7 @@ export default function SettingsPage() {
   const [draftResKey,      setDraftResKey]      = useState<string>(storedRes.label ?? "XGA");
   const [draftAutoJoinLan, setDraftAutoJoinLan] = useState<boolean>(gameConfig.autoJoinLan ?? false);
 
-  const { playSound } = useAudioEngine(draftSfx, draftVolume);
+  const { playSound } = useAudioEngine(storedSettings.sfxEnabled ?? true, draftVolume);
   const currentResolutionKey = storedRes.label ?? "XGA";
   const currentName = player?.name ?? "PLAYER_01";
   const currentAvatar = player?.avatar ?? avatars[0];
@@ -408,7 +424,7 @@ export default function SettingsPage() {
   const creditsBgmRef       = useRef<HTMLAudioElement | null>(null);
   const creditsFadeRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const [creditsMuted,      setCreditsMuted]      = useState(false);
-  const [creditsBgmVol,     setCreditsBgmVol]     = useState(0.35);
+  const [creditsBgmVol,     setCreditsBgmVol]     = useState(() => (storedSettings.volume ?? 5) / 10);
   const [creditsBgmPlaying, setCreditsBgmPlaying] = useState(false);
 
   // ── Credits BGM helpers ────────────────────────────────
@@ -433,7 +449,10 @@ export default function SettingsPage() {
 
   function startCreditsBgm() {
     if (creditsBgmRef.current) return;
-    const audio = new Audio("/sounds/credits-bgm.mp3");
+    if (!storedSettings.bgmEnabled) return;
+    // FIX: use the Vite-imported asset URL (creditsBgmSrc) instead of the
+    // bare "/sounds/..." string, which is not resolvable in the packaged .exe.
+    const audio = new Audio(creditsBgmSrc);
     audio.loop   = true;
     audio.volume = 0;
     creditsBgmRef.current = audio;
@@ -523,6 +542,7 @@ export default function SettingsPage() {
   // ── Mount / unmount credits effects on tab change ──────
   useEffect(() => {
     if (tab === "CREDITS") {
+      setCreditsBgmActive(true);
       startCreditsBgm();
       startCreditsScroll();
       const cleanupParticles = startCreditsParticles();
@@ -531,6 +551,7 @@ export default function SettingsPage() {
         stopCreditsScroll();
         cleanupParticles?.();
         creditsPausedRef.current = false;
+        setCreditsBgmActive(false);
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -640,7 +661,7 @@ export default function SettingsPage() {
             <PixelToggle
               value={draftSfx} label="UI SOUND EFFECTS"
               onHover={() => playSound("hover")}
-              onToggle={() => { playSound("select"); setDraftSfx(!draftSfx); }}
+              onToggle={() => { if (!draftSfx) playSound("select"); setDraftSfx(!draftSfx); }}
             />
             <SectionLabel>MUSIC</SectionLabel>
             <PixelToggle
@@ -811,7 +832,6 @@ export default function SettingsPage() {
                   {/* Sections */}
                   {CREDITS_SECTIONS.map((sec) => (
                     <div key={sec.heading} style={{ marginBottom: 28, textAlign: "left" }}>
-                      {/* Section heading */}
                       <div style={{
                         fontFamily: font, fontSize: 8, letterSpacing: 2, color: CYAN,
                         textShadow: `0 0 8px ${CYAN}`,
@@ -826,14 +846,12 @@ export default function SettingsPage() {
                           display: "flex", alignItems: "flex-start",
                           marginBottom: 8, gap: 4,
                         }}>
-                          {/* Row label */}
                           <span style={{
                             fontFamily: font, fontSize: 7, color: `${NEON}88`,
                             minWidth: 150, flexShrink: 0, letterSpacing: 0.5, lineHeight: 1.8,
                           }}>
                             {row.label}
                           </span>
-                          {/* Dots */}
                           <span style={{
                             fontFamily: font, fontSize: 7, color: `${NEON}33`,
                             flex: 1, letterSpacing: 2, overflow: "hidden",
@@ -841,7 +859,6 @@ export default function SettingsPage() {
                           }}>
                             {DOTS}
                           </span>
-                          {/* Names */}
                           <span style={{
                             fontFamily: font, fontSize: 7, color: NEON,
                             textAlign: "right", minWidth: 170, lineHeight: 1.8,

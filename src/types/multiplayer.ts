@@ -151,10 +151,12 @@ export interface MultiplayerBridge {
   onAnswerSubmission: (id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void) => void;
   offAnswerSubmission: (id: string) => void;
   sendAnswerSubmission: (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void;
-  startHttpServer?: (data: string) => void;
-  stopHttpServer?: () => void;
-  onHttpServerStarted?: (id: string, cb: (port: number) => void) => void;
-  offHttpServerStarted?: (id: string) => void;
+  broadcastEmote?: (payload: { playerId: string; emoteId: string }) => void;
+  onEmoteReceived?: (listenerId: string, callback: (payload: { playerId: string; emoteId: string }) => void) => void;
+  offEmoteReceived?: (listenerId: string) => void;
+  sendEmote?: (payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string }) => void;
+  onEmoteSync?: (source: string, callback: (payload: any) => void) => void;
+  offEmoteSync?: (source: string) => void;
 }
 
 declare global {
