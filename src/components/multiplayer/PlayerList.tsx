@@ -2,7 +2,8 @@ import { Box, Typography, Avatar, Button } from "@mui/material";
 import { LobbyMember } from "../../types/multiplayer";
 import { UserSharp, Robot, RobotFaceHappy } from "pixelarticons/react";
 import theme from "../../ui/theme";
-import { getAvatarSrc } from "../../utils/avatar";
+// Import FALLBACK_AVATAR alongside getAvatarSrc for onError handler
+import { getAvatarSrc, FALLBACK_AVATAR } from "../../utils/avatar";
 import RankIcon, { RANK_COLORS, getRankSymbolType } from "../ui/RankIcon";
 
 interface PlayerListProps {
@@ -32,11 +33,21 @@ export const PlayerList = ({ players, isHost, onKick }: PlayerListProps) => {
         <Box key={player.id} sx={{ display: "flex", alignItems: "center", mb: 1 }}>
           <Box sx={{ width:"100%", display: "flex", alignItems: "center", gap: 2}}>
             <Box width={48} height={48} sx={{ display:"flex", justifyContent:"center", alignItems: "center", border: `2px solid ${theme.palette.primary.main}`}}>
-              {player.avatar ? (
-                <Avatar src={getAvatarSrc(player.avatar)} alt={player.name} sx={{ width: 44, height: 44, imageRendering: 'pixelated' }} />
-              ) : (
-                <UserSharp width={32} height={32}/>
-              )}
+              {/* Avatar fix:
+                  - Always render Avatar (removed player.avatar conditional)
+                  - getAvatarSrc handles undefined/null and resolves correct path for Electron
+                  - onError swaps src to inline data URI fallback, preventing broken-image icon
+                  - UserSharp renders behind as fallback if Avatar image is hidden */}
+              <Avatar
+                src={getAvatarSrc(player.avatar)}
+                alt={player.name}
+                sx={{ width: 44, height: 44, imageRendering: 'pixelated' }}
+                imgProps={{
+                  onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
+                    e.currentTarget.src = FALLBACK_AVATAR;
+                  }
+                }}
+              />
             </Box>
             <Box>
               <Typography variant="body2">

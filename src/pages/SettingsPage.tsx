@@ -222,6 +222,9 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
   const audioBank = useRef<Partial<Record<SoundType, HTMLAudioElement>>>({});
   const audioCtx  = useRef<AudioContext | null>(null);
   const mp3Ready  = useRef(false);
+  // Keep a ref in sync with sfxEnabled so playSound always reads the latest value
+  const sfxEnabledRef = useRef(sfxEnabled);
+  useEffect(() => { sfxEnabledRef.current = sfxEnabled; }, [sfxEnabled]);
 
   useEffect(() => {
     const files: Record<SoundType, string> = {
@@ -282,7 +285,7 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
   }
 
   function playSound(type: SoundType) {
-    if (!sfxEnabled) return;
+    if (!sfxEnabledRef.current) return;
     const mp3 = audioBank.current[type];
     if (mp3Ready.current && mp3) {
       mp3.currentTime = 0;
@@ -359,8 +362,10 @@ export default function SettingsPage() {
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Store ──────────────────────────────────────────────
-  const setScreen      = useGameStore((s) => s.setScreen);
-  const updateSettings = useGameStore((s) => s.updateSettings);
+  const setScreen            = useGameStore((s) => s.setScreen);
+  const updateSettings       = useGameStore((s) => s.updateSettings);
+  // Used to signal App.tsx to pause/resume the global BGM around Credits
+  const setCreditsBgmActive  = useGameStore((s) => s.setCreditsBgmActive);
   const setResolution  = useGameStore((s) => s.setResolution);
   const setGameConfig  = useGameStore((s) => s.setGameConfig);
   const storedSettings = useGameStore((s) => s.settings) as SettingsView;
@@ -383,7 +388,9 @@ export default function SettingsPage() {
   const [draftResKey,      setDraftResKey]      = useState<string>(storedRes.label ?? "XGA");
   const [draftAutoJoinLan, setDraftAutoJoinLan] = useState<boolean>(gameConfig.autoJoinLan ?? false);
 
-  const { playSound } = useAudioEngine(draftSfx, draftVolume);
+  // FIX: drive the audio engine from the persisted setting, not the draft.
+  // This prevents sounds from playing/stopping based on unsaved toggle state.
+  const { playSound } = useAudioEngine(storedSettings.sfxEnabled ?? true, draftVolume);
   const currentResolutionKey = storedRes.label ?? "XGA";
   const currentName = player?.name ?? "PLAYER_01";
   const currentAvatar = player?.avatar ?? avatars[0];
@@ -408,7 +415,8 @@ export default function SettingsPage() {
   const creditsBgmRef       = useRef<HTMLAudioElement | null>(null);
   const creditsFadeRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const [creditsMuted,      setCreditsMuted]      = useState(false);
-  const [creditsBgmVol,     setCreditsBgmVol]     = useState(0.35);
+  // Initialise credits BGM volume from the saved master volume (0–1 scale)
+  const [creditsBgmVol,     setCreditsBgmVol]     = useState(() => (storedSettings.volume ?? 5) / 10);
   const [creditsBgmPlaying, setCreditsBgmPlaying] = useState(false);
 
   // ── Credits BGM helpers ────────────────────────────────
@@ -432,17 +440,20 @@ export default function SettingsPage() {
   }
 
   function startCreditsBgm() {
+    // Guard: only one instance, and respect the saved BGM enabled setting
     if (creditsBgmRef.current) return;
-    const audio = new Audio("/sounds/credits-bgm.mp3");
+    if (!storedSettings.bgmEnabled) return;
+    // ← swap filename here if the track ever changes
+    const audio = new Audio("/sounds/djartmusic-8-bit-console-from-my-childhood-301286.mp3");
     audio.loop   = true;
-    audio.volume = 0;
+    audio.volume = 0; // always start silent, then fade in
     creditsBgmRef.current = audio;
     audio.play()
       .then(() => {
         setCreditsBgmPlaying(true);
         fadeCreditsBgm(creditsMuted ? 0 : creditsBgmVol, 1800);
       })
-      .catch(() => {});
+      .catch(() => {}); // autoplay blocked — silently ignored
   }
 
   function stopCreditsBgm() {
@@ -523,6 +534,8 @@ export default function SettingsPage() {
   // ── Mount / unmount credits effects on tab change ──────
   useEffect(() => {
     if (tab === "CREDITS") {
+      // Signal App.tsx to pause the global BGM while Credits is shown
+      setCreditsBgmActive(true);
       startCreditsBgm();
       startCreditsScroll();
       const cleanupParticles = startCreditsParticles();
@@ -531,6 +544,8 @@ export default function SettingsPage() {
         stopCreditsScroll();
         cleanupParticles?.();
         creditsPausedRef.current = false;
+        // Signal App.tsx to resume the global BGM
+        setCreditsBgmActive(false);
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -640,7 +655,9 @@ export default function SettingsPage() {
             <PixelToggle
               value={draftSfx} label="UI SOUND EFFECTS"
               onHover={() => playSound("hover")}
-              onToggle={() => { playSound("select"); setDraftSfx(!draftSfx); }}
+              // FIX: only play the click sound when turning SFX ON (new state = true).
+              // When turning OFF, the new state is false so no sound should play.
+              onToggle={() => { if (!draftSfx) playSound("select"); setDraftSfx(!draftSfx); }}
             />
             <SectionLabel>MUSIC</SectionLabel>
             <PixelToggle

@@ -73,6 +73,11 @@ interface GameState {
   // ── Deferred level-up popup state ──────────────────────────────────────────
   levelUpSession: LevelUpSession;
 
+  // ── Credits BGM flag (NOT persisted) ───────────────────────────────────────
+  // True while the Credits tab BGM is playing; App.tsx uses this to pause
+  // the global BGM so the two tracks never overlap.
+  creditsBgmActive: boolean;
+
   getPlayer: () => Player;
 
   setScreen: (screen: Screen) => void;
@@ -103,6 +108,8 @@ interface GameState {
    */
   clearLevelUpSession: () => void;
 
+  setCreditsBgmActive: (v: boolean) => void;
+
   setMode: (mode: Mode) => void;
   setCategory: (category: Category) => void;
   setDifficulty: (difficulty: Difficulty) => void;
@@ -129,6 +136,9 @@ export const useGameStore = create<GameState>()(
 
       // Not persisted — always starts clean
       levelUpSession: DEFAULT_LEVEL_UP_SESSION,
+
+      // Not persisted — resets to false on every page load
+      creditsBgmActive: false,
 
       settings: {
         bgmEnabled: true,
@@ -214,6 +224,9 @@ export const useGameStore = create<GameState>()(
       clearLevelUpSession: () =>
         set({ levelUpSession: DEFAULT_LEVEL_UP_SESSION, modalScreen: null }),
 
+      // Set by SettingsPage when Credits tab is entered/exited
+      setCreditsBgmActive: (v: boolean) => set({ creditsBgmActive: v }),
+
       // ── Convenience config setters (unchanged) ────────────────────────────
 
       setMode: (mode: Mode) =>
@@ -233,7 +246,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: "game-store",
-      // levelUpSession is intentionally excluded — it must not survive a page reload
+      // levelUpSession and creditsBgmActive are intentionally excluded — must not survive a page reload
       partialize: (state: GameState) => ({
         settings: state.settings,
         resolution: state.resolution,
