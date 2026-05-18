@@ -15,7 +15,7 @@ import { useEmotes } from "../hooks/useEmotes";
 import { EmoteControls, PlayerEmoteOverlay } from "../components/emotes/EmoteSystem";
 import { BunnyMascot } from "../components/bunny/BunnyMascot";
 import { useRewardSystem, RewardOverlay } from '../components/rewards/RewardSystem';
-import { calculateXP, getLevel } from "../utils/progression";
+import { calculateXP, getLevel, applyFreezeBonus } from "../utils/progression";
 import type { Achievement } from "../types/player";
 import type { BunnyState } from "src/components/bunny/bunnyStates";
 import { PowerUpTray } from "../components/powerups/PowerUpTray";
@@ -427,10 +427,17 @@ const handleAnswerClick = useCallback((answer: string) => {
     totalAnsweredRef.current += 1;
   }
 
+  // Check if time_freeze power-up was used on this question and apply bonus
+  const powerUpState = usePowerUpStore.getState();
+  const timeFreezeUsed = powerUpState.used.some(
+    (u) => u.id === 'time_freeze' && u.usedOnQuestionIndex === currentIndex
+  );
+  const effectiveTimer = applyFreezeBonus(timer ?? 0, answerTimer, timeFreezeUsed);
+
   const finalScore = scoreIncrementForAnswer(
     true,
     useGameStore.getState().gameConfig.difficulty ?? "easy",
-    timer ?? 0,
+    effectiveTimer,
     answerTimer,
   );
 

@@ -5,10 +5,11 @@ import type { GameConfig } from './gameStore';
 import { loadQuestions } from '../utils/loadQuestions';
 import { getMultiplayerPlayer, getMultiplayerPlayerId, usePlayerStore } from "./playerStore";
 import { useMultiplayerStore } from './multiplayerStore';
+import { usePowerUpStore } from './powerUpStore';
 import type { MultiplayerBridge } from '../types/multiplayer';
 import { defaultGameConfig } from '../config/gameConfig';
 import { applyRoundScores, scoreIncrementForAnswer, PlayerRoundAnswer } from '../rules';
-import { calculateMultiplayerXP } from '../utils/progression';
+import { calculateMultiplayerXP, applyFreezeBonus } from '../utils/progression';
 
 /**
  * Trivia Store - Game Logic and State Management
@@ -287,8 +288,16 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     newUserAnswers[currentIndex] = answer;
 
     if (mode === 'solo') {
+      // Check if time_freeze power-up was used on this question
+      const powerUpState = usePowerUpStore.getState();
+      const timeFreezeUsed = powerUpState.used.some(
+        (u) => u.id === 'time_freeze' && u.usedOnQuestionIndex === currentIndex
+      );
+      // Apply freeze bonus to remaining time before calculating score
+      const effectiveRemainingTime = applyFreezeBonus(answerRemainingTime, answerTimer, timeFreezeUsed);
+      
       const newScore = score + scoreIncrementForAnswer(
-        isCorrect, difficulty ?? 'easy', answerRemainingTime, answerTimer,
+        isCorrect, difficulty ?? 'easy', effectiveRemainingTime, answerTimer,
       );
 
       set({
@@ -531,12 +540,43 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
     if (!question) return;
 
     const hostId     = getMultiplayerPlayerId(usePlayerStore.getState().getPlayer().id);
+    
+    // Check if time_freeze power-up was used on this question
+    const powerUpState = usePowerUpStore.getState();
+    const timeFreezeUsed = powerUpState.used.some(
+      (u) => u.id === 'time_freeze' && u.usedOnQuestionIndex === state.currentIndex
+    );
+    
+    // Apply freeze bonus to host remaining time
+    const hostRemainingTimeWithBonus = applyFreezeBonus(
+      state.selectedAnswerRemainingTime,
+      state.answerTimer,
+      timeFreezeUsed
+    );
+    
+    // Apply freeze bonus to all player answer times
+    const playerAnswersWithBonus = Object.entries(state.playerAnswers).reduce(
+      (acc, [playerId, answers]) => {
+        acc[playerId] = answers.map((answer, index) => {
+          if (index === state.currentIndex && answer) {
+            return {
+              ...answer,
+              remainingTime: applyFreezeBonus(answer.remainingTime, state.answerTimer, timeFreezeUsed),
+            };
+          }
+          return answer;
+        });
+        return acc;
+      },
+      {} as typeof state.playerAnswers
+    );
+
     const nextScores = applyRoundScores({
       currentScores:         state.playerScores,
       hostPlayerId:          hostId,
       hostAnswer:            state.selectedAnswer,
-      hostRemainingTime:     state.selectedAnswerRemainingTime,
-      playerAnswers:         state.playerAnswers,
+      hostRemainingTime:     hostRemainingTimeWithBonus,
+      playerAnswers:         playerAnswersWithBonus,
       questionIndex:         state.currentIndex,
       correctAnswer:         question.correctAnswer,
       difficulty:            state.difficulty ?? 'easy',

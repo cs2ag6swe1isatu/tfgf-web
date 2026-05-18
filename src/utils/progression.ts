@@ -7,6 +7,20 @@ const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
 };
 
 export const DEFAULT_TOTAL_TIME = 15;
+export const FREEZE_TIMER_BONUS_SECONDS = 5;
+
+/**
+ * Apply freeze power-up bonus to remaining time.
+ * Time freeze adds 5 seconds to the remaining time (capped at totalTime).
+ */
+export function applyFreezeBonus(
+  remainingTime: number,
+  totalTime = DEFAULT_TOTAL_TIME,
+  timeFreezeUsed: boolean = false,
+): number {
+  if (!timeFreezeUsed) return remainingTime;
+  return Math.min(totalTime, remainingTime + FREEZE_TIMER_BONUS_SECONDS);
+}
 
 /**
  * Calculate score for a single correct answer.
@@ -17,6 +31,7 @@ export const DEFAULT_TOTAL_TIME = 15;
  * Final Score = (30 × difficultyMultiplier) + speedBonus
  *
  * Max possible: (30 × 2.0) + 20 = 80 → 100 (Hard, full 15s remaining)
+ * With freeze: Can reach up to (30 × 2.0) + 20 = 100 even on slower answers
  */
 export function calculateScore(
   difficulty: Difficulty,
