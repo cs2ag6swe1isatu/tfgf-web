@@ -274,6 +274,8 @@ const createDefaultPlayer = (): Player => ({
       { id: "time_freeze", count: 1 },
       { id: "double_xp", count: 1 },
     ],
+    timeFreezePointsEarned: 0,
+    timeFreezeUsageCount: 0,
 
 });
 
@@ -324,6 +326,8 @@ const normalizePlayer = (value: unknown): Player | null => {
     powerUpInventory: Array.isArray(value.powerUpInventory)
     ? value.powerUpInventory
     : createDefaultPlayer().powerUpInventory,
+      timeFreezePointsEarned: readNumber(value.timeFreezePointsEarned, 0),
+      timeFreezeUsageCount: readNumber(value.timeFreezeUsageCount, 0),
     
 
   };

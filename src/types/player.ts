@@ -61,6 +61,9 @@ export interface Player {
 
   powerUpInventory: PowerUpInventoryEntry[];
   
+  // ── Power-up bonus tracking (for testing & analytics) ──
+  timeFreezePointsEarned: number;
+  timeFreezeUsageCount: number;
 
   totalScore: number;
   topScore: number;
