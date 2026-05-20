@@ -1,16 +1,15 @@
 import { useState, useRef, useEffect, ReactNode } from "react";
 import { useGameStore } from "../store/gameStore";
 import { usePlayerStore, PlayerState } from "../store/playerStore";
+import { publicAssetUrl } from "../utils/publicAssetUrl";
 
 // ─── AUDIO PATHS (public/sounds — production-safe for Electron) ───────────
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-const sfxHover      = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Cursor 2 (Square).mp3`;
-const sfxSelect     = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Select 1 (Square).mp3`;
-const sfxTab        = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Popup Open 1 (Square).mp3`;
-const sfxBack       = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Cancel 1 (Square).mp3`;
-const sfxError      = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Error 1 (Square).mp3`;
-const creditsBgmSrc = `${BASE}/sounds/djartmusic-8-bit-console-from-my-childhood-301286.mp3`;
+const sfxHover      = publicAssetUrl("sounds/JDSherbert - Pixel UI SFX Pack - Cursor 2 (Square).mp3");
+const sfxSelect     = publicAssetUrl("sounds/JDSherbert - Pixel UI SFX Pack - Select 1 (Square).mp3");
+const sfxTab        = publicAssetUrl("sounds/JDSherbert - Pixel UI SFX Pack - Popup Open 1 (Square).mp3");
+const sfxBack       = publicAssetUrl("sounds/JDSherbert - Pixel UI SFX Pack - Cancel 1 (Square).mp3");
+const sfxError      = publicAssetUrl("sounds/JDSherbert - Pixel UI SFX Pack - Error 1 (Square).mp3");
+const creditsBgmSrc = publicAssetUrl("sounds/djartmusic-8-bit-console-from-my-childhood-301286 (1).mp3");
 
 const NEON = "#35E52B";
 const CYAN = "#00E5FF";
@@ -78,7 +77,7 @@ function AvatarImage({ fileName, selected, onClick, onHover }: {
         <span style={{ fontSize: 28 }}>{fallbackEmoji[fileName] ?? "❓"}</span>
       ) : (
         <img
-          src={`./img/avatars/${encodeURIComponent(fileName)}`}
+          src={publicAssetUrl(`img/avatars/${fileName}`)}
           alt={fileName}
           onError={() => setImgFailed(true)}
           style={{ width: "100%", height: "100%", imageRendering: "pixelated", objectFit: "contain" }}
@@ -114,7 +113,7 @@ function DevCard({ name, file }: { name: string; file: string }) {
           </span>
         ) : (
           <img
-            src={`./img/avatars/${encodeURIComponent(file)}`}
+            src={publicAssetUrl(`img/avatars/${file}`)}
             alt={name}
             onError={() => setImgFailed(true)}
             style={{ width: 44, height: 44, imageRendering: "pixelated", objectFit: "contain" }}

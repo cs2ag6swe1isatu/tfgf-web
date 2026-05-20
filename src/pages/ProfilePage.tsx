@@ -17,6 +17,7 @@ import type { GameSession, Player, PlayData } from "../types/player";
 import { User } from "pixelarticons/react"; // Assuming you have this
 import { ACHIEVEMENT_RULES, type AchievementCategory, type AchievementScope } from "../progression/achievementRules";
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
+import { publicAssetUrl } from "../utils/publicAssetUrl";
 
 
 
@@ -734,7 +735,7 @@ const ProfilePage = () => {
                                 overflow: "hidden",
                               }}>
                                 <img
-                                  src={ach.unlocked ? ach.icon : "/img/achievements/Locked%20icon.png"}
+                                  src={ach.unlocked ? ach.icon : publicAssetUrl("img/achievements/Locked icon.png")}
                                   alt={ach.name}
                                   style={{
                                     display: "block",

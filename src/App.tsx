@@ -22,6 +22,7 @@ import type { SoundType } from "./context/SoundContext";
 import { usePreloader, lazyPreloadAudio } from "./hooks/usePreloader";
 import { registerBundledAssets } from "./utils/registerBundledAssets";
 import PowerUpsPage from "./pages/PowerUpsPage";
+import { publicAssetUrl } from "./utils/publicAssetUrl";
 
 const styles = {
   screenRoot: {
@@ -108,13 +109,8 @@ function SplashScreen({ progress, stage }: { progress: number; stage: string }) 
   );
 }
 
-// ── Asset path helper — works in both dev (http) and packaged Electron (file://) ──
-const assetBase = window.location.protocol === "file:"
-  ? window.location.pathname.replace(/[^/\\]*$/, "")  // strip index.html, keep trailing slash
-  : "/";
-
 function assetUrl(rel: string): string {
-  return assetBase + rel;
+  return publicAssetUrl(rel);
 }
 
 // ── useAudioEngine — defined OUTSIDE App, at the module level ──
