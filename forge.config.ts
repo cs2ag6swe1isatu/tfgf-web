@@ -7,7 +7,10 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import MakerPortable from '@rabbitholesyndrome/electron-forge-maker-portable';
 const config: ForgeConfig = {
   packagerConfig: {
-    icon: 'src/assets/icon.ico',
+<<<<<<< HEAD
+    icon: 'public/img/app-icon.ico',
+=======
+>>>>>>> 26a5ef6 (update asset paths)
     asar: {
       unpack: "**/*.{png,jpg,jpeg,gif,webp,mp3,ttf,json}",
     },
