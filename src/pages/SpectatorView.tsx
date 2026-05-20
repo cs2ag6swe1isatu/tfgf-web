@@ -21,6 +21,7 @@ const PlayerPanel = ({
   timer,
   answerTimer,
   playerScores,
+  playerAnswers,
   questionLimit,
   category,
 }: {
@@ -32,6 +33,7 @@ const PlayerPanel = ({
   timer: number;
   answerTimer: number;
   playerScores: Record<string, number>;
+  playerAnswers: Record<string, any[]>;
   questionLimit: number;
   category: string | null | undefined;
 }) => {
@@ -39,6 +41,7 @@ const PlayerPanel = ({
   const score = playerScores?.[player.id] ?? 0;
   const timerPct = answerTimer > 0 ? Math.max(0, (timer / answerTimer) * 100) : 0;
   const isScoring = phase === "scoring" || phase === "ranking";
+  const playerAnswer = playerAnswers?.[player.id]?.[currentIndex]?.answer;
 
   const bunnyState =
     phase === "readying" ? "sleeping"
@@ -125,13 +128,29 @@ const PlayerPanel = ({
       <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", padding: "8px", flex: 1 }}>
         {(currentQuestion?.allAnswers ?? ["—", "—", "—", "—"]).map((answer: string, idx: number) => {
           const isCorrect = isScoring && answer === currentQuestion?.correctAnswer;
+          const isPlayerSelected = isScoring && answer === playerAnswer;
+          const isIncorrectSelection = isPlayerSelected && !isCorrect;
+          
           return (
             <Box key={idx} sx={{
               padding: "6px 8px",
-              border: `1.5px solid ${isCorrect ? "#35E52B" : "rgba(0,229,255,0.3)"}`,
+              border: `1.5px solid ${
+                isCorrect ? "#35E52B" 
+                : isIncorrectSelection ? "#FF0055"
+                : isPlayerSelected ? "#FF00FF"
+                : "rgba(0,229,255,0.3)"
+              }`,
               borderRadius: "4px",
-              background: isCorrect ? "rgba(53,229,43,0.1)" : "rgba(0,229,255,0.02)",
-              color: isCorrect ? "#35E52B" : "#00E5FF",
+              background: 
+                isCorrect ? "rgba(53,229,43,0.1)" 
+                : isIncorrectSelection ? "rgba(255,0,85,0.1)"
+                : isPlayerSelected ? "rgba(255,0,255,0.05)"
+                : "rgba(0,229,255,0.02)",
+              color: 
+                isCorrect ? "#35E52B" 
+                : isIncorrectSelection ? "#FF0055"
+                : isPlayerSelected ? "#FF00FF"
+                : "#00E5FF",
               fontFamily: "'Press Start 2P', monospace",
               fontSize: "7px",
               lineHeight: 1.6,
@@ -175,6 +194,7 @@ const PlayerPanel = ({
 const SpectatorView = () => {
   const players = useMultiplayerStore((s) => s.players);
   const setScreen = useGameStore((s) => s.setScreen);
+  const isCompactViewport = window.innerWidth <= 820 || window.innerHeight <= 500;
 
   const questions   = useTriviaStore((s) => s.questions);
   const currentIndex = useTriviaStore((s) => s.currentIndex);
@@ -182,6 +202,7 @@ const SpectatorView = () => {
   const timer       = useTriviaStore((s) => s.timer);
   const answerTimer = useTriviaStore((s) => s.answerTimer);
   const playerScores = useTriviaStore((s) => s.playerScores);
+  const playerAnswers = useTriviaStore((s) => s.playerAnswers);
   const questionLimit = useTriviaStore((s) => s.questionLimit);
   const category    = useTriviaStore((s) => s.category);
 
@@ -196,6 +217,7 @@ const SpectatorView = () => {
         timer: payload.timer,
         currentIndex: payload.currentIndex,
         ...(payload.playerScores  !== undefined ? { playerScores:  payload.playerScores  } : {}),
+        ...(payload.playerAnswers !== undefined ? { playerAnswers: payload.playerAnswers } : {}),
         ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
         ...(payload.category      !== undefined ? { category:      payload.category      } : {}),
         ...(payload.rankings      !== undefined ? { rankings: payload.rankings.map((r) => ({ ...r, xp: r.xp ?? 0 })) } : {}),
@@ -232,30 +254,30 @@ const SpectatorView = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "8px 16px",
+        padding: isCompactViewport ? "6px 10px" : "8px 16px",
         borderBottom: `1px solid rgba(168,85,247,0.25)`,
         background: "rgba(2,4,8,0.98)",
         flexShrink: 0,
       }}>
         <Box sx={{
           display: "flex", alignItems: "center", gap: "8px",
-          padding: "4px 10px",
+          padding: isCompactViewport ? "3px 8px" : "4px 10px",
           border: `1.5px solid ${SPECTATOR_COLOR}`,
           borderRadius: "4px",
           background: "rgba(168,85,247,0.08)",
           color: SPECTATOR_COLOR,
-          fontSize: "9px",
+          fontSize: isCompactViewport ? "7px" : "9px",
           letterSpacing: "2px",
         }}>
           👁 SPECTATOR MODE
         </Box>
 
-        <Box sx={{ fontSize: "9px", color: "#00E5FF", letterSpacing: "2px" }}>
+        <Box sx={{ fontSize: isCompactViewport ? "7px" : "9px", color: "#00E5FF", letterSpacing: "2px" }}>
           {phase === "answering" ? `ANSWERING — ${Math.ceil(timer)}S` : phase?.toUpperCase()}
         </Box>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <Box sx={{ fontSize: "8px", color: "rgba(168,85,247,0.6)", letterSpacing: "1px" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: isCompactViewport ? "8px" : "12px" }}>
+          <Box sx={{ fontSize: isCompactViewport ? "7px" : "8px", color: "rgba(168,85,247,0.6)", letterSpacing: "1px" }}>
             {activePlayers.length} PLAYER{activePlayers.length !== 1 ? "S" : ""}
           </Box>
           <button
@@ -264,9 +286,9 @@ const SpectatorView = () => {
               background: "transparent",
               color: SPECTATOR_COLOR,
               border: `1px solid ${SPECTATOR_COLOR}`,
-              padding: "4px 12px",
+              padding: isCompactViewport ? "3px 8px" : "4px 12px",
               fontFamily: "'Press Start 2P', monospace",
-              fontSize: "8px",
+              fontSize: isCompactViewport ? "6px" : "8px",
               cursor: "pointer",
               borderRadius: "4px",
               letterSpacing: "1px",
@@ -282,8 +304,8 @@ const SpectatorView = () => {
         flex: 1,
         display: "grid",
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: "10px",
-        padding: "10px",
+        gap: isCompactViewport ? "6px" : "10px",
+        padding: isCompactViewport ? "6px" : "10px",
         overflow: "auto",
         alignContent: "start",
       }}>
@@ -298,6 +320,7 @@ const SpectatorView = () => {
             timer={timer}
             answerTimer={answerTimer}
             playerScores={playerScores}
+            playerAnswers={playerAnswers}
             questionLimit={questionLimit}
             category={category}
           />
@@ -310,7 +333,7 @@ const SpectatorView = () => {
             alignItems: "center",
             justifyContent: "center",
             color: "rgba(168,85,247,0.4)",
-            fontSize: "10px",
+            fontSize: isCompactViewport ? "8px" : "10px",
             letterSpacing: "2px",
             height: "200px",
           }}>

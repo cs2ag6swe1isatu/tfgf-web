@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { usePowerUpStore } from "../store/powerUpStore";
 import { useSoundContext } from "../context/SoundContext";
+import { useTriviaStore } from "../store";
 import { POWER_UP_CATALOGUE } from "../types/powerups";
 import type { PowerUpId, PowerUpInventoryEntry } from "../types/powerups";
 import type { BunnyState } from "../components/bunny/bunnyStates";
@@ -82,6 +83,10 @@ export const usePowerUps = ({
     if (!success) return false;
 
       const def = POWER_UP_CATALOGUE[id];
+
+      if (id === "time_freeze") {
+        useTriviaStore.getState().activateFreeze(5);
+      }
 
       // Sound
       playSound(def.activationSound);

@@ -402,7 +402,7 @@ const derivedBunnyState: BunnyState = useMemo(() => {
       phase: state.phase, timer: state.timer, currentIndex: state.currentIndex, seed: state.seed,
       category: state.category ?? undefined, difficulty: state.difficulty ?? undefined,
       questionLimit: state.questionLimit, questionTimer: state.questionTimer, answerTimer: state.answerTimer,
-      playerScores: state.playerScores, rankings: state.rankings,
+      playerScores: state.playerScores, playerAnswers: state.playerAnswers, rankings: state.rankings,
     });
   }, [mode, lobbyRole, multiplayerBridge]);
 
@@ -566,6 +566,7 @@ const handleAnswerClick = useCallback((answer: string) => {
         ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
         ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
         ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
+        ...(payload.playerAnswers !== undefined ? { playerAnswers: payload.playerAnswers } : {}),
         ...(mappedRankings !== undefined ? { rankings: mappedRankings } : {}),
       };
       if (shouldResetSelectedAnswer) nextState.selectedAnswer = "";

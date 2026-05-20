@@ -1,5 +1,6 @@
 import { Phase } from "../store";
 import { Category, Difficulty, Rank } from "../constants";
+import type { PlayerRoundAnswer } from "../rules";
 
 export type PlayerConnectionState = "connected" | "disconnected";
 
@@ -45,6 +46,7 @@ export interface MultiplayerGameState {
   answerTimer?: number;
   questionPort?: number;
   playerScores?: Record<string, number>;
+  playerAnswers?: Record<string, PlayerRoundAnswer[]>;
   // Set to true when the host exits mid-game to signal clients that the
   // session was abandoned and no progression should be saved.
   hostAbandoned?: boolean;

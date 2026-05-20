@@ -67,6 +67,7 @@ export interface TriviaState {
   maxStreak: number;
   rankings: PlayerRanking[];
   avgTime: number;
+  freezeUntil: number; // timestamp until which timer is frozen (0 = not frozen)
 }
 
 export interface TriviaActions {
@@ -79,6 +80,7 @@ export interface TriviaActions {
   receiveRemoteAnswer: (playerId: string, questionIndex: number, answer: string, remainingTime?: number) => void;
   scoreCurrentQuestion: () => void;
   finalizeRankings: () => void;
+  activateFreeze: (durationSeconds: number) => void;
 }
 
 const readyTimer       = defaultGameConfig.readyTimer;
@@ -131,6 +133,7 @@ const initialState: TriviaState = {
   selectedAnswerRemainingTime: 0,
   rankings: [],
   avgTime: 0,
+  freezeUntil: 0,
 };
 
 export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => ({
@@ -240,6 +243,7 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         maxStreak: 0,
         rankings: [],
         seed,
+        freezeUntil: 0,
       });
     } catch (error) {
       console.error("Failed to load questions:", error);
@@ -316,13 +320,24 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
   tickTimer: () => {
     const state = get();
     const { timer, phase, selectedAnswer, questions, currentIndex, mode } = state;
-
+  const { freezeUntil } = state;
     if (
       phase !== 'readying' &&
       phase !== 'answering' &&
       phase !== 'asking'   &&
       phase !== 'scoring'
     ) return;
+
+    // Check if timer is frozen
+    const now = Date.now();
+    if (freezeUntil > now) {
+      // Still frozen, don't decrement timer
+      return;
+    } else if (freezeUntil > 0 && freezeUntil <= now) {
+      // Freeze expired, clear it
+      set({ freezeUntil: 0 });
+      return;
+    }
 
     if (phase === 'answering' && shouldEnterCheckingPhase(state)) {
       set({ phase: 'scoring', timer: multiplayerCheckingDelay });
@@ -647,4 +662,9 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
 
   /* ---------- Reset ---------- */
   resetGame: () => set(initialState),
+
+  activateFreeze: (durationSeconds: number) => {
+    const now = Date.now();
+    set({ freezeUntil: now + (durationSeconds * 1000) });
+  },
 }));

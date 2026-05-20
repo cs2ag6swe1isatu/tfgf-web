@@ -148,6 +148,7 @@ const MultiplayerLobby = () => {
   ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
   ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
   ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
+  ...(payload.playerAnswers !== undefined ? { playerAnswers: payload.playerAnswers } : {}),
   ...(payload.rankings !== undefined ? {
     rankings: payload.rankings.map((r) => ({
       ...r,
@@ -157,7 +158,6 @@ const MultiplayerLobby = () => {
 };
 
 useTriviaStore.setState(nextState);
-      useTriviaStore.setState(nextState);
       const totalElapsedMs = Date.now() - transitionStartTime;
       console.log(`[Lobby Client] Game transition complete, navigating to question page (${totalElapsedMs}ms total)`);
       setScreen(useMultiplayerStore.getState().participantRole === "spectator" ? "spectator-view" : "question");
@@ -271,6 +271,7 @@ useTriviaStore.setState(nextState);
       answerTimer: state.answerTimer,
       questionPort: httpPort || undefined,
       playerScores: state.playerScores,
+      playerAnswers: state.playerAnswers,
       rankings: state.rankings,
     });
 
@@ -505,6 +506,8 @@ const isCategorySelected = Boolean(gameConfig.category);
 const isDifficultySelected = Boolean(gameConfig.difficulty);
 const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
 
+  const isCompactViewport = window.innerWidth <= 820 || window.innerHeight <= 500;
+
   useEffect(() => {
     if (lobbyRole === "host" && players.length === 0) {
       handleCreateLobby();
@@ -525,20 +528,20 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
       alignItems: "stretch",
       justifyContent: "center",
       boxSizing: "border-box" as const,
-      padding: "24px 16px",
+      padding: isCompactViewport ? "12px 10px" : "24px 16px",
       overflow: "hidden",
-      gap: "16px",
+      gap: isCompactViewport ? "10px" : "16px",
     },
     inner: {
       flex: 1,
-      maxWidth: "640px",
+      maxWidth: isCompactViewport ? "560px" : "640px",
       display: "flex",
       flexDirection: "column" as const,
-      gap: "16px",
+      gap: isCompactViewport ? "10px" : "16px",
     },
     // ── Spectator side panel ────────────────────────────────────────────────
     spectatorPanel: {
-      width: "220px",
+      width: isCompactViewport ? "180px" : "220px",
       flexShrink: 0,
       display: "flex",
       flexDirection: "column" as const,
@@ -549,7 +552,7 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
     spectatorPanelBox: {
       border: `2px solid ${SPECTATOR_COLOR}`,
       borderRadius: "10px",
-      padding: "14px 12px",
+      padding: isCompactViewport ? "10px 8px" : "14px 12px",
       background: SPECTATOR_DIM,
       boxShadow: `0 0 14px rgba(168,85,247,0.18)`,
     },
@@ -561,29 +564,29 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
     },
     spectatorPanelTitle: {
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "11px",
+      fontSize: isCompactViewport ? "9px" : "11px",
       color: SPECTATOR_COLOR,
       letterSpacing: "1.5px",
     },
     spectatorPanelCount: {
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "10px",
+      fontSize: isCompactViewport ? "8px" : "10px",
       color: SPECTATOR_COLOR,
       opacity: 0.75,
     },
     spectatorRow: {
       display: "flex",
       alignItems: "center",
-      gap: "8px",
-      padding: "7px 8px",
+      gap: isCompactViewport ? "6px" : "8px",
+      padding: isCompactViewport ? "5px 6px" : "7px 8px",
       borderRadius: "6px",
       background: "rgba(168,85,247,0.08)",
       border: `1px solid rgba(168,85,247,0.25)`,
-      marginBottom: "6px",
+      marginBottom: isCompactViewport ? "4px" : "6px",
     },
     spectatorAvatar: {
-      width: "28px",
-      height: "28px",
+      width: isCompactViewport ? "24px" : "28px",
+      height: isCompactViewport ? "24px" : "28px",
       borderRadius: "3px",
       background: "#BFC3C3",
       border: `1.5px solid ${SPECTATOR_COLOR}`,
@@ -592,7 +595,7 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
     },
     spectatorName: {
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "9px",
+      fontSize: isCompactViewport ? "8px" : "9px",
       color: SPECTATOR_COLOR,
       letterSpacing: "0.5px",
       overflow: "hidden",
@@ -602,7 +605,7 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
     },
     spectatorStatus: {
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "8px",
+      fontSize: isCompactViewport ? "7px" : "8px",
       color: SPECTATOR_COLOR,
       opacity: 0.65,
       background: "rgba(168,85,247,0.12)",
@@ -616,12 +619,12 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
       alignItems: "center",
       justifyContent: "center",
       gap: "8px",
-      padding: "8px 14px",
+      padding: isCompactViewport ? "6px 10px" : "8px 14px",
       borderRadius: "7px",
       border: `1.5px solid ${SPECTATOR_COLOR}`,
       background: SPECTATOR_DIM,
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "11px",
+      fontSize: isCompactViewport ? "9px" : "11px",
       color: SPECTATOR_COLOR,
       letterSpacing: "1px",
     },
@@ -646,7 +649,7 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
     },
     lobbyIdLabel: {
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "18px",
+      fontSize: isCompactViewport ? "14px" : "18px",
       color: "#E5E5E5",
       whiteSpace: "nowrap" as const,
       letterSpacing: "1px",
@@ -655,9 +658,9 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
       background: "#2C2C2C",
       border: "1.5px solid #10363A",
       borderRadius: "6px",
-      padding: "4px 12px",
+      padding: isCompactViewport ? "3px 8px" : "4px 12px",
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "18px",
+      fontSize: isCompactViewport ? "14px" : "18px",
       color: "#35E52B",
       letterSpacing: "2px",
       minWidth: "120px",
@@ -667,26 +670,26 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
       display: "flex",
       alignItems: "center",
       gap: "6px",
-      padding: "5px 14px",
+      padding: isCompactViewport ? "4px 10px" : "5px 14px",
       borderRadius: "6px",
       border: `1.5px solid ${isPrivateMode ? "#E3A020" : "#00DFFF"}`,
       background: isPrivateMode ? "rgba(227,160,32,0.12)" : "#00DFFF",
       color: isPrivateMode ? "#E3A020" : "#010707",
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "17px",
+      fontSize: isCompactViewport ? "13px" : "17px",
       cursor: "pointer",
       letterSpacing: "1px",
       whiteSpace: "nowrap" as const,
       transition: "all 0.15s",
     }),
     exitBtn: {
-      padding: "5px 16px",
+      padding: isCompactViewport ? "4px 10px" : "5px 16px",
       borderRadius: "6px",
       border: "1.5px solid #00DFFF",
       background: "#10363A",
       color: "#35E52B",
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "17px",
+      fontSize: isCompactViewport ? "13px" : "17px",
       cursor: "pointer",
       letterSpacing: "1px",
       whiteSpace: "nowrap" as const,
@@ -695,7 +698,7 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
     panel: {
       border: "2px solid #00E5FF",
       borderRadius: "10px",
-      padding: "16px",
+      padding: isCompactViewport ? "10px" : "16px",
       background: "rgba(0,229,255,0.03)",
       boxShadow: "0 0 18px rgba(0,229,255,0.10)",
     },
@@ -707,30 +710,30 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
     },
     panelTitle: {
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "22px",
+      fontSize: isCompactViewport ? "16px" : "22px",
       color: "#E5E5E5",
       letterSpacing: "2px",
     },
     panelCount: {
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "18px",
+      fontSize: isCompactViewport ? "13px" : "18px",
       color: "#DADADA",
       letterSpacing: "1px",
     },
     playerRow: (active: boolean, disconnected: boolean) => ({
       display: "flex",
       alignItems: "center",
-      gap: "12px",
-      padding: "10px 12px",
+      gap: isCompactViewport ? "8px" : "12px",
+      padding: isCompactViewport ? "7px 8px" : "10px 12px",
       borderRadius: "7px",
       background: disconnected ? "rgba(106,115,115,0.35)" : active ? "#022f36" : "#6A7373",
       border: disconnected ? "1px solid rgba(227,50,50,0.55)" : "1px solid transparent",
-      marginBottom: "8px",
+      marginBottom: isCompactViewport ? "6px" : "8px",
       opacity: disconnected ? 0.72 : 1,
     }),
     avatar: {
-      width: "36px",
-      height: "36px",
+      width: isCompactViewport ? "28px" : "36px",
+      height: isCompactViewport ? "28px" : "36px",
       borderRadius: "4px",
       background: "#BFC3C3",
       border: "2px solid #2E2E2E",
@@ -746,7 +749,7 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
     },
     playerName: {
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "18px",
+      fontSize: isCompactViewport ? "13px" : "18px",
       color: "#D9E600",
       letterSpacing: "1px",
       overflow: "hidden",
@@ -755,7 +758,7 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
     },
     playerSub: {
       fontFamily: "'Press Start 2P', 'Courier New', monospace",
-      fontSize: "13px",
+      fontSize: isCompactViewport ? "10px" : "13px",
       color: "#DADADA",
       letterSpacing: "0.5px",
     },
