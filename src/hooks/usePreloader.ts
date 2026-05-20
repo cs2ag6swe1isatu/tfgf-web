@@ -14,15 +14,11 @@
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { AssetPreloader } from '../utils/AssetPreloader';
+import { publicAssetUrl } from '../utils/publicAssetUrl';
 
 // ── Asset URL helpers ───────────────────────────────────────────
-const assetBase =
-  window.location.protocol === 'file:'
-    ? window.location.pathname.replace(/[^/\\]*$/, '')
-    : '/';
-
 function assetUrl(rel: string): string {
-  return assetBase + rel;
+  return publicAssetUrl(rel);
 }
 
 // ── Image inventory ────────────────────────────────────────────
