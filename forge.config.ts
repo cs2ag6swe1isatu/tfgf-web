@@ -7,7 +7,9 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: "**/*.{png,jpg,jpeg,gif,webp,mp3,ttf,json}",
+    },
   },
   rebuildConfig: {},
   makers: [
