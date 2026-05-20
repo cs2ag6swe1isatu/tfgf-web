@@ -48,23 +48,23 @@ export const useEmotes = (multiplayerBridge: MultiplayerBridge | undefined, loca
     }, EMOTE_DURATION_MS);
   }, [playSound]);
 
-  // Listen for incoming remote emotes
+  // Listen for incoming remote emotes via event channel
   useEffect(() => {
     if (!multiplayerBridge) return;
 
     const handleRemoteEmote = (payload: EmotePayload) => {
-      // Don't duplicate local player's own emotes that might be echoed back
-      if (payload.playerId !== localPlayerId) {
-        handleEmote(payload);
-      }
+      if (payload.playerId !== localPlayerId) handleEmote(payload);
     };
 
-    // Note: Ensure your multiplayerBridge type exposes onEmoteSync and sendEmote
+    // Prefer event channel if available
+    if (multiplayerBridge.onEvent) {
+      multiplayerBridge.onEvent('emote', 'EmoteSystem', handleRemoteEmote);
+      return () => { multiplayerBridge.offEvent?.('emote', 'EmoteSystem'); };
+    }
+
+    // Fallback to legacy emote sync API
     multiplayerBridge.onEmoteSync?.("EmoteSystem", handleRemoteEmote);
-    
-    return () => {
-      multiplayerBridge.offEmoteSync?.("EmoteSystem");
-    };
+    return () => { multiplayerBridge.offEmoteSync?.("EmoteSystem"); };
   }, [multiplayerBridge, localPlayerId, handleEmote]);
 
   // Send a local emote
@@ -85,13 +85,15 @@ export const useEmotes = (multiplayerBridge: MultiplayerBridge | undefined, loca
     setIsOnCooldown(true);
     setTimeout(() => setIsOnCooldown(false), COOLDOWN_MS);
 
-    // 3. Broadcast to network
+    // 3. Broadcast to network using event channel when available
     if (multiplayerBridge && lobbyId && hostAddress) {
-      multiplayerBridge.sendEmote?.({
-        lobbyId,
-        hostAddress,
-        ...payload
-      });
+      const packet = { type: 'emote', payload: { lobbyId, hostAddress, ...payload } };
+      if (multiplayerBridge.sendEvent) {
+        multiplayerBridge.sendEvent(packet);
+      } else {
+        // Fallback to legacy API
+        multiplayerBridge.sendEmote?.({ lobbyId, hostAddress, ...payload });
+      }
     }
   }, [isOnCooldown, localPlayerId, handleEmote, multiplayerBridge, lobbyId, hostAddress]);
 

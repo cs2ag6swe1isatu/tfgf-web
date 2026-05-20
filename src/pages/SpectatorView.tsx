@@ -5,8 +5,11 @@ import { useGameStore } from "../store/gameStore";
 import { useTriviaStore } from "../store";
 import { getAvatarSrc } from "../utils/avatar";
 import { BunnyMascot } from "../components/bunny/BunnyMascot";
-import type { MultiplayerBridge } from "../types/multiplayer";
-import type { LobbyMember } from "../types/multiplayer";
+import { useResponsiveScale } from "../hooks/useResponsiveScale";
+import type { MultiplayerBridge, LobbyMember } from "../types/multiplayer";
+import type { Question } from "../types/question";
+import type { PlayerRoundAnswer } from "../rules/scoringRules";
+import { mapGameStatePayloadToTriviaState } from "../utils/multiplayerSync";
 
 const SPECTATOR_COLOR = "#A855F7";
 const ANSWER_LABELS = ["A", "B", "C", "D"];
@@ -27,13 +30,13 @@ const PlayerPanel = ({
 }: {
   player: LobbyMember;
   index: number;
-  questions: any[];
+  questions: Question[];
   currentIndex: number;
   phase: string;
   timer: number;
   answerTimer: number;
   playerScores: Record<string, number>;
-  playerAnswers: Record<string, any[]>;
+  playerAnswers: Record<string, PlayerRoundAnswer[]>;
   questionLimit: number;
   category: string | null | undefined;
 }) => {
@@ -194,7 +197,8 @@ const PlayerPanel = ({
 const SpectatorView = () => {
   const players = useMultiplayerStore((s) => s.players);
   const setScreen = useGameStore((s) => s.setScreen);
-  const isCompactViewport = window.innerWidth <= 820 || window.innerHeight <= 500;
+  const tokens = useResponsiveScale();
+  const isCompactViewport = tokens.isCompact;
 
   const questions   = useTriviaStore((s) => s.questions);
   const currentIndex = useTriviaStore((s) => s.currentIndex);
@@ -209,19 +213,11 @@ const SpectatorView = () => {
   const activePlayers = players.filter((p) => p.role !== "spectator");
 
   useEffect(() => {
-    const bridge = (window as any).multiplayer as MultiplayerBridge;
+    const bridge = (window as unknown as { multiplayer?: MultiplayerBridge }).multiplayer;
     if (!bridge) return;
     bridge.onGameStateSync("SpectatorView", (payload) => {
-      useTriviaStore.setState({
-        phase: payload.phase,
-        timer: payload.timer,
-        currentIndex: payload.currentIndex,
-        ...(payload.playerScores  !== undefined ? { playerScores:  payload.playerScores  } : {}),
-        ...(payload.playerAnswers !== undefined ? { playerAnswers: payload.playerAnswers } : {}),
-        ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
-        ...(payload.category      !== undefined ? { category:      payload.category      } : {}),
-        ...(payload.rankings      !== undefined ? { rankings: payload.rankings.map((r) => ({ ...r, xp: r.xp ?? 0 })) } : {}),
-      });
+      const mapped = mapGameStatePayloadToTriviaState(payload);
+      useTriviaStore.setState(mapped as Partial<import("../store").TriviaState>);
     });
     return () => { bridge.offGameStateSync?.("SpectatorView"); };
   }, []);

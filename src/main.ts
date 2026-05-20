@@ -189,14 +189,19 @@ function initUdpSocket() {
 ipcMain.on('multiplayer:udp-send', (_event, message: string, address: string = BROADCAST_ADDR) => {
   if (!udpSocket) initUdpSocket();
   let data = Buffer.from(message);
-  
-  // Compress if large (e.g. lobby snapshots or game state)
-  if (data.length > 800) {
+  // Avoid compressing small event packets (emotes/power-up events)
+  if (message && message.includes('"type":"event"')) {
+    // event packets are intentionally kept small and fire-and-forget
+    data = Buffer.from(message);
+  } else {
+    // Compress if large (e.g. lobby snapshots or game state)
+    if (data.length > 800) {
     try {
       data = zlib.deflateSync(data);
     } catch (e) {
       console.warn('[main] UDP compression failed:', e);
       data = Buffer.from(message); // Send uncompressed if failed
+    }
     }
   }
 

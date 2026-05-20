@@ -5,6 +5,7 @@ import { getMultiplayerPlayerId, usePlayerStore } from "../store/playerStore";
 import { Clock } from 'pixelarticons/react';
 import type { SessionProgressInput } from "src/progression/progressionRules";
 import type { MultiplayerBridge, MultiplayerGameState } from "../types/multiplayer";
+import { shapeGameStateForBroadcast, mapGameStatePayloadToTriviaState } from "../utils/multiplayerSync";
 import type { TriviaState } from "../store";
 import { scoreIncrementForAnswer } from "../rules";
 import { defaultGameConfig } from "../config/gameConfig";
@@ -398,13 +399,39 @@ const derivedBunnyState: BunnyState = useMemo(() => {
   const broadcastMultiplayerState = useCallback(() => {
     if (mode !== "multiplayer" || lobbyRole !== "host") return;
     const state = useTriviaStore.getState();
-    multiplayerBridge?.broadcastGameState?.({
-      phase: state.phase, timer: state.timer, currentIndex: state.currentIndex, seed: state.seed,
-      category: state.category ?? undefined, difficulty: state.difficulty ?? undefined,
-      questionLimit: state.questionLimit, questionTimer: state.questionTimer, answerTimer: state.answerTimer,
-      playerScores: state.playerScores, playerAnswers: state.playerAnswers, rankings: state.rankings,
-    });
+    const payload = shapeGameStateForBroadcast(state, {});
+    multiplayerBridge?.broadcastGameState?.(payload);
   }, [mode, lobbyRole, multiplayerBridge]);
+
+  // Host: listen for event-channel power-up requests from clients
+  useEffect(() => {
+    if (mode !== "multiplayer" || lobbyRole !== "host" || !multiplayerBridge) return;
+
+    const handlePowerUpEvent = (payload: any) => {
+      try {
+        const { playerId, powerUpId } = payload;
+        if (!playerId || !powerUpId) return;
+
+        // Validate player is part of current players list
+        const isParticipant = players.some((p) => p.id === playerId);
+        if (!isParticipant) return;
+
+        console.log('[QuestionPage] power_up_used event from', playerId, 'powerUp', powerUpId);
+
+        // Apply authoritative effects server-side (host)
+        if (powerUpId === 'time_freeze') {
+          useTriviaStore.getState().activateFreeze(5);
+          // After applying, broadcast updated game-state so clients observe freezeUntil
+          broadcastMultiplayerState();
+        }
+      } catch (e) {
+        console.warn('[QuestionPage] failed handling power_up_used event', e);
+      }
+    };
+
+    multiplayerBridge.onEvent?.('power_up_used', 'QuestionPage.PowerUp', handlePowerUpEvent);
+    return () => { multiplayerBridge.offEvent?.('power_up_used', 'QuestionPage.PowerUp'); };
+  }, [mode, lobbyRole, multiplayerBridge, players, broadcastMultiplayerState]);
 
   // AFTER
 const pendingRewardRef = useRef<null | {
@@ -541,9 +568,7 @@ const handleAnswerClick = useCallback((answer: string) => {
       const currentState = useTriviaStore.getState();
       const shouldResetSelectedAnswer = payload.currentIndex !== currentState.currentIndex;
 
-      // ── Host abandoned the match ─────────────────────────────────────────
-      // Skip results entirely: block progression save and return to home.
-      // Nothing earned in this session should be persisted.
+      // Host abandoned
       if (payload.hostAbandoned) {
         endProgressAppliedRef.current = true;
         useTriviaStore.setState({ phase: "end" });
@@ -551,31 +576,14 @@ const handleAnswerClick = useCallback((answer: string) => {
         return;
       }
 
-      const mappedRankings = payload.rankings?.map((r) => ({
-        playerId: r.playerId, name: r.name, score: r.score, rank: r.rank,
-        correctCount: r.correctCount, questionsAnswered: r.questionsAnswered,
-        accuracy: r.accuracy, avgTime: r.avgTime, xp: r.xp ?? 0,
-      }));
-
-      const nextState: Partial<TriviaState> = {
-        phase: payload.phase, timer: payload.timer, currentIndex: payload.currentIndex,
-        ...(payload.seed !== undefined ? { seed: payload.seed } : {}),
-        ...(payload.category !== undefined ? { category: payload.category ?? undefined } : {}),
-        ...(payload.difficulty !== undefined ? { difficulty: payload.difficulty ?? undefined } : {}),
-        ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
-        ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
-        ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
-        ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
-        ...(payload.playerAnswers !== undefined ? { playerAnswers: payload.playerAnswers } : {}),
-        ...(mappedRankings !== undefined ? { rankings: mappedRankings } : {}),
-      };
-      if (shouldResetSelectedAnswer) nextState.selectedAnswer = "";
+      const nextState = mapGameStatePayloadToTriviaState(payload);
+      if (shouldResetSelectedAnswer) (nextState as any).selectedAnswer = "";
 
       if (payload.phase === "end" && hasExitedRef.current) {
         setTimeout(() => setScreen("multiplayer-results"), 50);
       }
 
-      useTriviaStore.setState(nextState);
+      useTriviaStore.setState(nextState as Partial<TriviaState>);
     };
     multiplayerBridge.onGameStateSync("QuestionPage", handleGameStateSync);
     return () => { multiplayerBridge.offGameStateSync?.("QuestionPage"); };

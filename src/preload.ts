@@ -75,6 +75,7 @@ type MultiplayerPacket =
     | { type: "game-state"; payload: MultiplayerGameState }
     | { type: "answer-submission"; payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string } }
     | { type: "emote"; payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string } }
+    | { type: "event"; payload: { eventType: string; payload: unknown } }
     | { type: "ack"; payload: { packetId: string; lobbyId: string; playerId?: string } }
   );
 
@@ -116,6 +117,7 @@ const onHostExitCbs = new Map<string, (payload: MultiplayerHostExitPayload) => v
 const onGameStateSyncCbs = new Map<string, (payload: MultiplayerGameState) => void>();
 const onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void>();
 const onEmoteSyncCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string }) => void>();
+const onEventCbs = new Map<string, Map<string, (payload: unknown) => void>>();
 const onHttpServerStartedCbs = new Map<string, (port: number) => void>();
 
 let activeSnapshot: MultiplayerLobbySnapshot | null = null;
@@ -466,11 +468,6 @@ function updateHostSnapshot(mutator: (current: MultiplayerLobbySnapshot) => Mult
   emitHostFound(activeSnapshot, activeSnapshot.hostAddress ?? BROADCAST_ADDR);
 }
 
-function sendKickPlayer(payload: { lobbyId: string; playerId: string; sessionId?: string }) {
-  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "kick-player", payload: { ...payload, sessionId: payload.sessionId ?? activeSnapshot?.sessionId } };
-  sendUdpMessage(JSON.stringify(packet));
-}
-
 
 function broadcastGameState(gameState: MultiplayerGameState) {
   isGameActive = true;
@@ -490,6 +487,11 @@ function sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; p
 function sendEmote(payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string }) {
   const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "emote", payload };
   sendUdpMessage(JSON.stringify(packet), BROADCAST_ADDR);
+}
+
+function sendEvent(packet: { type: string; payload: unknown }, address: string = BROADCAST_ADDR) {
+  const udpPacket: MultiplayerPacket = { ...nextPacketMeta(), type: "event", payload: { eventType: packet.type, payload: packet.payload } };
+  sendUdpMessage(JSON.stringify(udpPacket), address);
 }
 
 function handlePacket(raw: string, senderAddress: string) {
@@ -583,6 +585,24 @@ function handlePacket(raw: string, senderAddress: string) {
     if (activeMode === "host") {
       sendUdpMessage(JSON.stringify(packet), BROADCAST_ADDR);
     }
+    return;
+  }
+
+  if (packet.type === "event") {
+    const eventType = packet.payload?.eventType;
+    const eventPayload = packet.payload?.payload;
+
+    // Dispatch to any local listeners for this event type
+    const map = onEventCbs.get(eventType);
+    if (map) {
+      map.forEach((cb) => cb(eventPayload));
+    }
+
+    // Relay host-origin events to other clients
+    if (activeMode === "host") {
+      sendUdpMessage(JSON.stringify(packet), BROADCAST_ADDR);
+    }
+
     return;
   }
 
@@ -880,6 +900,13 @@ contextBridge.exposeInMainWorld("multiplayer", {
   offAnswerSubmission: (id: string) => { onAnswerSubmissionCbs.delete(id); },
   onEmoteSync: (id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string }) => void) => { onEmoteSyncCbs.set(id, cb); },
   offEmoteSync: (id: string) => { onEmoteSyncCbs.delete(id); },
+  sendEvent: (packet: { type: string; payload: unknown }) => { sendEvent(packet); },
+  onEvent: (eventType: string, id: string, cb: (payload: unknown) => void) => {
+    const map = onEventCbs.get(eventType) ?? new Map<string, (payload: unknown) => void>();
+    map.set(id, cb);
+    onEventCbs.set(eventType, map);
+  },
+  offEvent: (eventType: string, id: string) => { const map = onEventCbs.get(eventType); if (map) { map.delete(id); if (map.size === 0) onEventCbs.delete(eventType); } },
   startHttpServer: (data: string) => ipcRenderer.send('multiplayer:start-http-server', data),
   stopHttpServer: () => ipcRenderer.send('multiplayer:stop-http-server'),
   onHttpServerStarted: (id: string, cb: (port: number) => void) => { onHttpServerStartedCbs.set(id, cb); },

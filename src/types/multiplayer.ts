@@ -63,6 +63,32 @@ export interface MultiplayerGameState {
   }>;
 }
 
+// Event packet types for a lightweight event channel (emotes, power-up usages)
+export type EventPacketType = "power_up_used" | "emote" | "custom";
+
+export interface PowerUpUsedPayload {
+  lobbyId: string;
+  hostAddress?: string;
+  playerId: string;
+  powerUpId: string;
+  timestamp?: number;
+  metadata?: unknown;
+}
+
+export interface EmotePayload {
+  lobbyId: string;
+  hostAddress?: string;
+  playerId: string;
+  emoteId: string;
+  timestamp: number;
+  uniqueId: string; // for deduplication
+}
+
+export interface EventPacket {
+  type: EventPacketType;
+  payload: PowerUpUsedPayload | EmotePayload | unknown;
+}
+
 export interface MultiplayerDiscoveredPayload extends MultiplayerLobbySnapshot {
   lastSeen: number;
   isGameActive?: boolean;
@@ -109,7 +135,7 @@ export interface MultiplayerHostExitPayload {
 }
 
 export type DiscoveredHost = {
-  [x: string]: any;
+  [x: string]: unknown;
   lobbyId: string;
   hostId: string;
   hostName?: string;
@@ -124,7 +150,7 @@ export type DiscoveredHost = {
 };
 
 export interface MultiplayerBridge {
-  onHttpServerStarted(arg0: string, arg1: (port: any) => void): unknown;
+  onHttpServerStarted(arg0: string, arg1: (port: number) => void): unknown;
   offHttpServerStarted(arg0: string): unknown;
   // ── HTTP question server (host only) ──────────────────────────────────────
   // Starts a local HTTP server that serves the serialized question list to
@@ -170,7 +196,7 @@ export interface MultiplayerBridge {
   onEmoteReceived?: (listenerId: string, callback: (payload: { playerId: string; emoteId: string }) => void) => void;
   offEmoteReceived?: (listenerId: string) => void;
   sendEmote?: (payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string }) => void;
-  onEmoteSync?: (source: string, callback: (payload: any) => void) => void;
+  onEmoteSync?: (source: string, callback: (payload: EmotePayload) => void) => void;
   offEmoteSync?: (source: string) => void;
 }
 

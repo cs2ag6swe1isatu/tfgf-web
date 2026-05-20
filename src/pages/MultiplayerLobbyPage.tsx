@@ -8,6 +8,7 @@ import { getAvatarSrc } from "../utils/avatar";
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 import { useSoundContext } from "../context/SoundContext";
 import { getCategoryDisplay } from "../utils/categoryShorthand";
+import { useResponsiveScale } from "../hooks/useResponsiveScale";
 
 import type {
   MultiplayerBridge,
@@ -259,21 +260,8 @@ useTriviaStore.setState(nextState);
     });
 
     const state = useTriviaStore.getState();
-    multiplayerBridge?.broadcastGameState({
-      phase: state.phase,
-      timer: state.timer,
-      currentIndex: state.currentIndex,
-      seed: gameSessionSeed,
-      category: gameConfig.category ?? undefined,
-      difficulty: gameConfig.difficulty ?? undefined,
-      questionLimit: state.questionLimit,
-      questionTimer: state.questionTimer,
-      answerTimer: state.answerTimer,
-      questionPort: httpPort || undefined,
-      playerScores: state.playerScores,
-      playerAnswers: state.playerAnswers,
-      rankings: state.rankings,
-    });
+    const payload = shapeGameStateForBroadcast(state, { seed: gameSessionSeed, questionPort: httpPort || undefined });
+    multiplayerBridge?.broadcastGameState(payload);
 
     console.log(`[Lobby] Host game-start complete, navigating to question page`);
     isTransitioningToGameRef.current = true;
@@ -506,7 +494,8 @@ const isCategorySelected = Boolean(gameConfig.category);
 const isDifficultySelected = Boolean(gameConfig.difficulty);
 const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
 
-  const isCompactViewport = window.innerWidth <= 820 || window.innerHeight <= 500;
+  const tokens = useResponsiveScale();
+  const isCompactViewport = tokens.isCompact;
 
   useEffect(() => {
     if (lobbyRole === "host" && players.length === 0) {

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef } from "react";
 import { usePowerUpStore } from "../store/powerUpStore";
 import { useSoundContext } from "../context/SoundContext";
 import { useTriviaStore } from "../store";
+import { useMultiplayerStore } from "../store/multiplayerStore";
+import { usePlayerStore, getMultiplayerPlayerId } from "../store/playerStore";
 import { POWER_UP_CATALOGUE } from "../types/powerups";
 import type { PowerUpId, PowerUpInventoryEntry } from "../types/powerups";
 import type { BunnyState } from "../components/bunny/bunnyStates";
@@ -84,8 +86,34 @@ export const usePowerUps = ({
 
       const def = POWER_UP_CATALOGUE[id];
 
-      if (id === "time_freeze") {
-        useTriviaStore.getState().activateFreeze(5);
+      // Multiplayer: send a host-authoritative request for power-up usage
+      const multiplayer = useMultiplayerStore.getState();
+      const localPlayer = usePlayerStore.getState().getPlayer();
+      const localPlayerId = multiplayer.lobbyRole === "client"
+        ? getMultiplayerPlayerId(localPlayer.id)
+        : getMultiplayerPlayerId(localPlayer.id);
+
+      if (multiplayer.lobbyRole === "client") {
+        // Send event to host requesting power-up activation
+        const payload = {
+          lobbyId: multiplayer.lobbyId,
+          hostAddress: multiplayer.hostAddress,
+          playerId: localPlayerId,
+          powerUpId: id,
+          timestamp: Date.now(),
+          uniqueId: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`,
+        };
+        try {
+          window.multiplayer?.sendEvent?.({ type: 'power_up_used', payload });
+        } catch (e) {
+          // Fallback: if bridge missing, apply locally
+          if (id === "time_freeze") useTriviaStore.getState().activateFreeze(5);
+        }
+      } else {
+        // Local/host activation: apply immediately
+        if (id === "time_freeze") {
+          useTriviaStore.getState().activateFreeze(5);
+        }
       }
 
       // Sound
