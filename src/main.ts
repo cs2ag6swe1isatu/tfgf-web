@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu } from 'electron';
 import path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -22,6 +22,17 @@ let mainWindow: BrowserWindow | null = null;
 let httpServer: http.Server | null = null;
 let currentQuestionsData: string = "";
 const m = mdns();
+
+const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
+
+function getAppIconPath(): string {
+  const iconSegments = ['public', 'img', 'app-icon.png'];
+  const packedPath = path.join(process.resourcesPath, 'app.asar.unpacked', ...iconSegments);
+  if (app.isPackaged && fs.existsSync(packedPath)) {
+    return packedPath;
+  }
+  return path.join(app.getAppPath(), ...iconSegments);
+}
 
 function ipv4ToInt(address: string): number {
   return address
@@ -315,13 +326,20 @@ const createWindow = () => {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    icon: getAppIconPath(),
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
       backgroundThrottling: false,
       webSecurity: false,        // allows file:// to load local assets in packaged app
+      devTools: isDev,
     },
   });
+
+  Menu.setApplicationMenu(null);
+  mainWindow.setMenuBarVisibility(false);
+  mainWindow.removeMenu();
 
   initUdpSocket();
 
@@ -342,6 +360,22 @@ const createWindow = () => {
   // Open DevTools only in dev
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      const key = input.key.toLowerCase();
+      const isDevToolsCombo =
+        key === 'f12' ||
+        (input.control && input.shift && key === 'i') ||
+        (input.meta && input.alt && key === 'i');
+
+      if (isDevToolsCombo) {
+        event.preventDefault();
+      }
+    });
+
+    mainWindow.webContents.on('devtools-opened', () => {
+      mainWindow?.webContents.closeDevTools();
+    });
   }
 
   mainWindow.on('closed', () => {

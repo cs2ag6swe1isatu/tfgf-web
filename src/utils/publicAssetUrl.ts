@@ -11,7 +11,8 @@ export const publicAssetUrl = (relativePath: string): string => {
   const safeRelativePath = encodePathSegments(trimLeadingSlashes(relativePath));
 
   if (typeof window !== "undefined" && window.location.protocol === "file:") {
-    return new URL(safeRelativePath, window.location.href).toString();
+    const baseDir = new URL("./", window.location.href);
+    return new URL(safeRelativePath, baseDir).toString();
   }
 
   const base = import.meta.env.BASE_URL || "/";

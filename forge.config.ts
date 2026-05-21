@@ -4,17 +4,20 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import MakerPortable from '@rabbitholesyndrome/electron-forge-maker-portable';
 
 const config: ForgeConfig = {
   packagerConfig: {
+    icon: 'public/img/app-icon.ico',
     asar: {
-      unpack: "**/*.{png,jpg,jpeg,gif,webp,mp3,ttf,json}",
+      unpack: "**/*.{png,jpg,jpeg,gif,webp,ttf,json}",
     },
   },
   rebuildConfig: {},
   makers: [
-    new MakerZIP({}, ['linux', 'win32']), // Portable ZIP for Linux and Windows
-    new MakerSquirrel({setupExe: 'tfgf.exe',}),
+    // new MakerZIP({}, ['linux', 'win32']), // Portable ZIP for Linux and Windows
+    // new MakerSquirrel({setupExe: 'tfgf.exe',}),
+    new MakerPortable({}),
   ],
   plugins: [
     new VitePlugin({
