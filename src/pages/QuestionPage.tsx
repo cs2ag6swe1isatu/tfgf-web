@@ -269,11 +269,12 @@ const AnswerButton = styled(
     transition: "all 0.2s ease",
     textTransform: "uppercase" as const,
     textAlign: "left" as const,
-    "&:hover": {
-      borderColor: "#00E5FF",
-      background: "rgba(0, 229, 255, 0.05)",
-      boxShadow: "0 0 15px rgba(0, 229, 255, 0.4)",
-    },
+   "&:hover": {
+  borderColor: "#35E52B",
+  color: "#35E52B",
+  background: "rgba(53, 229, 43, 0.08)",
+  boxShadow: "0 0 18px rgba(53, 229, 43, 0.45)",
+},
     "&:disabled": {
       color: color,
       borderColor: borderColor,
