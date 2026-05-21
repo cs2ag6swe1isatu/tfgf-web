@@ -97,12 +97,64 @@ const TopArea = styled(Box)({
   zIndex: 10,
 });
 
-const TopBar = styled(Box)({
+const HudTopRow = styled(Box)({
   display: "grid",
   gridTemplateColumns: "1fr auto 1fr",
   alignItems: "center",
-  marginBottom: "8px",
+  marginBottom: "4px",
 });
+
+const HudBottomRow = styled(Box)({
+  display: "grid",
+  gridTemplateColumns: "1fr auto 1fr",
+  alignItems: "center",
+  marginTop: "0px",
+  marginBottom: "8px",
+  minHeight: "32px",
+});
+
+const HudBackButton = styled(Button)({
+  fontFamily: "'Press Start 2P', monospace",
+  fontSize: "10px",
+  padding: "4px 10px 4px 8px",
+  lineHeight: 1.6,
+  color: "#888",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: "4px",
+  background: "rgba(255,255,255,0.02)",
+  textTransform: "uppercase" as const,
+  minWidth: "unset",
+  cursor: "pointer",
+  transition: "all 0.25s ease",
+  "&:hover": {
+    color: "#FF0055",
+    borderColor: "#FF0055",
+    background: "rgba(255, 0, 85, 0.06)",
+    boxShadow: "0 0 10px rgba(255, 0, 85, 0.25)",
+  },
+  "&:active": {
+    transform: "scale(0.97)",
+  },
+});
+
+const HudCorrectScore = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'hasCorrect',
+})<{ hasCorrect?: boolean }>(({ hasCorrect }) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '3px 10px 3px 8px',
+  borderRadius: '4px',
+  border: `1px solid ${hasCorrect ? '#35E52B' : '#1a2a1a'}`,
+  background: hasCorrect ? 'rgba(53, 229, 43, 0.06)' : 'rgba(255,255,255,0.02)',
+  boxShadow: hasCorrect
+    ? '0 0 8px rgba(53,229,43,0.18), inset 0 0 6px rgba(53,229,43,0.04)'
+    : 'none',
+  transition: 'border-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease',
+  animation: hasCorrect ? `${correctCountPop} 0.45s cubic-bezier(0.22,1,0.36,1) both` : 'none',
+  cursor: 'default',
+  userSelect: 'none',
+}));
 
 const QuestionPanel = styled(Box)({
   marginTop: "16px",
@@ -240,25 +292,6 @@ const BottomHud = styled(Box)({
 const ANSWER_LABELS = ["A", "B", "C", "D"];
 const ANSWER_COLLECTION_BUFFER_MS = 300;
 
-const CorrectCountPill = styled(Box, {
-  shouldForwardProp: (prop) => prop !== 'hasCorrect',
-})<{ hasCorrect?: boolean }>(({ hasCorrect }) => ({
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '6px',
-  padding: '3px 10px 3px 8px',
-  borderRadius: '4px',
-  border: `1px solid ${hasCorrect ? '#35E52B' : '#1a2a1a'}`,
-  background: hasCorrect ? 'rgba(53, 229, 43, 0.06)' : 'rgba(255,255,255,0.02)',
-  boxShadow: hasCorrect
-    ? '0 0 8px rgba(53,229,43,0.18), inset 0 0 6px rgba(53,229,43,0.04)'
-    : 'none',
-  transition: 'border-color 0.4s ease, background 0.4s ease, box-shadow 0.4s ease',
-  animation: hasCorrect ? `${correctCountPop} 0.45s cubic-bezier(0.22,1,0.36,1) both` : 'none',
-  cursor: 'default',
-  userSelect: 'none',
-}));
-
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 const QuestionPage = () => {
@@ -309,6 +342,13 @@ const QuestionPage = () => {
   const [revealScore, setRevealScore] = useState<number | null>(null);
   const [liveCorrectCount, setLiveCorrectCount] = useState(0);
   const [correctAnimKey, setCorrectAnimKey] = useState<number>(0);
+  const correctCount = useMemo(() => {
+    if (mode === "multiplayer") {
+      const rankingData = rankings.find((r) => r.playerId === localPlayerId);
+      return rankingData?.correctCount ?? liveCorrectCount;
+    }
+    return liveCorrectCount;
+  }, [rankings, localPlayerId, liveCorrectCount, mode]);
 
   // ── Power-up state ────────────────────────────────────────────────────────
   const [bunnyMessage, setBunnyMessage] = useState<string | null>(null);
@@ -766,25 +806,59 @@ for (const entry of sessionInventory) {
 
         {/* ── TOP HUD ───────────────────────────────────────────────────────── */}
         <TopArea>
-          <TopBar>
+
+          {/* ── HUD Top Row: Question Counter | Category | Timer ── */}
+          <HudTopRow>
+            {/* LEFT: Question Counter */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Typography sx={{ fontFamily: "'Courier New', monospace", fontSize: "14px", color: "#888" }}>
                 {currentIndex + 1}/{questionLimit}
               </Typography>
             </Box>
 
+            {/* CENTER: Category */}
             <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "14px", color: "#35E52B", textAlign: "center" }}>
               {category ?? "TRIVIA"}
             </Typography>
 
+            {/* RIGHT: Timer */}
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
               <Clock style={{ width: 16, height: 16, color: "#fff" }} />
               <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "16px", color: "#fff" }}>
                 {timer !== undefined ? `${Math.ceil(timer)}S` : "--S"}
               </Typography>
             </Box>
-          </TopBar>
+          </HudTopRow>
 
+          {/* ── HUD Bottom Row: Back Button (left) | Spacer (center) | Correct Score (right) ── */}
+          <HudBottomRow>
+            {/* LEFT: Back Button */}
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <HudBackButton
+                onClick={() => { playSound("select"); setScreen("home"); }}
+                onMouseEnter={() => playSound("hover")}
+              >
+                ◀ BACK
+              </HudBackButton>
+            </Box>
+
+            {/* CENTER: empty spacer */}
+            <Box />
+
+            {/* RIGHT: Correct Score Counter */}
+            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+              <HudCorrectScore hasCorrect={correctCount > 0} key={correctAnimKey}>
+                <Box component="span" sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: correctCount > 0 ? "#35E52B" : "#333" }}>
+                  ✓
+                </Box>
+                <Box component="span" sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "10px", color: correctCount > 0 ? "#35E52B" : "#555" }}>
+                  {correctCount}
+                </Box>
+              </HudCorrectScore>
+            </Box>
+          </HudBottomRow>
+
+          {/* ── XP Bar ── */}
           <BunnyXPBar
             oldXP={previousXP + (sessionXpState - (rewardState.data?.xp ?? 0))}
             newXP={previousXP + sessionXpState}
