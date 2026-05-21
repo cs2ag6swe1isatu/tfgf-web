@@ -510,8 +510,13 @@ return () => {
     const questionToScore = questions[currentIndex];
     if (!questionToScore) return;
 
-    const isCorrect = answer === questionToScore.correctAnswer;
-    if (!isCorrect) return;
+const isCorrect = answer === questionToScore.correctAnswer;
+if (!isCorrect) return;
+
+if (mode === "solo") {
+  setLiveCorrectCount((prev) => prev + 1);
+  setCorrectAnimKey((prev) => prev + 1);
+}
 
     if (mode === "solo") {
       const timeTaken = 15 - (timer ?? 0);
@@ -863,12 +868,12 @@ return () => {
               {category ?? "TRIVIA"}
             </Typography>
 
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
-              <Clock style={{ width: 16, height: 16, color: "#fff" }} />
-              <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "16px", color: "#fff" }}>
-                {timer !== undefined ? `${Math.ceil(timer)}S` : "--S"}
-              </Typography>
-            </Box>
+           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
+  <Clock style={{ width: 16, height: 16, color: "#fff" }} />
+  <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "16px", color: "#fff" }}>
+    {timer !== undefined ? `${Math.ceil(timer)}S` : "--S"}
+  </Typography>
+</Box>
           </HudTopRow>
 
           {/* ── HUD Bottom Row ── */}
