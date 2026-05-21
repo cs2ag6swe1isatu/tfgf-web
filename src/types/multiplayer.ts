@@ -47,9 +47,9 @@ export interface MultiplayerGameState {
   questionPort?: number;
   playerScores?: Record<string, number>;
   playerAnswers?: Record<string, PlayerRoundAnswer[]>;
-  // Set to true when the host exits mid-game to signal clients that the
-  // session was abandoned and no progression should be saved.
   hostAbandoned?: boolean;
+  playerLeftId?: string;    
+  playerLeftName?: string;
   rankings?: Array<{
     playerId: string;
     name: string;

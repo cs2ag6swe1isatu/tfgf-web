@@ -88,10 +88,9 @@ m.on('response', (response) => {
   const txtRecord = response.answers.find(a => a.name === MDNS_NAME && a.type === 'TXT');
 
   if (aRecord && mainWindow) {
-    // Forward the discovered IP to the renderer to trigger a Direct Join probe
-    mainWindow.webContents.send('multiplayer:mdns-host-found', aRecord.data);
-  }
-});
+  mainWindow.webContents.send('multiplayer:mdns-host-found', (aRecord as any).data);
+}
+}); 
 
 // mDNS Query Listener (for Hosts)
 let isMdnsAdvertising = false;
@@ -359,7 +358,7 @@ const createWindow = () => {
       (ctrlLike && shift && (key === 'I' || key === 'J' || key === 'C'))
     ) {
       event.preventDefault();
-    }
+  }
   });
 
   mainWindow.on('closed', () => {
@@ -389,5 +388,4 @@ app.on('activate', () => {
   }
 });
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
+

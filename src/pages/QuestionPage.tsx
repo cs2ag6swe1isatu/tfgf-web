@@ -269,12 +269,12 @@ const AnswerButton = styled(
     transition: "all 0.2s ease",
     textTransform: "uppercase" as const,
     textAlign: "left" as const,
-   "&:hover": {
-  borderColor: "#35E52B",
-  color: "#35E52B",
-  background: "rgba(53, 229, 43, 0.08)",
-  boxShadow: "0 0 18px rgba(53, 229, 43, 0.45)",
-},
+    "&:hover": {
+      borderColor: "#35E52B",
+      color: "#35E52B",
+      background: "rgba(53, 229, 43, 0.08)",
+      boxShadow: "0 0 18px rgba(53, 229, 43, 0.45)",
+    },
     "&:disabled": {
       color: color,
       borderColor: borderColor,
@@ -377,6 +377,46 @@ const QuestionPage = () => {
   const [leftNotifications, setLeftNotifications] = useState<Array<{ id: string; name: string; toastKey: number }>>([]);
   const toastKeyRef = useRef(0);
 
+  // ── broadcastMultiplayerState ─────────────────────────────────────────────
+  const broadcastMultiplayerState = useCallback(() => {
+    if (mode !== "multiplayer" || lobbyRole !== "host") return;
+    const state = useTriviaStore.getState();
+    multiplayerBridge?.broadcastGameState?.({
+      phase: state.phase, timer: state.timer, currentIndex: state.currentIndex, seed: state.seed,
+      category: state.category ?? undefined, difficulty: state.difficulty ?? undefined,
+      questionLimit: state.questionLimit, questionTimer: state.questionTimer, answerTimer: state.answerTimer,
+      playerScores: state.playerScores, playerAnswers: state.playerAnswers, rankings: state.rankings,
+    });
+  }, [mode, lobbyRole, multiplayerBridge]);
+
+  // ── broadcastHostAbandoned ────────────────────────────────────────────────
+  const broadcastHostAbandoned = useCallback(() => {
+    if (mode !== "multiplayer" || lobbyRole !== "host") return;
+    const state = useTriviaStore.getState();
+    multiplayerBridge?.broadcastGameState?.({
+      phase: state.phase, timer: state.timer, currentIndex: state.currentIndex, seed: state.seed,
+      category: state.category ?? undefined, difficulty: state.difficulty ?? undefined,
+      questionLimit: state.questionLimit, questionTimer: state.questionTimer, answerTimer: state.answerTimer,
+      playerScores: state.playerScores, playerAnswers: state.playerAnswers, rankings: state.rankings,
+      hostAbandoned: true,
+    });
+  }, [mode, lobbyRole, multiplayerBridge]);
+
+  // ── broadcastPlayerLeft — host notifies all clients when someone leaves ───
+  const broadcastPlayerLeft = useCallback((playerId: string, playerName: string) => {
+    if (mode !== "multiplayer" || lobbyRole !== "host") return;
+    const state = useTriviaStore.getState();
+    multiplayerBridge?.broadcastGameState?.({
+      phase: state.phase, timer: state.timer, currentIndex: state.currentIndex, seed: state.seed,
+      category: state.category ?? undefined, difficulty: state.difficulty ?? undefined,
+      questionLimit: state.questionLimit, questionTimer: state.questionTimer, answerTimer: state.answerTimer,
+      playerScores: state.playerScores, playerAnswers: state.playerAnswers, rankings: state.rankings,
+      playerLeftId: playerId,
+      playerLeftName: playerName,
+    });
+  }, [mode, lobbyRole, multiplayerBridge]);
+
+  // ── Player left / disconnected notifications ──────────────────────────────
   useEffect(() => {
     if (mode !== "multiplayer" || !multiplayerBridge) return;
 
@@ -394,16 +434,21 @@ const QuestionPage = () => {
       setTimeout(() => {
         setLeftNotifications((prev) => prev.filter((n) => n.toastKey !== toastKey));
       }, 4000);
+
+      // Host broadcasts the leave event to all clients
+      if (lobbyRole === "host") {
+        broadcastPlayerLeft(playerId, name);
+      }
     };
 
-   multiplayerBridge.onPlayerLeft?.("QuestionPage:left", pushNotification);
-multiplayerBridge.onPlayerDisconnected?.("QuestionPage:disconnected", pushNotification);
+    multiplayerBridge.onPlayerLeft?.("QuestionPage:left", pushNotification);
+    multiplayerBridge.onPlayerDisconnected?.("QuestionPage:disconnected", pushNotification);
 
-return () => {
-  multiplayerBridge.offPlayerLeft?.("QuestionPage:left");
-  multiplayerBridge.offPlayerDisconnected?.("QuestionPage:disconnected");
-};
-  }, [mode, multiplayerBridge, localPlayerId]);
+    return () => {
+      multiplayerBridge.offPlayerLeft?.("QuestionPage:left");
+      multiplayerBridge.offPlayerDisconnected?.("QuestionPage:disconnected");
+    };
+  }, [mode, multiplayerBridge, localPlayerId, lobbyRole, broadcastPlayerLeft]);
 
   const correctCount = useMemo(() => {
     if (mode === "multiplayer") {
@@ -489,17 +534,6 @@ return () => {
     }
   }, [phase]);
 
-  const broadcastMultiplayerState = useCallback(() => {
-    if (mode !== "multiplayer" || lobbyRole !== "host") return;
-    const state = useTriviaStore.getState();
-    multiplayerBridge?.broadcastGameState?.({
-      phase: state.phase, timer: state.timer, currentIndex: state.currentIndex, seed: state.seed,
-      category: state.category ?? undefined, difficulty: state.difficulty ?? undefined,
-      questionLimit: state.questionLimit, questionTimer: state.questionTimer, answerTimer: state.answerTimer,
-      playerScores: state.playerScores, playerAnswers: state.playerAnswers, rankings: state.rankings,
-    });
-  }, [mode, lobbyRole, multiplayerBridge]);
-
   const pendingRewardRef = useRef<null | {
     finalScore: number;
     xpEarned: number;
@@ -511,13 +545,13 @@ return () => {
     const questionToScore = questions[currentIndex];
     if (!questionToScore) return;
 
-const isCorrect = answer === questionToScore.correctAnswer;
-if (!isCorrect) return;
+    const isCorrect = answer === questionToScore.correctAnswer;
+    if (!isCorrect) return;
 
-if (mode === "solo") {
-  setLiveCorrectCount((prev) => prev + 1);
-  setCorrectAnimKey((prev) => prev + 1);
-}
+    if (mode === "solo") {
+      setLiveCorrectCount((prev) => prev + 1);
+      setCorrectAnimKey((prev) => prev + 1);
+    }
 
     if (mode === "solo") {
       const timeTaken = 15 - (timer ?? 0);
@@ -626,24 +660,39 @@ if (mode === "solo") {
     return () => window.clearTimeout(timeoutId);
   }, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, broadcastMultiplayerState]);
 
-
   const broadcastOnMountRef = useRef(false);
   useEffect(() => {
     if (mode !== "multiplayer" || lobbyRole !== "host") return;
     broadcastMultiplayerState();
   }, [mode, lobbyRole, phase, timer, currentIndex, playerScores, rankings, broadcastMultiplayerState]);
 
+  // ── Client: receive game state from host ──────────────────────────────────
   useEffect(() => {
     if (mode !== "multiplayer" || lobbyRole !== "client" || !multiplayerBridge) return;
+
     const handleGameStateSync = (payload: MultiplayerGameState) => {
       const currentState = useTriviaStore.getState();
       const shouldResetSelectedAnswer = payload.currentIndex !== currentState.currentIndex;
 
+      // Host abandoned — go home immediately
       if (payload.hostAbandoned) {
         endProgressAppliedRef.current = true;
+        hasExitedRef.current = true;
         useTriviaStore.setState({ phase: "end" });
         setTimeout(() => setScreen("home"), 50);
         return;
+      }
+
+      // Another player left — show notification on this client
+      if (payload.playerLeftId && payload.playerLeftName) {
+        const toastKey = ++toastKeyRef.current;
+        setLeftNotifications((prev) => [
+          ...prev,
+          { id: payload.playerLeftId!, name: payload.playerLeftName!, toastKey },
+        ]);
+        setTimeout(() => {
+          setLeftNotifications((prev) => prev.filter((n) => n.toastKey !== toastKey));
+        }, 4000);
       }
 
       const mappedRankings = payload.rankings?.map((r) => ({
@@ -672,9 +721,10 @@ if (mode === "solo") {
 
       useTriviaStore.setState(nextState);
     };
+
     multiplayerBridge.onGameStateSync("QuestionPage", handleGameStateSync);
     return () => { multiplayerBridge.offGameStateSync?.("QuestionPage"); };
-  }, [mode, lobbyRole, multiplayerBridge]);
+  }, [mode, lobbyRole, multiplayerBridge, setScreen]);
 
   useEffect(() => { if (phase === "ranking") nextPhase(); }, [phase, nextPhase]);
 
@@ -869,19 +919,25 @@ if (mode === "solo") {
               {category ?? "TRIVIA"}
             </Typography>
 
-           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
-  <Clock style={{ width: 16, height: 16, color: "#fff" }} />
-  <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "16px", color: "#fff" }}>
-    {timer !== undefined ? `${Math.ceil(timer)}S` : "--S"}
-  </Typography>
-</Box>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
+              <Clock style={{ width: 16, height: 16, color: "#fff" }} />
+              <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "16px", color: "#fff" }}>
+                {timer !== undefined ? `${Math.ceil(timer)}S` : "--S"}
+              </Typography>
+            </Box>
           </HudTopRow>
 
           {/* ── HUD Bottom Row ── */}
           <HudBottomRow>
             <Box sx={{ display: "flex", alignItems: "center" }}>
               <HudBackButton
-                onClick={() => { playSound("select"); setScreen("home"); }}
+                onClick={() => {
+  playSound("select");
+  if (mode === "multiplayer" && lobbyRole === "host") {
+    broadcastHostAbandoned();
+  }
+  setScreen("home");
+}}
                 onMouseEnter={() => playSound("hover")}
               >
                 ◀ BACK

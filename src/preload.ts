@@ -666,6 +666,10 @@ function handlePacket(raw: string, senderAddress: string) {
 
     playerHeartbeats.delete(packet.payload.playerId);
 
+    // Find the player's name before removing them
+    const leavingPlayer = activeSnapshot.players.find((p) => p.id === packet.payload.playerId);
+    const leavingPlayerName = leavingPlayer?.name ?? "A PLAYER";
+
     activeSnapshot = {
       ...activeSnapshot,
       players: activeSnapshot.players.filter((p) => p.id !== packet.payload.playerId),
@@ -673,6 +677,23 @@ function handlePacket(raw: string, senderAddress: string) {
     };
     broadcastSnapshot(activeSnapshot);
     onPlayerLeftCbs.forEach((cb) => cb(packet.payload.playerId));
+
+    // If a game is active, broadcast the player-left info so all clients show a notification
+    if (isGameActive) {
+      const meta = nextPacketMeta();
+      const packet2: MultiplayerPacket = {
+        ...meta,
+        type: "game-state",
+        payload: {
+          phase: "answering" as any,
+          timer: 0,
+          currentIndex: 0,
+          playerLeftId: packet.payload.playerId,
+          playerLeftName: leavingPlayerName,
+        },
+      };
+      sendUdpMessage(JSON.stringify(packet2));
+    }
   }
 
   if (packet.type === "answer-submission") {
