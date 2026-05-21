@@ -8,8 +8,11 @@ import { getAvatarSrc } from "../utils/avatar";
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 import { useSoundContext } from "../context/SoundContext";
 import { getCategoryDisplay } from "../utils/categoryShorthand";
+<<<<<<< HEAD
+=======
 import { useResponsiveScale } from "../hooks/useResponsiveScale";
 import { shapeGameStateForBroadcast } from "../utils/multiplayerSync";
+>>>>>>> 81092c5 (fix imports)
 
 import type {
   MultiplayerBridge,
@@ -283,7 +286,64 @@ useTriviaStore.setState(nextState);
       if (isMountedRef.current) {
         setIsStartingGame(false);
       }
+<<<<<<< HEAD
+    });
+
+    const gameStartTime = Date.now();
+    await startGame({
+      category: gameConfig.category ?? "General Knowledge",
+      difficulty: gameConfig.difficulty ?? "easy",
+      questionLimit: sessionQuestionLimit,
+      mode: "multiplayer",
+      questionTimer: sessionQuestionTimer,
+      answerTimer: sessionAnswerTimer,
+      seed: gameSessionSeed,
+      recentSessionLimitSolo: 0,
+      recentSessionLimitMultiplayer: 0,
+      autoJoinLan: false
+    });
+    const gameElapsedMs = Date.now() - gameStartTime;
+    console.log(`[Lobby] startGame completed in ${gameElapsedMs}ms, waiting for HTTP server...`);
+
+    if (!isMountedRef.current || !lobbyId) return;
+
+    httpPort = await httpServerReady;
+    const totalWaitMs = Date.now() - httpStartTime;
+    console.log(`[Lobby] HTTP server ready check complete, port=${httpPort} (${totalWaitMs}ms total)`);
+
+    if (!isMountedRef.current || !lobbyId) return;
+
+    const mpState = useMultiplayerStore.getState();
+    mpState.players.forEach(p => {
+      if (!p.isHost) {
+        mpState.setPlayerReady(p.id, false);
+      }
+      mpState.addOrUpdatePlayer(p, { status: "playing" } as any);
+    });
+
+    const state = useTriviaStore.getState();
+    multiplayerBridge?.broadcastGameState({
+      phase: state.phase,
+      timer: state.timer,
+      currentIndex: state.currentIndex,
+      seed: gameSessionSeed,
+      category: gameConfig.category ?? undefined,
+      difficulty: gameConfig.difficulty ?? undefined,
+      questionLimit: state.questionLimit,
+      questionTimer: state.questionTimer,
+      answerTimer: state.answerTimer,
+      questionPort: httpPort || undefined,
+      playerScores: state.playerScores,
+      playerAnswers: state.playerAnswers,
+      rankings: state.rankings,
+    });
+
+    console.log(`[Lobby] Host game-start complete, navigating to question page`);
+    isTransitioningToGameRef.current = true;
+    setScreen(useMultiplayerStore.getState().participantRole === "spectator" ? "spectator-view" : "question");
+=======
     }
+>>>>>>> 81092c5 (fix imports)
   };
 
   const handleKick = (playerId: string) => {

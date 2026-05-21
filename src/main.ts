@@ -26,6 +26,8 @@ let httpServer: http.Server | null = null;
 let currentQuestionsData: string = "";
 const m = mdns();
 
+<<<<<<< HEAD
+=======
 const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
 
 function getAppIconPath(): string {
@@ -66,6 +68,7 @@ function getQuestionsOverridePath(): string {
   return path.join(getAppDataUpdateDir(), 'Questions.json');
 }
 
+>>>>>>> ecbba82 (- cleanup: mock)
 function ipv4ToInt(address: string): number {
   return address
     .split('.')
