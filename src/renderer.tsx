@@ -8,8 +8,7 @@ import "./index.css";
 import { Cursor } from "./components/ui";
 import { runSessionSummaryPageTester } from "./tests";
 
-// Initialize mock multiplayer bridge for Vite dev mode
-import "./multiplayer-mock";
+// (removed) mock multiplayer bridge import — mock was removed in refactor/stuff
 
 import { useGameStore } from "./store/gameStore";
 
