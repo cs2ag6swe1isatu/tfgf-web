@@ -7,22 +7,17 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 import MakerPortable from '@rabbitholesyndrome/electron-forge-maker-portable';
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    icon: 'src/assets/icon.ico',
+    asar: {
+      unpack: "**/*.{png,jpg,jpeg,gif,webp,mp3,ttf,json}",
+    },
   },
   rebuildConfig: {},
   makers: [
-  new MakerZIP({}, ['linux']), // ZIP for Linux only
-  new MakerSquirrel({ setupExe: 'tfgf.exe' }), // Squirrel installer for Windows
-  {
-    name: '@rabbitholesyndrome/electron-forge-maker-portable',
-    config: {
-      appId: 'com.yourcompany.tfgf',
-      portable: {
-      artifactName: '${productName}-${version}-portable.exe'
-    }
-    }
-  }
-],
+    // new MakerZIP({}, ['linux', 'win32']), // Portable ZIP for Linux and Windows
+    // new MakerSquirrel({setupExe: 'tfgf.exe',}),
+    new MakerPortable({}),
+  ],
   plugins: [
     new VitePlugin({
       build: [
