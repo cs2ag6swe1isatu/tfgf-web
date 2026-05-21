@@ -65,6 +65,13 @@ const correctCountPop = keyframes`
   100% { transform: scale(1); }
 `;
 
+const soloCorrectCountPop = keyframes`
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.25); filter: brightness(1.6); }
+  65%  { transform: scale(0.95); }
+  100% { transform: scale(1); filter: brightness(1); }
+`;
+
 // ─── Styled Components ─────────────────────────────────────────────────────
 
 const OuterSpace = styled(Box)({
@@ -337,6 +344,9 @@ const QuestionPage = () => {
   const currentQuestion = questions[currentIndex];
 
   const currentStreak = useTriviaStore((state) => state.currentStreak);
+  const correctAnswers = useTriviaStore((state) => state.correctAnswers);
+  const [soloCorrectAnimKey, setSoloCorrectAnimKey] = useState(0);
+  const prevCorrectAnswersRef = useRef(0);
   const sessionXpRef = useRef<number>(0);
   const [sessionXpState, setSessionXpState] = useState<number>(0);
   const [revealScore, setRevealScore] = useState<number | null>(null);
@@ -425,6 +435,106 @@ const derivedBunnyState: BunnyState = useMemo(() => {
   const endProgressAppliedRef = useRef(false);
   const fellBehindByHalfRef = useRef(false);
   const hasExitedRef = useRef(false);
+
+  // ── Host exit / session cancellation state ─────────────────────────────────
+  const sessionCancelledRef = useRef(false);
+  const [showHostExitNotification, setShowHostExitNotification] = useState(false);
+  const timerRegistryRef = useRef<Set<number>>(new Set());
+  const intervalRegistryRef = useRef<Set<number>>(new Set());
+
+  // ── End-game progression controller ────────────────────────────────────
+  // Centralized, deterministic sequencing of: stats → xp → achievements → level-up → result
+  const endGameProgressionRef = useRef<(() => void) | null>(null);
+
+  /**
+   * Handles the continuation after a level-up animation completes.
+   * Reads endDataRef to decide whether to show achievements or navigate directly to results.
+   */
+  const handleEndGameLevelUpDone = useCallback(() => {
+    console.log('[QuestionPage] handleEndGameLevelUpDone — continuing end-game flow');
+    setShowHostExitNotification(false);
+    const endData = endDataRef.current;
+    endDataRef.current = null;
+
+    if (endData && endData.achievements.length > 0 && endData.postUnlockScreen !== "multiplayer-results") {
+      // Queue achievements and navigate to unlock screen
+      queueAchievementUnlocks(endData.achievements, endData.postUnlockScreen);
+      setScreen("achievement-unlock");
+    } else {
+      // Navigate directly to results
+      const screen = mode === "multiplayer" ? "multiplayer-results" : "result";
+      setScreen(screen);
+    }
+  }, [queueAchievementUnlocks, setScreen, mode]);
+
+  /**
+   * Centralized cleanup for a cancelled multiplayer session.
+   */
+  const cleanupCancelledSession = useCallback(() => {
+    if (sessionCancelledRef.current) return;
+    sessionCancelledRef.current = true;
+
+    console.log('[QuestionPage] cleanupCancelledSession — cancelling multiplayer session');
+
+    // Clear all active timers from registry
+    timerRegistryRef.current.forEach((id) => { clearTimeout(id); });
+    timerRegistryRef.current.clear();
+
+    // Clear all active intervals from registry
+    intervalRegistryRef.current.forEach((id) => { clearInterval(id); });
+    intervalRegistryRef.current.clear();
+
+    // Remove temporary gameplay-specific socket listeners
+    if (multiplayerBridge) {
+      multiplayerBridge.offAnswerSubmission?.("QuestionPage");
+      multiplayerBridge.offGameStateSync?.("QuestionPage");
+      multiplayerBridge.offSessionTerminated?.("QuestionPage");
+    }
+
+    // Reset trivia store to initial state (clears scores, answers, timers, phase, etc.)
+    useTriviaStore.getState().resetGame();
+
+    // Clear accumulated session XP state
+    sessionXpRef.current = 0;
+    setSessionXpState(0);
+    setLiveCorrectCount(0);
+    endProgressAppliedRef.current = true;
+  }, [multiplayerBridge]);
+
+  /**
+   * Host-side termination of a multiplayer session.
+   * Called when the host presses Back during an active multiplayer match.
+   * - Sets session-cancelled flag (prevents duplicate)
+   * - Emits "host:session_terminated" event to all clients
+   * - Calls cleanupCancelledSession()
+   * - Navigates to multiplayer-menu
+   */
+  const terminateMultiplayerSession = useCallback(() => {
+    if (sessionCancelledRef.current) return;
+    console.log('[QuestionPage] terminateMultiplayerSession — host exiting mid-game');
+
+    // Broadcast termination to all clients
+    multiplayerBridge?.broadcastSessionTerminated?.({ reason: "host_exit" });
+
+    // Cleanup local state
+    cleanupCancelledSession();
+
+    // Navigate to Choose Mode (multiplayer-menu)
+    setScreen("multiplayer-menu");
+  }, [multiplayerBridge, cleanupCancelledSession, setScreen]);
+
+  // Helper to track timers/intervals for cleanup
+  const trackedSetTimeout = useCallback((fn: () => void, delay: number): number => {
+    const id = window.setTimeout(fn, delay);
+    timerRegistryRef.current.add(id);
+    return id;
+  }, []);
+
+  const trackedSetInterval = useCallback((fn: () => void, delay: number): number => {
+    const id = window.setInterval(fn, delay);
+    intervalRegistryRef.current.add(id);
+    return id;
+  }, []);
   
 
   useEffect(() => {
@@ -489,7 +599,14 @@ const handleAnswerClick = useCallback((answer: string) => {
   const persistedTotalXp = usePlayerStore.getState().getPlayer().totalXp;
   const oldXP = persistedTotalXp + (sessionXpRef.current - xpEarned);
   const newXP = persistedTotalXp + sessionXpRef.current;
-  const visualLevel = getLevel(newXP);
+  const oldLevel = getLevel(oldXP);
+  const newLevel = getLevel(newXP);
+
+  // Track level-up for end-game progression
+  if (newLevel > oldLevel) {
+    didLevelUpThisSessionRef.current = true;
+    levelAfterSessionRef.current = newLevel;
+  }
 
   triggerReward({
     score: finalScore,
@@ -497,8 +614,8 @@ const handleAnswerClick = useCallback((answer: string) => {
     streak: currentStreak,
     oldXP,
     newXP,
-    oldLevel: visualLevel,
-    newLevel: visualLevel,
+    oldLevel,
+    newLevel,
     xpPerLevel: 1000,
     buttonRef: answerButtonRef,
   });
@@ -621,10 +738,51 @@ const handleAnswerClick = useCallback((answer: string) => {
     return () => { multiplayerBridge.offGameStateSync?.("QuestionPage"); };
   }, [mode, lobbyRole, multiplayerBridge]);
 
-  useEffect(() => { if (phase === "ranking") nextPhase(); }, [phase, nextPhase]);
+  // ── Client-side listener for host:session_terminated ──────────────────────
+  useEffect(() => {
+    if (mode !== "multiplayer" || lobbyRole !== "client" || !multiplayerBridge) return;
 
+    const handleSessionTerminated = () => {
+      console.log('[QuestionPage] Client received session-terminated from host');
+      // Check the session-cancelled flag — if already set, return immediately
+      if (sessionCancelledRef.current) return;
+
+      // Disable all gameplay inputs immediately (prevent answer selection)
+      // We set the flag early to prevent duplicate handling
+      sessionCancelledRef.current = true;
+
+      // Cleanup local state
+      cleanupCancelledSession();
+
+      // Show neon notification overlay
+      setShowHostExitNotification(true);
+      setTimeout(() => {
+        setShowHostExitNotification(false);
+      }, 2000);
+
+      // Navigate to Choose Mode after notification
+      setScreen("multiplayer-menu");
+    };
+
+    multiplayerBridge.onSessionTerminated("QuestionPage", handleSessionTerminated);
+    return () => { multiplayerBridge.offSessionTerminated?.("QuestionPage"); };
+  }, [mode, lobbyRole, multiplayerBridge, cleanupCancelledSession, setScreen]);
+
+  // ── Solo correct-answer pop animation trigger ────────────────────────────
+  // Bump the animation key whenever correctAnswers increments (solo only)
+  useEffect(() => {
+    if (mode !== "solo") return;
+    if (correctAnswers > prevCorrectAnswersRef.current) {
+      setSoloCorrectAnimKey((k) => k + 1);
+    }
+    prevCorrectAnswersRef.current = correctAnswers;
+  }, [correctAnswers, mode]);
+
+  // Reset sessionCancelledRef when a new multiplayer session starts
   useEffect(() => {
     if (phase === "readying" && currentIndex === 0) {
+      sessionCancelledRef.current = false;
+      setShowHostExitNotification(false);
       fellBehindByHalfRef.current = false;
       totalSessionTimeRef.current = 0;
       totalAnsweredRef.current = 0;
@@ -821,21 +979,57 @@ for (const entry of sessionInventory) {
               {category ?? "TRIVIA"}
             </Typography>
 
-            {/* RIGHT: Timer */}
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
-              <Clock style={{ width: 16, height: 16, color: "#fff" }} />
-              <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "16px", color: "#fff" }}>
-                {timer !== undefined ? `${Math.ceil(timer)}S` : "--S"}
-              </Typography>
+            {/* RIGHT: Timer + Solo Correct Answers */}
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Clock style={{ width: 16, height: 16, color: "#fff" }} />
+                <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "16px", color: "#fff" }}>
+                  {timer !== undefined ? `${Math.ceil(timer)}S` : "--S"}
+                </Typography>
+              </Box>
+              {mode === "solo" && (
+                <Box
+                  key={soloCorrectAnimKey}
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "1px 6px",
+                    borderRadius: "3px",
+                    border: `1px solid ${correctAnswers > 0 ? '#35E52B' : '#1a2a1a'}`,
+                    background: correctAnswers > 0 ? 'rgba(53, 229, 43, 0.04)' : 'transparent',
+                    animation: correctAnswers > 0 ? `${soloCorrectCountPop} 0.28s ease both` : 'none',
+                    fontFamily: "'Press Start 2P', monospace",
+                    fontSize: "9px",
+                    color: correctAnswers > 0 ? "#35E52B" : "#333",
+                    cursor: "default",
+                    userSelect: "none",
+                    transition: "border-color 0.3s ease, background 0.3s ease",
+                  }}
+                >
+                  ✓ {correctAnswers}
+                </Box>
+              )}
             </Box>
           </HudTopRow>
 
-          {/* ── HUD Bottom Row: Back Button (left) | Spacer (center) | Correct Score (right) ── */}
+        {/* ── HUD Bottom Row: Back Button (left) | Spacer (center) | Correct Score (right) ── */}
           <HudBottomRow>
             {/* LEFT: Back Button */}
             <Box sx={{ display: "flex", alignItems: "center" }}>
               <HudBackButton
-                onClick={() => { playSound("select"); setScreen("home"); }}
+                onClick={() => {
+                  playSound("select");
+                  // ── HOST BACK-BUTTON EXTENSION ────────────────────────────
+                  // If this is an active multiplayer session AND this user is the host,
+                  // terminate the session immediately instead of normal back behavior.
+                  if (mode === "multiplayer" && lobbyRole === "host") {
+                    terminateMultiplayerSession();
+                    return;
+                  }
+                  // Solo or non-host multiplayer: fall through to original behavior
+                  setScreen("home");
+                }}
                 onMouseEnter={() => playSound("hover")}
               >
                 ◀ BACK
@@ -986,9 +1180,39 @@ for (const entry of sessionInventory) {
           </Box>
         </BottomHud>
 
+        {/* ── HOST-EXIT NOTIFICATION OVERLAY ──────────────────────────────── */}
+        {showHostExitNotification && (
+          <Box sx={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 9999,
+            pointerEvents: "none",
+            animation: `${fadeSlideDown} 0.3s ease both`,
+          }}>
+            <Box sx={{
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: "14px",
+              color: "#FF0055",
+              textShadow: "0 0 8px #FF0055, 0 0 20px #FF005588",
+              background: "rgba(6, 10, 16, 0.92)",
+              border: "2px solid #FF0055",
+              borderRadius: "8px",
+              padding: "20px 32px",
+              textAlign: "center",
+              lineHeight: 1.8,
+              boxShadow: "0 0 30px rgba(255, 0, 85, 0.3), inset 0 0 15px rgba(255, 0, 85, 0.06)",
+              letterSpacing: "2px",
+            }}>
+              HOST ENDED<br />THE SESSION
+            </Box>
+          </Box>
+        )}
+
         <RewardOverlay
           rewardState={rewardState}
-          onLevelUpDone={handleLevelUpDone}
+          onLevelUpDone={handleEndGameLevelUpDone}
           xpPerLevel={1000}
         />
 
