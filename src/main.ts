@@ -65,6 +65,7 @@ function getAppDataUpdateDir(): string {
 function getQuestionsOverridePath(): string {
   return path.join(getAppDataUpdateDir(), 'Questions.json');
 }
+
 function ipv4ToInt(address: string): number {
   return address
     .split('.')
