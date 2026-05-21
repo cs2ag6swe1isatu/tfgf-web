@@ -5,13 +5,10 @@ import type {
   ActivePowerUp,
   PowerUpSessionState,
 } from "../types/powerups";
-import { persist } from "zustand/middleware"; 
 
 // ─── Streak thresholds that reward a power-up drop ──────────────────────────
-const DAILY_REFILL_MS = 24 * 60 * 60 * 1000;
-const DAILY_REFILL_POOL: PowerUpId[] = ["fifty_fifty", "time_freeze", "double_xp", "bunny_hint"];
-const STREAK_DROP_THRESHOLDS = [3, 6, 9]; // every 3rd streak step
 
+const STREAK_DROP_THRESHOLDS = [3, 6, 9]; // every 3rd streak step
 
 interface PowerUpStore extends PowerUpSessionState {
   // ── Session lifecycle ────────────────────────────────────────────────────
@@ -21,8 +18,6 @@ interface PowerUpStore extends PowerUpSessionState {
   onNextQuestion: () => void;
   /** Call at session end to reset everything */
   resetSession: () => void;
-
-  
 
   // ── Activation ───────────────────────────────────────────────────────────
   /**
@@ -47,8 +42,6 @@ interface PowerUpStore extends PowerUpSessionState {
   getCount: (id: PowerUpId) => number;
   canUse: (id: PowerUpId, questionIndex: number) => boolean;
   isEliminated: (answerIndex: number) => boolean;
-  lastRefillAt: number;           
-  checkDailyRefill: () => void;
 }
 
 const EMPTY_STATE: PowerUpSessionState = {
@@ -61,11 +54,8 @@ const EMPTY_STATE: PowerUpSessionState = {
 // Power-ups that can drop from streaks (excludes bunny_hint — too strong)
 const DROPPABLE_POWER_UPS: PowerUpId[] = ["fifty_fifty", "time_freeze", "double_xp"];
 
-export const usePowerUpStore = create<PowerUpStore>()(
-  persist(
-    (set, get) => ({
+export const usePowerUpStore = create<PowerUpStore>((set, get) => ({
   ...EMPTY_STATE,
-  
 
   // ── Session lifecycle ──────────────────────────────────────────────────
 
@@ -79,25 +69,6 @@ export const usePowerUpStore = create<PowerUpStore>()(
 
   resetSession: () => {
     set({ ...EMPTY_STATE });
-  },
-
-  // ── Daily refill ─────────────────────────────────────────────────────────
-  checkDailyRefill: () => {
-    const now = Date.now();
-    const { lastRefillAt, sessionInventory } = get();
-    if (now - lastRefillAt < DAILY_REFILL_MS) return;
-
-    const randomId = DAILY_REFILL_POOL[
-      Math.floor(Math.random() * DAILY_REFILL_POOL.length)
-    ];
-    const existing = sessionInventory.find((e) => e.id === randomId);
-    const updatedInventory = existing
-      ? sessionInventory.map((e) =>
-          e.id === randomId ? { ...e, count: Math.min(e.count + 1, 3) } : e
-        )
-      : [...sessionInventory, { id: randomId, count: 1 }];
-
-    set({ lastRefillAt: now, sessionInventory: updatedInventory });
   },
 
   // ── Activation ────────────────────────────────────────────────────────
@@ -181,15 +152,4 @@ export const usePowerUpStore = create<PowerUpStore>()(
   isEliminated: (answerIndex) => {
     return get().eliminatedAnswerIndices.includes(answerIndex);
   },
-
-  lastRefillAt: 0,
-
-}),
-{
-  name: "powerup-store",
-  partialize: (state) => ({
-    lastRefillAt: state.lastRefillAt,
-    sessionInventory: state.sessionInventory,
-  }),
-}
-));
+}));

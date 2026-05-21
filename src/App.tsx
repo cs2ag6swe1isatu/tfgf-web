@@ -22,7 +22,6 @@ import type { SoundType } from "./context/SoundContext";
 import { usePreloader, lazyPreloadAudio } from "./hooks/usePreloader";
 import { registerBundledAssets } from "./utils/registerBundledAssets";
 import PowerUpsPage from "./pages/PowerUpsPage";
-import { usePowerUpStore } from "./store/powerUpStore";
 
 const styles = {
   screenRoot: {
@@ -172,7 +171,6 @@ function useAudioEngine(sfxEnabled: boolean, vol: number) {
     Object.values(audioBank.current).forEach((a) => { if (a) a.volume = v; });
   }, [vol]);
 
-
   function synthBeep(freq: number, dur: number, type: OscillatorType = "square", gain = 0.2) {
     try {
       if (!audioCtx.current)
@@ -312,9 +310,6 @@ export default function App() {
   const isPlayerLoading  = usePlayerStore((s: { initialize: () => Promise<void>; isLoading: boolean }) => s.isLoading);
 
   useEffect(() => { initializePlayer(); }, [initializePlayer]);
-  useEffect(() => {
-  usePowerUpStore.getState().checkDailyRefill();
-}, []);
 
   // ── Show splash screen while loading ─────────────────────
   if (isPlayerLoading || !preloader.ready) {
