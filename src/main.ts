@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu } from 'electron';
 import path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -315,7 +315,11 @@ const createWindow = () => {
       sandbox: false,
       backgroundThrottling: false,
       webSecurity: false,        // allows file:// to load local assets in packaged app
+      devTools: false,           // completely disable DevTools in production
     },
+    autoHideMenuBar: true,
+    // menuBarVisible is kept false by default but ensure it's hidden
+    titleBarStyle: process.platform === 'darwin' ? 'default' : 'default',
   });
 
   initUdpSocket();
@@ -334,10 +338,29 @@ const createWindow = () => {
     );
   }
 
-  // Open DevTools only in dev
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.webContents.openDevTools();
-  }
+  // Never open DevTools programmatically — ensure app doesn't expose them
+  // Remove application menu to hide File/View/Window/Help dropdowns
+  try {
+    Menu.setApplicationMenu(null);
+  } catch (_) {}
+  // Also ensure the menu bar is hidden for this window
+  try {
+    mainWindow.setMenuBarVisibility(false);
+    mainWindow.setAutoHideMenuBar(true);
+  } catch (_) {}
+
+  // Block common devtool keyboard shortcuts (F12, Ctrl/Cmd+Shift+I/J/C)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    const key = input.key;
+    const ctrlLike = !!(input.control || input.meta);
+    const shift = !!input.shift;
+    if (
+      key === 'F12' ||
+      (ctrlLike && shift && (key === 'I' || key === 'J' || key === 'C'))
+    ) {
+      event.preventDefault();
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
