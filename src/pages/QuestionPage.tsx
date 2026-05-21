@@ -354,6 +354,7 @@ const QuestionPage = () => {
   const mode = useGameStore((state) => state.gameConfig.mode);
   const category = useGameStore((state) => state.gameConfig.category);
   const localPlayerId = mode === "multiplayer" ? getMultiplayerPlayerId(localPlayer.id) : localPlayer.id;
+  const [showHostExitNotification, setShowHostExitNotification] = useState(false);
 
   const multiplayerBridge: MultiplayerBridge | undefined = window.multiplayer;
 
@@ -374,33 +375,35 @@ const QuestionPage = () => {
   const [correctAnimKey, setCorrectAnimKey] = useState<number>(0);
   const [leftNotifications, setLeftNotifications] = useState<Array<{ id: string; name: string; toastKey: number }>>([]);
   const toastKeyRef = useRef(0);
+
   useEffect(() => {
-  if (mode !== "multiplayer" || !multiplayerBridge) return;
+    if (mode !== "multiplayer" || !multiplayerBridge) return;
 
-  const activePhases = ["readying", "asking", "answering", "scoring", "ranking"];
+    const activePhases = ["readying", "asking", "answering", "scoring", "ranking"];
 
-  const pushNotification = (playerId: string) => {
-    if (!activePhases.includes(useTriviaStore.getState().phase)) return;
-    if (playerId === localPlayerId) return;
+    const pushNotification = (playerId: string) => {
+      if (!activePhases.includes(useTriviaStore.getState().phase)) return;
+      if (playerId === localPlayerId) return;
 
-    const member = useMultiplayerStore.getState().players.find((p) => p.id === playerId);
-    const name = member?.name ?? "A PLAYER";
-    const toastKey = ++toastKeyRef.current;
+      const member = useMultiplayerStore.getState().players.find((p) => p.id === playerId);
+      const name = member?.name ?? "A PLAYER";
+      const toastKey = ++toastKeyRef.current;
 
-    setLeftNotifications((prev) => [...prev, { id: playerId, name, toastKey }]);
-    setTimeout(() => {
-      setLeftNotifications((prev) => prev.filter((n) => n.toastKey !== toastKey));
-    }, 4000);
-  };
+      setLeftNotifications((prev) => [...prev, { id: playerId, name, toastKey }]);
+      setTimeout(() => {
+        setLeftNotifications((prev) => prev.filter((n) => n.toastKey !== toastKey));
+      }, 4000);
+    };
 
-  multiplayerBridge.onPlayerLeft("QuestionPage:left", pushNotification);
-  multiplayerBridge.onPlayerDisconnected("QuestionPage:disconnected", pushNotification);
+   multiplayerBridge.onPlayerLeft?.("QuestionPage:left", pushNotification);
+multiplayerBridge.onPlayerDisconnected?.("QuestionPage:disconnected", pushNotification);
 
-  return () => {
-    multiplayerBridge.offPlayerLeft("QuestionPage:left");
-    multiplayerBridge.offPlayerDisconnected("QuestionPage:disconnected");
-  };
-}, [mode, multiplayerBridge, localPlayerId]);
+return () => {
+  multiplayerBridge.offPlayerLeft?.("QuestionPage:left");
+  multiplayerBridge.offPlayerDisconnected?.("QuestionPage:disconnected");
+};
+  }, [mode, multiplayerBridge, localPlayerId]);
+
   const correctCount = useMemo(() => {
     if (mode === "multiplayer") {
       const rankingData = rankings.find((r) => r.playerId === localPlayerId);
@@ -429,12 +432,12 @@ const QuestionPage = () => {
       powerUpBunnyTimerRef.current = setTimeout(() => setPowerUpBunnyOverride(null), durationMs);
     },
     onPowerUpEarned: (id) => {
-  playSound("powerup_earned");
-  const label = POWER_UP_CATALOGUE[id].label;
-  if (bunnyMessageTimerRef.current) clearTimeout(bunnyMessageTimerRef.current);
-  setBunnyMessage(`POWER UP\nGAINED: ${label}`);
-  bunnyMessageTimerRef.current = setTimeout(() => setBunnyMessage(null), 3000);
-},
+      playSound("powerup_earned");
+      const label = POWER_UP_CATALOGUE[id].label;
+      if (bunnyMessageTimerRef.current) clearTimeout(bunnyMessageTimerRef.current);
+      setBunnyMessage(`POWER UP\nGAINED: ${label}`);
+      bunnyMessageTimerRef.current = setTimeout(() => setBunnyMessage(null), 3000);
+    },
   });
 
   // Init session inventory once on mount
@@ -443,36 +446,28 @@ const QuestionPage = () => {
       (localPlayer as any).powerUpInventory ?? getStarterInventory()
     );
     return () => { usePowerUpStore.getState().resetSession(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Bunny state (power-up override wins) ─────────────────────────────────
-  // AFTER
-const derivedBunnyState: BunnyState = useMemo(() => {
-  if (powerUpBunnyOverride) return powerUpBunnyOverride;
-  if (phase === "end") return "winner";
+  const derivedBunnyState: BunnyState = useMemo(() => {
+    if (powerUpBunnyOverride) return powerUpBunnyOverride;
+    if (phase === "end") return "winner";
 
-  if (phase === "scoring") {
-    // Multiplayer: only animate during the result reveal (scoring phase)
-    // Solo: same behavior as before
-    return selectedAnswer === currentQuestion?.correctAnswer ? "happy" : "sad";
-  }
-
-  if (phase === "answering") {
-    if (mode === "multiplayer" && selectedAnswer) {
-      // In multiplayer, answer is locked but scoring hasn't happened yet —
-      // keep bunny neutral instead of celebrating instantly
-      return "thinking";
+    if (phase === "scoring") {
+      return selectedAnswer === currentQuestion?.correctAnswer ? "happy" : "sad";
     }
-    if (!selectedAnswer && timer !== undefined && timer <= 5) return "panicked";
-    if (!selectedAnswer) return "thinking";
-    if (rewardState.showXPBar) return "running";
-    if (currentStreak >= 5) return "hyper";
-    return "idle";
-  }
 
-  return "sleeping";
-}, [powerUpBunnyOverride, phase, mode, timer, selectedAnswer, currentQuestion?.correctAnswer, rewardState.showXPBar, currentStreak]);
+    if (phase === "answering") {
+      if (mode === "multiplayer" && selectedAnswer) return "thinking";
+      if (!selectedAnswer && timer !== undefined && timer <= 5) return "panicked";
+      if (!selectedAnswer) return "thinking";
+      if (rewardState.showXPBar) return "running";
+      if (currentStreak >= 5) return "hyper";
+      return "idle";
+    }
+
+    return "sleeping";
+  }, [powerUpBunnyOverride, phase, mode, timer, selectedAnswer, currentQuestion?.correctAnswer, rewardState.showXPBar, currentStreak]);
 
   const didLevelUpThisSessionRef = useRef<boolean>(false);
   const levelAfterSessionRef = useRef<number>(0);
@@ -484,7 +479,6 @@ const derivedBunnyState: BunnyState = useMemo(() => {
   const endProgressAppliedRef = useRef(false);
   const fellBehindByHalfRef = useRef(false);
   const hasExitedRef = useRef(false);
-  
 
   useEffect(() => {
     if (phase === "answering" || phase === "asking") {
@@ -505,63 +499,61 @@ const derivedBunnyState: BunnyState = useMemo(() => {
     });
   }, [mode, lobbyRole, multiplayerBridge]);
 
-  // AFTER
-const pendingRewardRef = useRef<null | {
-  finalScore: number;
-  xpEarned: number;
-  currentStreak: number;
-}>(null);
+  const pendingRewardRef = useRef<null | {
+    finalScore: number;
+    xpEarned: number;
+    currentStreak: number;
+  }>(null);
 
-const handleAnswerClick = useCallback((answer: string) => {
-  submitAnswer(answer);
-  const questionToScore = questions[currentIndex];
-  if (!questionToScore) return;
+  const handleAnswerClick = useCallback((answer: string) => {
+    submitAnswer(answer);
+    const questionToScore = questions[currentIndex];
+    if (!questionToScore) return;
 
-  const isCorrect = answer === questionToScore.correctAnswer;
-  if (!isCorrect) return;
+    const isCorrect = answer === questionToScore.correctAnswer;
+    if (!isCorrect) return;
 
-  if (mode === "solo") {
-    const timeTaken = 15 - (timer ?? 0);
-    totalSessionTimeRef.current += timeTaken;
-    totalAnsweredRef.current += 1;
-  }
+    if (mode === "solo") {
+      const timeTaken = 15 - (timer ?? 0);
+      totalSessionTimeRef.current += timeTaken;
+      totalAnsweredRef.current += 1;
+    }
 
-  const finalScore = scoreIncrementForAnswer(
-    true,
-    useGameStore.getState().gameConfig.difficulty ?? "easy",
-    timer ?? 0,
-    answerTimer,
-  );
+    const finalScore = scoreIncrementForAnswer(
+      true,
+      useGameStore.getState().gameConfig.difficulty ?? "easy",
+      timer ?? 0,
+      answerTimer,
+    );
 
-  const currentStreak = useTriviaStore.getState().currentStreak;
-  const xpEarned = calculateXP(finalScore, currentStreak);
+    const currentStreak = useTriviaStore.getState().currentStreak;
+    const xpEarned = calculateXP(finalScore, currentStreak);
 
-  sessionXpRef.current += xpEarned;
-  setSessionXpState(sessionXpRef.current);
+    sessionXpRef.current += xpEarned;
+    setSessionXpState(sessionXpRef.current);
 
-  if (mode === "multiplayer") {
-  pendingRewardRef.current = { finalScore, xpEarned, currentStreak };
-  return;
-}
+    if (mode === "multiplayer") {
+      pendingRewardRef.current = { finalScore, xpEarned, currentStreak };
+      return;
+    }
 
-  // Solo — fire immediately as before
-  const persistedTotalXp = usePlayerStore.getState().getPlayer().totalXp;
-  const oldXP = persistedTotalXp + (sessionXpRef.current - xpEarned);
-  const newXP = persistedTotalXp + sessionXpRef.current;
-  const visualLevel = getLevel(newXP);
+    const persistedTotalXp = usePlayerStore.getState().getPlayer().totalXp;
+    const oldXP = persistedTotalXp + (sessionXpRef.current - xpEarned);
+    const newXP = persistedTotalXp + sessionXpRef.current;
+    const visualLevel = getLevel(newXP);
 
-  triggerReward({
-    score: finalScore,
-    xp: xpEarned,
-    streak: currentStreak,
-    oldXP,
-    newXP,
-    oldLevel: visualLevel,
-    newLevel: visualLevel,
-    xpPerLevel: 1000,
-    buttonRef: answerButtonRef,
-  });
-}, [submitAnswer, questions, currentIndex, timer, answerTimer, triggerReward, mode]);
+    triggerReward({
+      score: finalScore,
+      xp: xpEarned,
+      streak: currentStreak,
+      oldXP,
+      newXP,
+      oldLevel: visualLevel,
+      newLevel: visualLevel,
+      xpPerLevel: 1000,
+      buttonRef: answerButtonRef,
+    });
+  }, [submitAnswer, questions, currentIndex, timer, answerTimer, triggerReward, mode]);
 
   useEffect(() => {
     if (phase !== "readying" && phase !== "answering" && phase !== "scoring") return;
@@ -614,7 +606,6 @@ const handleAnswerClick = useCallback((answer: string) => {
     }
     if (hasScoredRef.current) return;
 
-    // Mark immediately to prevent a second effect run from queuing a second timeout.
     hasScoredRef.current = true;
 
     console.log('[QuestionPage] Scoring phase started, collecting answers for', ANSWER_COLLECTION_BUFFER_MS, 'ms');
@@ -629,6 +620,8 @@ const handleAnswerClick = useCallback((answer: string) => {
     return () => window.clearTimeout(timeoutId);
   }, [phase, mode, lobbyRole, scoreCurrentQuestion, finalizeRankings, broadcastMultiplayerState]);
 
+
+  const broadcastOnMountRef = useRef(false);
   useEffect(() => {
     if (mode !== "multiplayer" || lobbyRole !== "host") return;
     broadcastMultiplayerState();
@@ -640,9 +633,6 @@ const handleAnswerClick = useCallback((answer: string) => {
       const currentState = useTriviaStore.getState();
       const shouldResetSelectedAnswer = payload.currentIndex !== currentState.currentIndex;
 
-      // ── Host abandoned the match ─────────────────────────────────────────
-      // Skip results entirely: block progression save and return to home.
-      // Nothing earned in this session should be persisted.
       if (payload.hostAbandoned) {
         endProgressAppliedRef.current = true;
         useTriviaStore.setState({ phase: "end" });
@@ -755,35 +745,30 @@ const handleAnswerClick = useCallback((answer: string) => {
       rank: mode === "multiplayer" ? playerRank : undefined,
     };
 
-    // Persist spent power-ups and earn streak-dropped ones back to player inventory
-const powerUpState = usePowerUpStore.getState();
+    const powerUpState = usePowerUpStore.getState();
 
-// Deduct used power-ups from player inventory
-for (const used of powerUpState.used) {
-  usePlayerStore.getState().spendPowerUp(used.id);
-}
+    for (const used of powerUpState.used) {
+      usePlayerStore.getState().spendPowerUp(used.id);
+    }
 
-// Add any power-ups earned via streaks during the session
-const sessionInventory = powerUpState.sessionInventory;
-const starterInventory = localPlayer.powerUpInventory ?? [];
-for (const entry of sessionInventory) {
-  const startCount = starterInventory.find((e) => e.id === entry.id)?.count ?? 0;
-  const usedCount = powerUpState.used.filter((u) => u.id === entry.id).length;
-  const netEarned = entry.count - startCount + usedCount;
-  if (netEarned > 0) {
-    usePlayerStore.getState().earnPowerUp(entry.id, netEarned);
-  }
-}
+    const sessionInventory = powerUpState.sessionInventory;
+    const starterInventory = localPlayer.powerUpInventory ?? [];
+    for (const entry of sessionInventory) {
+      const startCount = starterInventory.find((e) => e.id === entry.id)?.count ?? 0;
+      const usedCount = powerUpState.used.filter((u) => u.id === entry.id).length;
+      const netEarned = entry.count - startCount + usedCount;
+      if (netEarned > 0) {
+        usePlayerStore.getState().earnPowerUp(entry.id, netEarned);
+      }
+    }
 
     const newlyUnlockedAchievements = applySessionProgress(progressionInput);
 
     if (mode === "multiplayer") {
-      // Update our status to 'results' so others in lobby see we are finishing
-      // We do this AFTER applySessionProgress so we have the latest level/rank
       const latestPlayer = usePlayerStore.getState().getPlayer();
       const mpState = useMultiplayerStore.getState();
       const currentMpPlayer = mpState.players.find(p => p.id === localPlayerId);
-      
+
       if (currentMpPlayer) {
         mpState.addOrUpdatePlayer({ ...latestPlayer, id: localPlayerId }, { status: "results", isReady: false });
         if (mpState.lobbyRole === "client" && mpState.lobbyId && mpState.hostAddress) {
@@ -792,7 +777,7 @@ for (const entry of sessionInventory) {
             hostAddress: mpState.hostAddress,
             playerId: localPlayerId,
             ready: false,
-            member: { 
+            member: {
               status: "results",
               level: latestPlayer.level,
               rank: latestPlayer.rank
@@ -815,32 +800,32 @@ for (const entry of sessionInventory) {
   }, [phase, applySessionProgress, localPlayerId, lobbyRole, setScreen, triggerReward, finalizeRankings]);
 
   useEffect(() => {
-  if (mode !== "multiplayer" || phase !== "scoring") return;
-  if (!pendingRewardRef.current) return;
+    if (mode !== "multiplayer" || phase !== "scoring") return;
+    if (!pendingRewardRef.current) return;
 
-  const { finalScore, xpEarned, currentStreak } = pendingRewardRef.current;
-  pendingRewardRef.current = null;
+    const { finalScore, xpEarned, currentStreak } = pendingRewardRef.current;
+    pendingRewardRef.current = null;
 
-  setRevealScore(finalScore);
-  setTimeout(() => setRevealScore(null), 3000);
+    setRevealScore(finalScore);
+    setTimeout(() => setRevealScore(null), 3000);
 
-  const persistedTotalXp = usePlayerStore.getState().getPlayer().totalXp;
-  const oldXP = persistedTotalXp + (sessionXpRef.current - xpEarned);
-  const newXP = persistedTotalXp + sessionXpRef.current;
-  const visualLevel = getLevel(newXP);
+    const persistedTotalXp = usePlayerStore.getState().getPlayer().totalXp;
+    const oldXP = persistedTotalXp + (sessionXpRef.current - xpEarned);
+    const newXP = persistedTotalXp + sessionXpRef.current;
+    const visualLevel = getLevel(newXP);
 
-  triggerReward({
-    score: finalScore,
-    xp: xpEarned,
-    streak: currentStreak,
-    oldXP,
-    newXP,
-    oldLevel: visualLevel,
-    newLevel: visualLevel,
-    xpPerLevel: 1000,
-    buttonRef: answerButtonRef,
-  });
-}, [phase, mode, triggerReward]);
+    triggerReward({
+      score: finalScore,
+      xp: xpEarned,
+      streak: currentStreak,
+      oldXP,
+      newXP,
+      oldLevel: visualLevel,
+      newLevel: visualLevel,
+      xpPerLevel: 1000,
+      buttonRef: answerButtonRef,
+    });
+  }, [phase, mode, triggerReward]);
 
   const isRevealed = phase === "scoring";
   const correctAnswer = currentQuestion?.correctAnswer;
@@ -868,19 +853,16 @@ for (const entry of sessionInventory) {
 
           {/* ── HUD Top Row: Question Counter | Category | Timer ── */}
           <HudTopRow>
-            {/* LEFT: Question Counter */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Typography sx={{ fontFamily: "'Courier New', monospace", fontSize: "14px", color: "#888" }}>
                 {currentIndex + 1}/{questionLimit}
               </Typography>
             </Box>
 
-            {/* CENTER: Category */}
             <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "14px", color: "#35E52B", textAlign: "center" }}>
               {category ?? "TRIVIA"}
             </Typography>
 
-            {/* RIGHT: Timer */}
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
               <Clock style={{ width: 16, height: 16, color: "#fff" }} />
               <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "16px", color: "#fff" }}>
@@ -889,9 +871,8 @@ for (const entry of sessionInventory) {
             </Box>
           </HudTopRow>
 
-          {/* ── HUD Bottom Row: Back Button (left) | Spacer (center) | Correct Score (right) ── */}
+          {/* ── HUD Bottom Row ── */}
           <HudBottomRow>
-            {/* LEFT: Back Button */}
             <Box sx={{ display: "flex", alignItems: "center" }}>
               <HudBackButton
                 onClick={() => { playSound("select"); setScreen("home"); }}
@@ -901,10 +882,8 @@ for (const entry of sessionInventory) {
               </HudBackButton>
             </Box>
 
-            {/* CENTER: empty spacer */}
             <Box />
 
-            {/* RIGHT: Correct Score Counter */}
             <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
               <HudCorrectScore hasCorrect={correctCount > 0} key={correctAnimKey}>
                 <Box component="span" sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "8px", color: correctCount > 0 ? "#35E52B" : "#333" }}>
@@ -930,24 +909,24 @@ for (const entry of sessionInventory) {
 
         {/* ── QUESTION PANEL ────────────────────────────────────────────────── */}
         <QuestionPanel>
-  <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "16px", color: "#35E52B", textAlign: "center", lineHeight: 2 }}>
-    {currentQuestion.text}
-  </Typography>
+          <Typography sx={{ fontFamily: "'Press Start 2P', monospace", fontSize: "16px", color: "#35E52B", textAlign: "center", lineHeight: 2 }}>
+            {currentQuestion.text}
+          </Typography>
 
-  {mode === "multiplayer" && revealScore !== null && (
-    <Box sx={{
-      position: "absolute",
-      top: "10px",
-      right: "14px",
-      fontFamily: "'Press Start 2P', monospace",
-      fontSize: "12px",
-      color: "#35E52B",
-      textShadow: "0 0 10px #35E52B",
-    }}>
-      +{revealScore} PTS
-    </Box>
-  )}
-</QuestionPanel>
+          {mode === "multiplayer" && revealScore !== null && (
+            <Box sx={{
+              position: "absolute",
+              top: "10px",
+              right: "14px",
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: "12px",
+              color: "#35E52B",
+              textShadow: "0 0 10px #35E52B",
+            }}>
+              +{revealScore} PTS
+            </Box>
+          )}
+        </QuestionPanel>
 
         {/* ── ANSWER GRID ───────────────────────────────────────────────────── */}
         <AnswerGrid>
@@ -982,7 +961,7 @@ for (const entry of sessionInventory) {
           })}
         </AnswerGrid>
 
-        {/* ── POWER-UP TRAY (absolutely positioned, right edge of GameScreen) ── */}
+        {/* ── POWER-UP TRAY ── */}
         <PowerUpTray
           questionIndex={currentIndex}
           onActivate={(id: PowerUpId) => { activatePowerUp(id); }}
@@ -990,39 +969,39 @@ for (const entry of sessionInventory) {
 
         {/* ── BOTTOM HUD ────────────────────────────────────────────────────── */}
         <BottomHud>
-  <Box sx={{ width: "120px", height: "120px", display: "flex", alignItems: "flex-end", position: "relative" }}>
-  {bunnyMessage && (
-    <Box sx={{
-      position: "absolute",
-      bottom: "115px",
-      left: "0px",
-      background: "#060A10",
-      border: "2px solid #35E52B",
-      borderRadius: "6px",
-      padding: "8px 10px",
-      fontFamily: "'Press Start 2P', monospace",
-      fontSize: "7px",
-      color: "#35E52B",
-      whiteSpace: "pre-line",
-      lineHeight: 1.8,
-      zIndex: 30,
-      boxShadow: "0 0 10px rgba(53,229,43,0.4)",
-      width: "120px",
-      "&::after": {
-        content: '""',
-        position: "absolute",
-        bottom: "-8px",
-        left: "16px",
-        borderLeft: "6px solid transparent",
-        borderRight: "6px solid transparent",
-        borderTop: "8px solid #35E52B",
-      }
-    }}>
-      {bunnyMessage}
-    </Box>
-  )}
-  <BunnyMascot state={derivedBunnyState} size={110} />
-</Box>
+          <Box sx={{ width: "120px", height: "120px", display: "flex", alignItems: "flex-end", position: "relative" }}>
+            {bunnyMessage && (
+              <Box sx={{
+                position: "absolute",
+                bottom: "115px",
+                left: "0px",
+                background: "#060A10",
+                border: "2px solid #35E52B",
+                borderRadius: "6px",
+                padding: "8px 10px",
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: "7px",
+                color: "#35E52B",
+                whiteSpace: "pre-line",
+                lineHeight: 1.8,
+                zIndex: 30,
+                boxShadow: "0 0 10px rgba(53,229,43,0.4)",
+                width: "120px",
+                "&::after": {
+                  content: '""',
+                  position: "absolute",
+                  bottom: "-8px",
+                  left: "16px",
+                  borderLeft: "6px solid transparent",
+                  borderRight: "6px solid transparent",
+                  borderTop: "8px solid #35E52B",
+                }
+              }}>
+                {bunnyMessage}
+              </Box>
+            )}
+            <BunnyMascot state={derivedBunnyState} size={110} />
+          </Box>
 
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative" }}>
             {Object.keys(activeEmotes).map((pid) => (
@@ -1045,7 +1024,7 @@ for (const entry of sessionInventory) {
           </Box>
         </BottomHud>
 
-        {/* ADD HERE: */}
+        {/* ── PLAYER LEFT NOTIFICATIONS ─────────────────────────────────────── */}
         {mode === "multiplayer" && leftNotifications.length > 0 && (
           <PlayerLeftToast>
             {leftNotifications.map((n) => (
@@ -1054,6 +1033,36 @@ for (const entry of sessionInventory) {
               </PlayerLeftNotification>
             ))}
           </PlayerLeftToast>
+        )}
+
+        {/* ── HOST-EXIT NOTIFICATION OVERLAY ──────────────────────────────── */}
+        {showHostExitNotification && (
+          <Box sx={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 9999,
+            pointerEvents: "none",
+            animation: `${fadeSlideDown} 0.3s ease both`,
+          }}>
+            <Box sx={{
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: "14px",
+              color: "#FF0055",
+              textShadow: "0 0 8px #FF0055, 0 0 20px #FF005588",
+              background: "rgba(6, 10, 16, 0.92)",
+              border: "2px solid #FF0055",
+              borderRadius: "8px",
+              padding: "20px 32px",
+              textAlign: "center",
+              lineHeight: 1.8,
+              boxShadow: "0 0 30px rgba(255, 0, 85, 0.3), inset 0 0 15px rgba(255, 0, 85, 0.06)",
+              letterSpacing: "2px",
+            }}>
+              HOST ENDED<br />THE SESSION
+            </Box>
+          </Box>
         )}
 
         <RewardOverlay

@@ -79,7 +79,7 @@ type MultiplayerPacket =
   );
 
 const BROADCAST_ADDR = "255.255.255.255";
-const HOST_SILENCE_TIMEOUT_MS = 6000;
+const HOST_SILENCE_TIMEOUT_MS = 15000;
 const HOST_WATCHDOG_INTERVAL_MS = 1000;
 
 let broadcastInterval: NodeJS.Timeout | null = null;
@@ -178,8 +178,13 @@ function markHostSignal(lobbyId?: string) {
 
 function trackClientLobby(lobbyId: string) {
   activeClientLobbyId = lobbyId;
-  lastHostSignalAt = Date.now();
+  lastHostSignalAt = Date.now(); // generous starting point
   hasEmittedHostTimeout = false;
+  // Stop any existing watchdog before starting fresh
+  if (hostWatchdogInterval) {
+    clearInterval(hostWatchdogInterval);
+    hostWatchdogInterval = null;
+  }
   startClientHostWatchdog();
 }
 

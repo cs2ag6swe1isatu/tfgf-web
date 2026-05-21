@@ -124,6 +124,8 @@ export type DiscoveredHost = {
 };
 
 export interface MultiplayerBridge {
+  offPlayerDisconnected: any;
+  onPlayerDisconnected(arg0: string, pushNotification: (playerId: string) => void): unknown;
   onHttpServerStarted(arg0: string, arg1: (port: any) => void): unknown;
   offHttpServerStarted(arg0: string): unknown;
   // ── HTTP question server (host only) ──────────────────────────────────────
