@@ -198,6 +198,9 @@ export interface MultiplayerBridge {
   sendEmote?: (payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string }) => void;
   onEmoteSync?: (source: string, callback: (payload: EmotePayload) => void) => void;
   offEmoteSync?: (source: string) => void;
+  sendEvent?: (packet: { type: string; payload: unknown }) => void;
+  onEvent?: (eventType: string, id: string, cb: (payload: unknown) => void) => void;
+  offEvent?: (eventType: string, id: string) => void;
 }
 
 declare global {

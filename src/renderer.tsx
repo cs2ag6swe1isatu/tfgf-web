@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "@mui/material/styles";
 import { CssBaseline, styled, keyframes } from "@mui/material";
@@ -125,14 +125,21 @@ export const RetroProcessor: React.FC<React.PropsWithChildren> = ({ children }) 
 // note: maintain relative height/width; use % instead of vw or vh in css
 export const ResolutionFixer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { width: targetW, height: targetH } = useGameStore((state) => state.resolution);
-  const [scale, setScale] = useState(1);
+  const calcScale = () => Math.min(window.innerWidth / targetW, window.innerHeight / targetH);
+  const [scale, setScale] = useState(calcScale);
+  const hasRevealedRootRef = useRef(false);
   const settings = useGameStore((state) => state.settings);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const updateScale = () => {
-      const scaleX = window.innerWidth / targetW;
-      const scaleY = window.innerHeight / targetH;
-      setScale(Math.min(scaleX, scaleY));
+      setScale(calcScale());
+      if (!hasRevealedRootRef.current) {
+        const root = document.getElementById("root");
+        if (root) {
+          root.style.visibility = "visible";
+        }
+        hasRevealedRootRef.current = true;
+      }
     };
     updateScale();
     window.addEventListener('resize', updateScale);
@@ -170,6 +177,7 @@ export const ResolutionFixer: React.FC<{ children: React.ReactNode }> = ({ child
 const rootElement = document.getElementById("root");
 
 if (rootElement) {
+  rootElement.style.visibility = "hidden";
   runSessionSummaryPageTester();
 
   const anyWindow = window as Window & { __react_root?: ReturnType<typeof createRoot> };
