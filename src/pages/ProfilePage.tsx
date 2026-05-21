@@ -734,7 +734,7 @@ const ProfilePage = () => {
                                 overflow: "hidden",
                               }}>
                                 <img
-                                  src={ach.unlocked ? ach.icon : "/img/achievements/Locked%20icon.png"}
+                                  src={ach.unlocked ? ach.icon : "./img/achievements/Locked%20icon.png"}
                                   alt={ach.name}
                                   style={{
                                     display: "block",

@@ -95,7 +95,7 @@ const BezelLayer = styled('div')({
   pointerEvents: 'none',
   boxSizing: 'border-box',
   border: '40px solid transparent',
-  borderImageSource: 'url(/img/bezel3.png)',
+  borderImageSource: 'url(./img/bezel3.png)',
   borderImageSlice: 40,
   transform: 'translateZ(0)', // trying to fix subpixel rendering
 });

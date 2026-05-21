@@ -42,7 +42,7 @@ export type AchievementCategory =
   | "Skill"
   | "Multiplayer";
 
-const achievementIconPath = (fileName: string): string => `/img/achievements/${encodeURIComponent(fileName)}`;
+const achievementIconPath = (fileName: string): string => `./img/achievements/${encodeURIComponent(fileName)}`;
 const lockedAchievementIconPath = achievementIconPath("Locked icon.png");
 
 // Aggregates played games across optional filters.

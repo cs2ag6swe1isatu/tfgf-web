@@ -2,15 +2,22 @@ import { useState, useRef, useEffect, ReactNode } from "react";
 import { useGameStore } from "../store/gameStore";
 import { usePlayerStore, PlayerState } from "../store/playerStore";
 
-// ─── AUDIO PATHS (public/sounds — production-safe for Electron) ───────────
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+// ─── AUDIO PATHS (safe for dev http:// and packaged file://) ───────────────
+const assetBase =
+  window.location.protocol === "file:"
+    ? window.location.pathname.replace(/[^/\\]*$/, "")
+    : "/";
 
-const sfxHover      = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Cursor 2 (Square).mp3`;
-const sfxSelect     = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Select 1 (Square).mp3`;
-const sfxTab        = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Popup Open 1 (Square).mp3`;
-const sfxBack       = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Cancel 1 (Square).mp3`;
-const sfxError      = `${BASE}/sounds/JDSherbert - Pixel UI SFX Pack - Error 1 (Square).mp3`;
-const creditsBgmSrc = `${BASE}/sounds/djartmusic-8-bit-console-from-my-childhood-301286.mp3`;
+function assetUrl(rel: string): string {
+  return assetBase + rel;
+}
+
+const sfxHover = assetUrl("sounds/hover.mp3");
+const sfxSelect = assetUrl("sounds/select.mp3");
+const sfxTab = assetUrl("sounds/tab.mp3");
+const sfxBack = assetUrl("sounds/back.mp3");
+const sfxError = assetUrl("sounds/error.mp3");
+const creditsBgmSrc = assetUrl("sounds/djartmusic-8-bit-console-from-my-childhood-301286 (1).mp3");
 
 const NEON = "#35E52B";
 const CYAN = "#00E5FF";
