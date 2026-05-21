@@ -371,9 +371,8 @@ export default function SettingsPage() {
   const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Store ──────────────────────────────────────────────
-  const setScreen            = useGameStore((s) => s.setScreen);
-  const updateSettings       = useGameStore((s) => s.updateSettings);
-  const setCreditsBgmActive  = useGameStore((s) => s.setCreditsBgmActive);
+  const setScreen      = useGameStore((s) => s.setScreen);
+  const updateSettings = useGameStore((s) => s.updateSettings);
   const setResolution  = useGameStore((s) => s.setResolution);
   const setGameConfig  = useGameStore((s) => s.setGameConfig);
   const storedSettings = useGameStore((s) => s.settings) as SettingsView;
@@ -415,16 +414,34 @@ export default function SettingsPage() {
     draftAutoJoinLan !== (gameConfig.autoJoinLan ?? false);
 
   // ── Credits state & refs ───────────────────────────────
-  const creditsScrollRef    = useRef<HTMLDivElement>(null);
-  const creditsRAFRef       = useRef<number | null>(null);
-  const creditsLastTimeRef  = useRef<number | null>(null);
-  const creditsPausedRef    = useRef(false);
-  const creditsCanvasRef    = useRef<HTMLCanvasElement>(null);
-  const creditsBgmRef       = useRef<HTMLAudioElement | null>(null);
-  const creditsFadeRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const creditsScrollRef   = useRef<HTMLDivElement>(null);
+  const creditsRAFRef      = useRef<number | null>(null);
+  const creditsLastTimeRef = useRef<number | null>(null);
+  const creditsPausedRef   = useRef(false);
+  const creditsCanvasRef   = useRef<HTMLCanvasElement>(null);
+
+  // Credits BGM refs & state
+  const creditsBgmRef  = useRef<HTMLAudioElement | null>(null);
+  const creditsFadeRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [creditsMuted,      setCreditsMuted]      = useState(false);
   const [creditsBgmVol,     setCreditsBgmVol]     = useState(() => (storedSettings.volume ?? 5) / 10);
   const [creditsBgmPlaying, setCreditsBgmPlaying] = useState(false);
+
+  // Stable refs so BGM helpers never close over stale state
+  const creditsBgmVolRef = useRef(creditsBgmVol);
+  useEffect(() => { creditsBgmVolRef.current = creditsBgmVol; }, [creditsBgmVol]);
+  const creditsMutedRef = useRef(creditsMuted);
+  useEffect(() => { creditsMutedRef.current = creditsMuted; }, [creditsMuted]);
+
+  // Keep credits BGM volume in sync when master volume draft changes
+  useEffect(() => {
+    const v = draftVolume / 10;
+    setCreditsBgmVol(v);
+    if (creditsBgmRef.current && !creditsMutedRef.current) {
+      creditsBgmRef.current.volume = v;
+    }
+  }, [draftVolume]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Credits BGM helpers ────────────────────────────────
   function fadeCreditsBgm(target: number, ms: number, onDone?: () => void) {
@@ -447,8 +464,8 @@ export default function SettingsPage() {
   }
 
   function startCreditsBgm() {
+    // Prevent duplicate instances
     if (creditsBgmRef.current) return;
-    if (!storedSettings.bgmEnabled) return;
     const audio = new Audio(creditsBgmSrc);
     audio.loop   = true;
     audio.volume = 0;
@@ -456,12 +473,21 @@ export default function SettingsPage() {
     audio.play()
       .then(() => {
         setCreditsBgmPlaying(true);
-        fadeCreditsBgm(creditsMuted ? 0 : creditsBgmVol, 1800);
+        // Use refs so we always read the latest mute/vol state, not the closure value
+        fadeCreditsBgm(creditsMutedRef.current ? 0 : creditsBgmVolRef.current, 1800);
       })
-      .catch(() => {});
+      .catch(() => {
+        // Autoplay blocked — clean up so re-open can retry
+        creditsBgmRef.current = null;
+      });
   }
 
   function stopCreditsBgm() {
+    // Cancel any in-progress fade first
+    if (creditsFadeRef.current) {
+      clearInterval(creditsFadeRef.current);
+      creditsFadeRef.current = null;
+    }
     const audio = creditsBgmRef.current;
     if (!audio) return;
     fadeCreditsBgm(0, 900, () => {
@@ -538,20 +564,32 @@ export default function SettingsPage() {
 
   // ── Mount / unmount credits effects on tab change ──────
   useEffect(() => {
-    if (tab === "CREDITS") {
-      setCreditsBgmActive(true);
-      startCreditsBgm();
-      startCreditsScroll();
-      const cleanupParticles = startCreditsParticles();
-      return () => {
-        stopCreditsBgm();
-        stopCreditsScroll();
-        cleanupParticles?.();
-        creditsPausedRef.current = false;
-        setCreditsBgmActive(false);
-      };
-    }
-  }, [tab]);
+    if (tab !== "CREDITS") return;
+    // Reset scroll to top each time credits opens
+    if (creditsScrollRef.current) creditsScrollRef.current.scrollTop = 0;
+    startCreditsBgm();
+    startCreditsScroll();
+    const cleanupParticles = startCreditsParticles();
+    return () => {
+      stopCreditsBgm();
+      stopCreditsScroll();
+      cleanupParticles?.();
+      creditsPausedRef.current = false;
+    };
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Cleanup on component unmount ──────────────────────
+  useEffect(() => {
+    return () => {
+      if (creditsFadeRef.current) clearInterval(creditsFadeRef.current);
+      if (creditsBgmRef.current) {
+        creditsBgmRef.current.pause();
+        creditsBgmRef.current.src = "";
+        creditsBgmRef.current = null;
+      }
+      stopCreditsScroll();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Save ───────────────────────────────────────────────
   function handleSave() {
@@ -744,7 +782,7 @@ export default function SettingsPage() {
                 onClick={() => {
                   const next = !creditsMuted;
                   setCreditsMuted(next);
-                  fadeCreditsBgm(next ? 0 : creditsBgmVol, 300);
+                  fadeCreditsBgm(next ? 0 : creditsBgmVolRef.current, 300);
                 }}
                 style={{
                   background: "transparent", border: `1px solid ${CYAN}88`,
@@ -916,6 +954,57 @@ export default function SettingsPage() {
 
                   {/* Divider */}
                   <div style={{ borderTop: `1px solid ${NEON}22`, margin: "0 0 20px" }} />
+
+                  {/* BGM Credits Start */}
+                  <div
+                    style={{
+                      marginBottom: 24,
+                      padding: "12px",
+                      border: `1px solid ${CYAN}44`,
+                      background: "rgba(0,0,0,0.45)",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontFamily: font,
+                        fontSize: 7,
+                        color: CYAN,
+                        letterSpacing: 2,
+                        marginBottom: 8,
+                      }}
+                    >
+                      MUSIC CREDITS
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: font,
+                        fontSize: 6,
+                        color: NEON,
+                        lineHeight: 2,
+                      }}
+                    >
+                      "8 Bit Console From My Childhood"
+                      <br />
+                      by DJ Art Music
+                    </div>
+                    <a
+                      href="https://pixabay.com/music/video-games-8-bit-console-from-my-childhood-301286/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "inline-block",
+                        marginTop: 8,
+                        fontFamily: font,
+                        fontSize: 6,
+                        color: CYAN,
+                        textDecoration: "underline",
+                      }}
+                    >
+                      SOURCE / PIXABAY FREE LICENSE
+                    </a>
+                  </div>
+                  {/* BGM Credits End */}
 
                   {/* Thank you */}
                   <div style={{
