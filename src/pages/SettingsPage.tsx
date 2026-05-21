@@ -382,6 +382,7 @@ export default function SettingsPage() {
   const player       = usePlayerStore((s) => s.player);
   const updatePlayer = usePlayerStore((s: PlayerState) => s.updatePlayer);
   const resetPlayer  = usePlayerStore((s: PlayerState) => s.resetPlayer);
+  const setCreditsBgmActive     = useGameStore((s) => s.setCreditsBgmActive);
   const resetSettingsToDefaults = useGameStore((s) => s.resetSettingsToDefaults);
   const clearAllData = useGameStore((s) => (s as any).clearAllData as (() => void));
 
@@ -565,16 +566,25 @@ export default function SettingsPage() {
   // ── Mount / unmount credits effects on tab change ──────
   useEffect(() => {
     if (tab !== "CREDITS") return;
+
+    // Signal App.tsx to pause the global BGM — this is the intended mechanism
+    // (gameStore.creditsBgmActive is watched by App.tsx for exactly this purpose)
+    setCreditsBgmActive(true);
+
     // Reset scroll to top each time credits opens
     if (creditsScrollRef.current) creditsScrollRef.current.scrollTop = 0;
     startCreditsBgm();
     startCreditsScroll();
     const cleanupParticles = startCreditsParticles();
+
     return () => {
       stopCreditsBgm();
       stopCreditsScroll();
       cleanupParticles?.();
       creditsPausedRef.current = false;
+
+      // Signal App.tsx to resume the global BGM
+      setCreditsBgmActive(false);
     };
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
