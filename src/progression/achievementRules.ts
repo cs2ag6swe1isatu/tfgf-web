@@ -1,6 +1,7 @@
 import { SessionProgressInput } from "./progressionRules";
 import { Achievement, Player } from "../types/player";
 import { Category, CATEGORIES, DIFFICULTIES, Difficulty, MODES, Mode } from "../constants";
+import { publicAssetUrl } from "../utils/publicAssetUrl";
 
 /**
  * Achievements list:
@@ -42,7 +43,7 @@ export type AchievementCategory =
   | "Skill"
   | "Multiplayer";
 
-const achievementIconPath = (fileName: string): string => `/img/achievements/${encodeURIComponent(fileName)}`;
+const achievementIconPath = (fileName: string): string => publicAssetUrl(`img/achievements/${fileName}`);
 const lockedAchievementIconPath = achievementIconPath("Locked icon.png");
 
 // Aggregates played games across optional filters.

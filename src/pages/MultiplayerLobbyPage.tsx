@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useCallback, useRef } from "react";
+import { useMemo, useEffect, useCallback, useRef, useState } from "react";
 import { Box, GlobalStyles } from "@mui/material";
 import { Phase, useGameStore, useTriviaStore } from "../store";
 import { getMultiplayerPlayer, usePlayerStore } from "../store/playerStore";
@@ -8,6 +8,11 @@ import { getAvatarSrc } from "../utils/avatar";
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 import { useSoundContext } from "../context/SoundContext";
 import { getCategoryDisplay } from "../utils/categoryShorthand";
+<<<<<<< HEAD
+=======
+import { useResponsiveScale } from "../hooks/useResponsiveScale";
+import { shapeGameStateForBroadcast } from "../utils/multiplayerSync";
+>>>>>>> 81092c5 (fix imports)
 
 import type {
   MultiplayerBridge,
@@ -69,6 +74,7 @@ const MultiplayerLobby = () => {
   const joinTimeoutRef = useRef<number | null>(null);
   const isMountedRef = useRef(true);
   const gameStartAbortRef = useRef<AbortController | null>(null);
+  const [isStartingGame, setIsStartingGame] = useState(false);
 
   const handleHostExit = useCallback(() => {
     if (hasHandledHostExitRef.current) return;
@@ -184,46 +190,103 @@ useTriviaStore.setState(nextState);
       console.error(`[Lobby] handleStartGame called by non-host (role=${lobbyRole}), aborting`);
       return;
     }
+    if (isStartingGame) {
+      console.warn("[Lobby] Ignoring duplicate handleStartGame call while startup is in progress");
+      return;
+    }
 
     if (!isMountedRef.current) return;
     if (!lobbyId) return;
 
-    resetGame();
-    const gameSessionSeed = Math.floor(Math.random() * defaultGameConfig.seedRange);
-    useGameStore.getState().setGameConfig({ seed: gameSessionSeed });
-    const sessionQuestionLimit = gameConfig.questionLimit ?? defaultGameConfig.questionLimit;
-    const sessionQuestionTimer = gameConfig.questionTimer ?? defaultGameConfig.questionTimer;
-    const sessionAnswerTimer = gameConfig.answerTimer ?? defaultGameConfig.answerTimer;
+    setIsStartingGame(true);
 
-    console.log(`[Lobby] Host starting game, seed=${gameSessionSeed}`);
+    try {
 
-    let httpPort: number | undefined = undefined;
-    const httpStartTime = Date.now();
+      resetGame();
+      const gameSessionSeed = Math.floor(Math.random() * defaultGameConfig.seedRange);
+      useGameStore.getState().setGameConfig({ seed: gameSessionSeed });
+      const sessionQuestionLimit = gameConfig.questionLimit ?? defaultGameConfig.questionLimit;
+      const sessionQuestionTimer = gameConfig.questionTimer ?? defaultGameConfig.questionTimer;
+      const sessionAnswerTimer = gameConfig.answerTimer ?? defaultGameConfig.answerTimer;
+
+      console.log(`[Lobby] Host starting game, seed=${gameSessionSeed}`);
+
+      let httpPort: number | undefined = undefined;
+      const httpStartTime = Date.now();
     
-    const httpServerReady = new Promise<number>((resolve) => {
-      let timeoutHandle: NodeJS.Timeout | null = null;
+      const httpServerReady = new Promise<number>((resolve) => {
+        let timeoutHandle: NodeJS.Timeout | null = null;
       
-      const safeResolve = (port: number) => {
-        if (timeoutHandle) clearTimeout(timeoutHandle);
-        resolve(port);
-      };
+        const safeResolve = (port: number) => {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+          resolve(port);
+        };
       
-      if (multiplayerBridge?.onHttpServerStarted) {
-        multiplayerBridge.onHttpServerStarted("StartGame", (port) => {
-          const httpElapsedMs = Date.now() - httpStartTime;
-          console.log(`[Lobby] HTTP server callback fired with port ${port} (${httpElapsedMs}ms)`);
-          safeResolve(port);
-          multiplayerBridge.offHttpServerStarted?.("StartGame");
-        });
+        if (multiplayerBridge?.onHttpServerStarted) {
+          multiplayerBridge.onHttpServerStarted("StartGame", (port) => {
+            const httpElapsedMs = Date.now() - httpStartTime;
+            console.log(`[Lobby] HTTP server callback fired with port ${port} (${httpElapsedMs}ms)`);
+            safeResolve(port);
+            multiplayerBridge.offHttpServerStarted?.("StartGame");
+          });
         
-        timeoutHandle = setTimeout(() => {
-          console.warn(`[Lobby] HTTP server startup timeout after 10 seconds, proceeding with port=undefined`);
-          safeResolve(0);
-          multiplayerBridge.offHttpServerStarted?.("StartGame");
-        }, 10000);
-      } else {
-        resolve(0);
+          timeoutHandle = setTimeout(() => {
+            console.warn(`[Lobby] HTTP server startup timeout after 10 seconds, proceeding with port=undefined`);
+            safeResolve(0);
+            multiplayerBridge.offHttpServerStarted?.("StartGame");
+          }, 10000);
+        } else {
+          resolve(0);
+        }
+      });
+
+      const gameStartTime = Date.now();
+      await startGame({
+        category: gameConfig.category ?? "General Knowledge",
+        difficulty: gameConfig.difficulty ?? "easy",
+        questionLimit: sessionQuestionLimit,
+        mode: "multiplayer",
+        questionTimer: sessionQuestionTimer,
+        answerTimer: sessionAnswerTimer,
+        seed: gameSessionSeed,
+        recentSessionLimitSolo: 0,
+        recentSessionLimitMultiplayer: 0,
+        autoJoinLan: false
+      });
+      const gameElapsedMs = Date.now() - gameStartTime;
+      console.log(`[Lobby] startGame completed in ${gameElapsedMs}ms, waiting for HTTP server...`);
+
+      if (!isMountedRef.current || !lobbyId) return;
+
+      httpPort = await httpServerReady;
+      const totalWaitMs = Date.now() - httpStartTime;
+      console.log(`[Lobby] HTTP server ready check complete, port=${httpPort} (${totalWaitMs}ms total)`);
+
+      if (!isMountedRef.current || !lobbyId) return;
+
+      const mpState = useMultiplayerStore.getState();
+      mpState.players.forEach(p => {
+        if (!p.isHost) {
+          mpState.setPlayerReady(p.id, false);
+        }
+        mpState.addOrUpdatePlayer(p, { status: "playing" } as any);
+      });
+
+      const state = useTriviaStore.getState();
+      const payload = shapeGameStateForBroadcast(state, { seed: gameSessionSeed, questionPort: httpPort || undefined });
+      multiplayerBridge?.broadcastGameState(payload);
+
+      console.log(`[Lobby] Host game-start complete, navigating to question page`);
+      isTransitioningToGameRef.current = true;
+      setScreen(useMultiplayerStore.getState().participantRole === "spectator" ? "spectator-view" : "question");
+    } catch (error) {
+      console.error("[Lobby] Failed to start multiplayer game", error);
+      isTransitioningToGameRef.current = false;
+    } finally {
+      if (isMountedRef.current) {
+        setIsStartingGame(false);
       }
+<<<<<<< HEAD
     });
 
     const gameStartTime = Date.now();
@@ -278,6 +341,9 @@ useTriviaStore.setState(nextState);
     console.log(`[Lobby] Host game-start complete, navigating to question page`);
     isTransitioningToGameRef.current = true;
     setScreen(useMultiplayerStore.getState().participantRole === "spectator" ? "spectator-view" : "question");
+=======
+    }
+>>>>>>> 81092c5 (fix imports)
   };
 
   const handleKick = (playerId: string) => {
@@ -504,7 +570,7 @@ const connectedPlayers = allPlayers.filter((p) => p.connectionState !== "disconn
 const disconnectedPlayers = allPlayers.filter((p) => p.connectionState === "disconnected");
 const isCategorySelected = Boolean(gameConfig.category);
 const isDifficultySelected = Boolean(gameConfig.difficulty);
-const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
+const canStart = !isStartingGame && isCategorySelected && isDifficultySelected && connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
 
   const isCompactViewport = window.innerWidth <= 820 || window.innerHeight <= 500;
 
@@ -1054,7 +1120,7 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
               onMouseEnter={() => { if (canStart) playSound("hover"); }}
               disabled={!canStart}
             >
-              PLAY
+              {isStartingGame ? "STARTING..." : "PLAY"}
             </button>
           ) : (
             <button
