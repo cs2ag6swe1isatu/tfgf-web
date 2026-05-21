@@ -1,5 +1,6 @@
 import React, { useDeferredValue, useEffect, useRef, useCallback } from "react";
 import HomePage from "./pages/HomePage";
+import IntroCutscene from "./pages/IntroCutscene";
 import ModeSelectPage from "./pages/ModeSelectPage";
 import CategoryPage from "./pages/CategoryPage";
 import DifficultyPage from "./pages/DifficultyPage";
@@ -230,6 +231,7 @@ export default function App() {
   const creditsBgmActive = useGameStore((s) => s.creditsBgmActive);
   const deferredScreen = useDeferredValue(screen);
 
+  const hasSeenIntro  = useGameStore((s) => s.settings.hasSeenIntro);
   const { playSound } = useAudioEngine(sfxEnabled, vol);
 
   // ── Asset preloader ──────────────────────────────────────
@@ -325,6 +327,9 @@ export default function App() {
 
   // ── Screen router ────────────────────────────────────────
   let screenContent: React.ReactNode;
+  // ── Show intro cutscene on first load (only on home screen, once per lifetime) ──
+  const showIntro = screen === "home" && !hasSeenIntro;
+
   switch (deferredScreen) {
     case "mode-select":           screenContent = <ModeSelectPage />;           break;
     case "category":              screenContent = <CategoryPage />;              break;
@@ -355,7 +360,10 @@ export default function App() {
 
   return (
     <SoundContext.Provider value={{ playSound }}>
-      <div style={styles.screenRoot}>{screenContent}</div>
+      <div style={styles.screenRoot}>
+        {screenContent}
+        {showIntro && <IntroCutscene />}
+      </div>
     </SoundContext.Provider>
   );
 }
