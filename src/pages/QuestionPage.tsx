@@ -386,8 +386,11 @@ const QuestionPage = () => {
       if (!activePhases.includes(useTriviaStore.getState().phase)) return;
       if (playerId === localPlayerId) return;
 
+      // Fallback to rankings if the player was already purged from the multiplayer store
       const member = useMultiplayerStore.getState().players.find((p) => p.id === playerId);
-      const name = member?.name ?? "A PLAYER";
+      const rankedMember = useTriviaStore.getState().rankings.find((r) => r.playerId === playerId);
+      const name = member?.name ?? rankedMember?.name ?? "A PLAYER";
+      
       const toastKey = ++toastKeyRef.current;
 
       setLeftNotifications((prev) => [...prev, { id: playerId, name, toastKey }]);
@@ -639,12 +642,15 @@ if (mode === "solo") {
       const currentState = useTriviaStore.getState();
       const shouldResetSelectedAnswer = payload.currentIndex !== currentState.currentIndex;
 
+      // 👇 REPLACE YOUR EXISTING hostAbandoned BLOCK WITH THIS ONE 👇
       if (payload.hostAbandoned) {
         endProgressAppliedRef.current = true;
+        setShowHostExitNotification(true); // <-- This triggers the on-screen overlay!
         useTriviaStore.setState({ phase: "end" });
-        setTimeout(() => setScreen("home"), 50);
+        setTimeout(() => setScreen("home"), 3500); // <-- Increased from 50ms to 3.5 seconds so players can read it
         return;
       }
+      // 👆 -------------------------------------------------------- 👆
 
       const mappedRankings = payload.rankings?.map((r) => ({
         playerId: r.playerId, name: r.name, score: r.score, rank: r.rank,
