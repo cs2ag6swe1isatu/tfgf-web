@@ -60,7 +60,6 @@ export interface TriviaState {
   difficulty: Difficulty | null;
   userAnswers: string[];
   questionLimit: number;
-  correctAnswers: number; // solo correct answer count
   seed?: number;
   playerScores: Record<string, number>;
   playerAnswers: Record<string, PlayerRoundAnswer[]>;
@@ -126,7 +125,6 @@ const initialState: TriviaState = {
   difficulty: null,
   userAnswers: [],
   questionLimit: defaultGameConfig.questionLimit,
-  correctAnswers: 0,
   seed: undefined,
   playerScores: {},
   playerAnswers: {},
@@ -239,7 +237,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         score: 0,
         userAnswers: [],
         questionLimit,
-        correctAnswers: 0,
         playerScores: {},
         playerAnswers: {},
         currentStreak: 0,
@@ -298,9 +295,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         isCorrect, difficulty ?? 'easy', answerRemainingTime, answerTimer,
       );
 
-      // Increment correctAnswers only when a correct answer is confirmed
-      const newCorrectCount = isCorrect ? get().correctAnswers + 1 : get().correctAnswers;
-
       set({
         selectedAnswer: answer,
         selectedAnswerRemainingTime: answerRemainingTime,
@@ -310,7 +304,6 @@ export const useTriviaStore = create<TriviaState & TriviaActions>((set, get) => 
         userAnswers: newUserAnswers,
         currentStreak: nextStreak,
         maxStreak: nextMaxStreak,
-        correctAnswers: newCorrectCount,
       });
     } else if (mode === 'multiplayer') {
       set({

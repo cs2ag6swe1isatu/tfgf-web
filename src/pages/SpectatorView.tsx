@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Box } from "@mui/material";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { useGameStore } from "../store/gameStore";

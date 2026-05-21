@@ -7,7 +7,6 @@ import type {
   PlayerConnectionState,
   MultiplayerDiscoveredPayload,
   MultiplayerHostExitPayload,
-  MultiplayerSessionTerminatedPayload,
   MultiplayerJoinRequest,
   MultiplayerLeaveRequest,
   MultiplayerJoinAck,
@@ -73,7 +72,6 @@ type MultiplayerPacket =
     | { type: "leave-request"; payload: MultiplayerLeaveRequest }
     | { type: "heartbeat"; payload: { lobbyId: string; hostAddress: string; playerId: string } }
     | { type: "host-exit"; payload: MultiplayerHostExitPayload }
-    | { type: "session-terminated"; payload: MultiplayerSessionTerminatedPayload }
     | { type: "game-state"; payload: MultiplayerGameState }
     | { type: "answer-submission"; payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string } }
     | { type: "emote"; payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string } }
@@ -119,21 +117,6 @@ const onGameStateSyncCbs = new Map<string, (payload: MultiplayerGameState) => vo
 const onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void>();
 const onEmoteSyncCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string }) => void>();
 const onHttpServerStartedCbs = new Map<string, (port: number) => void>();
-
-// ── session-terminated (explicit mid-game host exit) ──────────────────────
-const onSessionTerminatedCbs = new Map<string, (payload: MultiplayerSessionTerminatedPayload) => void>();
-
-function emitSessionTerminated(payload: MultiplayerSessionTerminatedPayload) {
-  onSessionTerminatedCbs.forEach((cb) => cb(payload));
-}
-
-function broadcastSessionTerminated(payload: MultiplayerSessionTerminatedPayload) {
-  console.log('[preload] broadcasting session-terminated', payload);
-  const packet: MultiplayerPacket = { ...nextPacketMeta(), type: "session-terminated", payload };
-  sendUdpMessage(JSON.stringify(packet));
-  // Also fire locally so the host's own listener handles cleanup
-  emitSessionTerminated(payload);
-}
 
 let activeSnapshot: MultiplayerLobbySnapshot | null = null;
 let activeMode: "host" | "client" | null = null;
@@ -592,12 +575,6 @@ function handlePacket(raw: string, senderAddress: string) {
     return;
   }
 
-  if (packet.type === "session-terminated") {
-    console.log('[preload] session-terminated received');
-    emitSessionTerminated(packet.payload);
-    return;
-  }
-
   if (packet.type === "emote") {
     if (packet.payload.lobbyId !== activeSnapshot?.lobbyId && activeMode === "host") return;
 
@@ -903,12 +880,6 @@ contextBridge.exposeInMainWorld("multiplayer", {
   offAnswerSubmission: (id: string) => { onAnswerSubmissionCbs.delete(id); },
   onEmoteSync: (id: string, cb: (payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string }) => void) => { onEmoteSyncCbs.set(id, cb); },
   offEmoteSync: (id: string) => { onEmoteSyncCbs.delete(id); },
-
-  // ── Session-terminated (mid-game host exit) ──────────────────────────────
-  onSessionTerminated: (id: string, cb: (payload: MultiplayerSessionTerminatedPayload) => void) => { onSessionTerminatedCbs.set(id, cb); },
-  offSessionTerminated: (id: string) => { onSessionTerminatedCbs.delete(id); },
-  broadcastSessionTerminated,
-
   startHttpServer: (data: string) => ipcRenderer.send('multiplayer:start-http-server', data),
   stopHttpServer: () => ipcRenderer.send('multiplayer:stop-http-server'),
   onHttpServerStarted: (id: string, cb: (port: number) => void) => { onHttpServerStartedCbs.set(id, cb); },
