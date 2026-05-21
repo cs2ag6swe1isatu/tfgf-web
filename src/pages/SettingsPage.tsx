@@ -37,6 +37,37 @@ type SettingsView = {
   useCase: boolean; useScanlines: boolean; useFlicker: boolean;
 };
 
+type AppUpdaterCheckResult = {
+  success: boolean;
+  currentVersion?: string;
+  latestVersion?: string;
+  updateAvailable?: boolean;
+  releaseUrl?: string | null;
+  publishedAt?: string | null;
+  error?: string;
+};
+
+type AppUpdaterLocalDataStatus = {
+  success: boolean;
+  exists: boolean;
+  updatedAt?: string;
+  size?: number;
+  error?: string;
+};
+
+type AppUpdaterSyncResult = {
+  success: boolean;
+  questionCount?: number;
+  updatedAt?: string;
+  error?: string;
+};
+
+type AppUpdaterAPI = {
+  check: () => Promise<AppUpdaterCheckResult>;
+  syncQuestions: () => Promise<AppUpdaterSyncResult>;
+  getLocalDataStatus: () => Promise<AppUpdaterLocalDataStatus>;
+};
+
 const resolutions = [
   { w: 1280, h: 720,  label: "HD 720P",       key: "HD 720p" },
   { w: 1152, h: 768,  label: "XGA+",          key: "XGA+"    },
@@ -396,6 +427,12 @@ export default function SettingsPage() {
   const [draftScanlines,   setDraftScanlines]   = useState<boolean>(storedSettings.useScanlines ?? false);
   const [draftResKey,      setDraftResKey]      = useState<string>(storedRes.label ?? "XGA");
   const [draftAutoJoinLan, setDraftAutoJoinLan] = useState<boolean>(gameConfig.autoJoinLan ?? false);
+  const [updateInfo, setUpdateInfo] = useState<AppUpdaterCheckResult | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState('');
+  const [localDataStatus, setLocalDataStatus] = useState<AppUpdaterLocalDataStatus | null>(null);
+
+  const appUpdater = (window as Window & { appUpdater?: AppUpdaterAPI }).appUpdater;
 
   const { playSound } = useAudioEngine(storedSettings.sfxEnabled ?? true, draftVolume);
   const currentResolutionKey = storedRes.label ?? "XGA";
@@ -552,6 +589,68 @@ export default function SettingsPage() {
     }
   }, [tab]);
 
+  useEffect(() => {
+    if (tab !== 'DATA') return;
+    if (!appUpdater) {
+      setUpdateMessage('Updater is only available in the packaged desktop app.');
+      return;
+    }
+
+    appUpdater.getLocalDataStatus()
+      .then((status) => setLocalDataStatus(status))
+      .catch((error) => setUpdateMessage(`Unable to load local update status: ${String(error)}`));
+  }, [tab, appUpdater]);
+
+  async function handleCheckUpdates() {
+    if (!appUpdater) {
+      setUpdateMessage('Updater is only available in the desktop app.');
+      return;
+    }
+
+    setUpdateBusy(true);
+    setUpdateMessage('Checking GitHub release...');
+    try {
+      const result = await appUpdater.check();
+      setUpdateInfo(result);
+      if (!result.success) {
+        setUpdateMessage(result.error ?? 'Failed to check for updates.');
+      } else if (result.updateAvailable) {
+        setUpdateMessage(`New app version found: v${result.latestVersion}`);
+      } else {
+        setUpdateMessage('App version is up to date.');
+      }
+    } catch (error) {
+      setUpdateMessage(`Update check failed: ${String(error)}`);
+    } finally {
+      setUpdateBusy(false);
+    }
+  }
+
+  async function handleSyncInternalData() {
+    if (!appUpdater) {
+      setUpdateMessage('Updater is only available in the desktop app.');
+      return;
+    }
+
+    setUpdateBusy(true);
+    setUpdateMessage('Syncing internal data from GitHub...');
+    try {
+      const result = await appUpdater.syncQuestions();
+      if (!result.success) {
+        setUpdateMessage(result.error ?? 'Data sync failed.');
+      } else {
+        setUpdateMessage(`Internal data updated (${result.questionCount ?? 0} questions). Restart app to apply everywhere.`);
+      }
+
+      const status = await appUpdater.getLocalDataStatus();
+      setLocalDataStatus(status);
+    } catch (error) {
+      setUpdateMessage(`Data sync failed: ${String(error)}`);
+    } finally {
+      setUpdateBusy(false);
+    }
+  }
+
   // ── Save ───────────────────────────────────────────────
   function handleSave() {
     playSound("select");
@@ -671,6 +770,69 @@ export default function SettingsPage() {
         return (
           <div>
             <SectionLabel>MANAGE DATA</SectionLabel>
+            <div style={{
+              border: `2px solid ${CYAN}66`,
+              padding: '12px',
+              marginBottom: 16,
+              background: 'rgba(0, 25, 25, 0.25)',
+            }}>
+              <div style={{ fontFamily: font, fontSize: 8, color: CYAN, marginBottom: 10, letterSpacing: 1 }}>
+                INTERNAL UPDATE (GITHUB)
+              </div>
+              <button
+                onMouseEnter={() => playSound('hover')}
+                onClick={() => { playSound('select'); void handleCheckUpdates(); }}
+                disabled={updateBusy}
+                style={{
+                  display: 'block', width: '100%', background: 'transparent',
+                  border: `2px solid ${CYAN}`, color: CYAN, fontFamily: font,
+                  fontSize: 8, letterSpacing: 1, padding: '12px 14px', cursor: updateBusy ? 'not-allowed' : 'pointer',
+                  textAlign: 'left', marginBottom: 10, opacity: updateBusy ? 0.6 : 1,
+                }}
+              >
+                CHECK APP VERSION
+              </button>
+              <button
+                onMouseEnter={() => playSound('hover')}
+                onClick={() => { playSound('select'); void handleSyncInternalData(); }}
+                disabled={updateBusy}
+                style={{
+                  display: 'block', width: '100%', background: 'transparent',
+                  border: `2px solid ${NEON}`, color: NEON, fontFamily: font,
+                  fontSize: 8, letterSpacing: 1, padding: '12px 14px', cursor: updateBusy ? 'not-allowed' : 'pointer',
+                  textAlign: 'left', marginBottom: 10, opacity: updateBusy ? 0.6 : 1,
+                }}
+              >
+                SYNC INTERNAL DATA (NO FULL EXE)
+              </button>
+              <div style={{ fontFamily: font, fontSize: 7, color: `${NEON}CC`, lineHeight: 1.8, marginTop: 8 }}>
+                {updateInfo?.success
+                  ? `APP VERSION: v${updateInfo.currentVersion}  |  LATEST: v${updateInfo.latestVersion}`
+                  : 'APP VERSION: UNKNOWN'}
+              </div>
+              {localDataStatus?.exists && (
+                <div style={{ fontFamily: font, fontSize: 7, color: `${CYAN}CC`, lineHeight: 1.8 }}>
+                  LOCAL DATA UPDATED: {localDataStatus.updatedAt}
+                </div>
+              )}
+              <div style={{ fontFamily: font, fontSize: 7, color: '#B7FFD9', lineHeight: 1.8, marginTop: 6 }}>
+                {updateMessage || 'This updates runtime data files from GitHub without downloading the whole EXE.'}
+              </div>
+              {updateInfo?.updateAvailable && updateInfo.releaseUrl && (
+                <button
+                  onMouseEnter={() => playSound('hover')}
+                  onClick={() => { playSound('select'); window.open(updateInfo.releaseUrl ?? '', '_blank'); }}
+                  style={{
+                    display: 'block', width: '100%', background: 'transparent',
+                    border: `2px solid #FFD35C`, color: '#FFD35C', fontFamily: font,
+                    fontSize: 8, letterSpacing: 1, padding: '12px 14px', cursor: 'pointer',
+                    textAlign: 'left', marginTop: 10,
+                  }}
+                >
+                  OPEN FULL APP RELEASE (OPTIONAL)
+                </button>
+              )}
+            </div>
             {([
               ["RESET SETTINGS", () => {
                 const ok = window.confirm("Reset settings to defaults? This will restore default display, audio, and network settings. Your player progress will not be affected. Continue?");

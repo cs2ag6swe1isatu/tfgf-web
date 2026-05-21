@@ -852,6 +852,13 @@ contextBridge.exposeInMainWorld("playerStorage", {
   delete: async () => ipcRenderer.invoke('player-storage:delete'),
 });
 
+contextBridge.exposeInMainWorld('appUpdater', {
+  check: async () => ipcRenderer.invoke('app-update:check'),
+  syncQuestions: async () => ipcRenderer.invoke('app-update:sync-questions'),
+  getLocalDataStatus: async () => ipcRenderer.invoke('app-update:get-local-data-status'),
+  readQuestions: async () => ipcRenderer.invoke('app-update:read-questions'),
+});
+
 contextBridge.exposeInMainWorld("multiplayer", {
   startBroadcast,
   stopBroadcast,

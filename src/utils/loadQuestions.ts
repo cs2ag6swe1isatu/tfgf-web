@@ -2,6 +2,16 @@ import type { Question } from "../types/question";
 import type { JSONQuestion } from "src/types/jsonQuestion";
 import { AssetPreloader } from "./AssetPreloader";
 
+type QuestionsReadResult = {
+  success: boolean;
+  data: string | null;
+  error?: string;
+};
+
+type AppUpdaterBridge = {
+  readQuestions?: () => Promise<QuestionsReadResult>;
+};
+
 // Works in both dev (http://) and packaged Electron (file://)
 const assetBase = window.location.protocol === "file:"
   ? window.location.pathname.replace(/[^/\\]*$/, "")
@@ -37,22 +47,40 @@ export async function loadQuestions(
   limit: number,
   seed?: number
 ): Promise<Question[]> {
-  let json: JSONQuestion[];
+  let json: JSONQuestion[] | null = null;
+
+  const updater = (window as Window & { appUpdater?: AppUpdaterBridge }).appUpdater;
+  if (updater?.readQuestions) {
+    try {
+      const result = await updater.readQuestions();
+      if (result.success && result.data) {
+        const parsed = JSON.parse(result.data);
+        if (Array.isArray(parsed)) {
+          json = parsed as JSONQuestion[];
+        } else {
+          json = [];
+        }
+      }
+    } catch (error) {
+      console.warn("Questions override read failed:", error);
+    }
+  }
 
   // ── Try reading from AssetPreloader RAM cache first ──────
-  const preloader = AssetPreloader.getInstance();
-  const cached = preloader.getJSON<JSONQuestion[]>(assetUrl("data/Questions.json"));
+  if (!json) {
+    const preloader = AssetPreloader.getInstance();
+    const cached = preloader.getJSON<JSONQuestion[]>(assetUrl("data/Questions.json"));
 
-  if (cached) {
-    json = cached;
-  } else {
-    // Fallback: fetch directly
-    try {
-      const response = await fetch(assetUrl("data/Questions.json"));
-      json = await response.json();
-    } catch (error) {
-      console.error("Error loading questions:", error);
-      return [];
+    if (cached) {
+      json = cached;
+    } else {
+      try {
+        const response = await fetch(assetUrl("data/Questions.json"));
+        json = await response.json();
+      } catch (error) {
+        console.error("Error loading questions:", error);
+        return [];
+      }
     }
   }
 
