@@ -16,6 +16,9 @@ if ((process.getuid && process.getuid() === 0) || process.env.DISABLE_ELECTRON_S
 const BROADCAST_PORT = 41234;
 const BROADCAST_ADDR = "255.255.255.255";
 const MDNS_NAME = 'tfgf-discovery.local';
+const UPDATE_REPO_OWNER = 'cs2ag6swe1isatu';
+const UPDATE_REPO_NAME = 'tfgf-web';
+const UPDATE_REPO_BRANCH = 'main';
 
 let udpSocket: dgram.Socket | null = null;
 let mainWindow: BrowserWindow | null = null;
@@ -32,6 +35,35 @@ function getAppIconPath(): string {
     return packedPath;
   }
   return path.join(app.getAppPath(), ...iconSegments);
+}
+
+function parseVersion(version: string): number[] {
+  const cleanVersion = version.replace(/^v/, '');
+  const [major = '0', minor = '0', patch = '0'] = cleanVersion.split('.');
+  return [Number(major) || 0, Number(minor) || 0, Number(patch) || 0];
+}
+
+function isVersionNewer(currentVersion: string, latestVersion: string): boolean {
+  const current = parseVersion(currentVersion);
+  const latest = parseVersion(latestVersion);
+
+  for (let index = 0; index < 3; index += 1) {
+    if (latest[index] > current[index]) return true;
+    if (latest[index] < current[index]) return false;
+  }
+  return false;
+}
+
+function getAppDataUpdateDir(): string {
+  const dirPath = path.join(app.getPath('userData'), 'live-data');
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+  return dirPath;
+}
+
+function getQuestionsOverridePath(): string {
+  return path.join(getAppDataUpdateDir(), 'Questions.json');
 }
 
 function ipv4ToInt(address: string): number {
@@ -318,6 +350,144 @@ ipcMain.handle('player-storage:delete', async () => {
   } catch (error) {
     console.error('Error deleting player data:', error);
     return { success: false, error: String(error) };
+  }
+});
+
+ipcMain.handle('app-update:check', async () => {
+  const currentVersion = app.getVersion();
+  const releaseApiUrl = `https://api.github.com/repos/${UPDATE_REPO_OWNER}/${UPDATE_REPO_NAME}/releases/latest`;
+
+  try {
+    const response = await fetch(releaseApiUrl, {
+      headers: {
+        'User-Agent': `${UPDATE_REPO_NAME}-updater`,
+        Accept: 'application/vnd.github+json',
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        currentVersion,
+        error: `GitHub API returned ${response.status}`,
+      };
+    }
+
+    const release = await response.json() as {
+      tag_name?: string;
+      html_url?: string;
+      published_at?: string;
+    };
+
+    const latestVersion = (release.tag_name ?? '').replace(/^v/, '');
+    if (!latestVersion) {
+      return {
+        success: false,
+        currentVersion,
+        error: 'Latest release tag is missing',
+      };
+    }
+
+    return {
+      success: true,
+      currentVersion,
+      latestVersion,
+      updateAvailable: isVersionNewer(currentVersion, latestVersion),
+      releaseUrl: release.html_url ?? null,
+      publishedAt: release.published_at ?? null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      currentVersion,
+      error: String(error),
+    };
+  }
+});
+
+ipcMain.handle('app-update:sync-questions', async () => {
+  const questionsUrl = `https://raw.githubusercontent.com/${UPDATE_REPO_OWNER}/${UPDATE_REPO_NAME}/${UPDATE_REPO_BRANCH}/public/data/Questions.json`;
+
+  try {
+    const response = await fetch(questionsUrl, {
+      headers: {
+        'User-Agent': `${UPDATE_REPO_NAME}-updater`,
+        Accept: 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `Questions download failed (${response.status})`,
+      };
+    }
+
+    const rawText = await response.text();
+    const parsed = JSON.parse(rawText);
+    if (!Array.isArray(parsed)) {
+      return {
+        success: false,
+        error: 'Downloaded Questions.json is invalid',
+      };
+    }
+
+    const targetPath = getQuestionsOverridePath();
+    fs.writeFileSync(targetPath, rawText, 'utf-8');
+
+    return {
+      success: true,
+      questionCount: parsed.length,
+      updatedAt: new Date().toISOString(),
+      path: targetPath,
+      sourceUrl: questionsUrl,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: String(error),
+    };
+  }
+});
+
+ipcMain.handle('app-update:get-local-data-status', async () => {
+  try {
+    const filePath = getQuestionsOverridePath();
+    if (!fs.existsSync(filePath)) {
+      return {
+        success: true,
+        exists: false,
+      };
+    }
+
+    const stat = fs.statSync(filePath);
+    return {
+      success: true,
+      exists: true,
+      path: filePath,
+      updatedAt: stat.mtime.toISOString(),
+      size: stat.size,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      exists: false,
+      error: String(error),
+    };
+  }
+});
+
+ipcMain.handle('app-update:read-questions', async () => {
+  try {
+    const filePath = getQuestionsOverridePath();
+    if (!fs.existsSync(filePath)) {
+      return { success: true, data: null };
+    }
+
+    const data = fs.readFileSync(filePath, 'utf-8');
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, data: null, error: String(error) };
   }
 });
 

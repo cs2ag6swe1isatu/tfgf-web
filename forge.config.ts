@@ -8,7 +8,7 @@ import MakerPortable from '@rabbitholesyndrome/electron-forge-maker-portable';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    icon: 'public/img/app-icon.ico',
+    icon: 'public/img/app-icon',
     asar: {
       unpack: "**/*.{png,jpg,jpeg,gif,webp,ttf,json}",
     },
@@ -17,7 +17,11 @@ const config: ForgeConfig = {
   makers: [
     // new MakerZIP({}, ['linux', 'win32']), // Portable ZIP for Linux and Windows
     // new MakerSquirrel({setupExe: 'tfgf.exe',}),
-    new MakerPortable({}),
+    new MakerPortable({
+      win: {
+        icon: 'public/img/app-icon.ico',
+      },
+    }),
   ],
   plugins: [
     new VitePlugin({
