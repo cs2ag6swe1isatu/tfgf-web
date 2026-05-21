@@ -132,6 +132,9 @@ export type DiscoveredHost = {
 };
 
 export interface MultiplayerBridge {
+onPlayerDisconnected(arg0: string, cb: (playerId: string) => void): unknown;
+  onPlayerLeft(arg0: string, onPlayerLeft: (playerId: string) => void): unknown;
+  offPlayerDisconnected(arg0: string): unknown;
   onHttpServerStarted(arg0: string, arg1: (port: any) => void): unknown;
   offHttpServerStarted(arg0: string): unknown;
   // ── HTTP question server (host only) ──────────────────────────────────────
@@ -151,7 +154,7 @@ export interface MultiplayerBridge {
   offPlayerJoined: (id: string) => void;
   onPlayerReadyChanged: (id: string, cb: (playerId: string, ready: boolean, member?: Partial<LobbyMember>) => void) => void;
   offPlayerReadyChanged: (id: string) => void;
-  onPlayerLeft: (id: string, cb: (playerId: string) => void) => void;
+  onPlayerLeft(id: string, cb: (playerId: string) => void): unknown;
   offPlayerLeft: (id: string) => void;
   onPlayerStatusChanged?: (id: string, cb: (playerId: string, connectionState: PlayerConnectionState) => void) => void;
   offPlayerStatusChanged?: (id: string) => void;
