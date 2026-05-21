@@ -75,7 +75,7 @@ type MultiplayerPacket =
     | { type: "game-state"; payload: MultiplayerGameState }
     | { type: "answer-submission"; payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string } }
     | { type: "emote"; payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string } }
-    | { type: "event"; payload: { eventType: string; payload: unknown } }
+    | { type: "event"; payload: { eventType: string; payload: unknown; lobbyId?: string; sessionId?: string } }
     | { type: "ack"; payload: { packetId: string; lobbyId: string; playerId?: string } }
   );
 
@@ -274,6 +274,8 @@ function getPacketScope(packet: MultiplayerPacket, senderAddress?: string) {
       return `${senderAddress ?? 'unknown'}:${packet.payload.lobbyId}`;
     case "game-state":
       return `${senderAddress ?? 'unknown'}:${packet.payload.sessionId ?? 'no-session'}`;
+    case "event":
+      return `${senderAddress ?? 'unknown'}:${packet.payload.lobbyId ?? 'no-lobby'}:${packet.payload.sessionId ?? 'no-session'}:${packet.payload.eventType ?? 'no-event'}`;
     default:
       return null;
   }
@@ -490,7 +492,16 @@ function sendEmote(payload: { lobbyId: string; hostAddress: string; playerId: st
 }
 
 function sendEvent(packet: { type: string; payload: unknown }, address: string = BROADCAST_ADDR) {
-  const udpPacket: MultiplayerPacket = { ...nextPacketMeta(), type: "event", payload: { eventType: packet.type, payload: packet.payload } };
+  const udpPacket: MultiplayerPacket = {
+    ...nextPacketMeta(),
+    type: "event",
+    payload: {
+      eventType: packet.type,
+      payload: packet.payload,
+      lobbyId: activeSnapshot?.lobbyId ?? activeClientLobbyId ?? undefined,
+      sessionId: activeSnapshot?.sessionId,
+    },
+  };
   sendUdpMessage(JSON.stringify(udpPacket), address);
 }
 
@@ -591,6 +602,22 @@ function handlePacket(raw: string, senderAddress: string) {
   if (packet.type === "event") {
     const eventType = packet.payload?.eventType;
     const eventPayload = packet.payload?.payload;
+    const packetLobbyId = packet.payload?.lobbyId;
+    const packetSessionId = packet.payload?.sessionId;
+    const expectedLobbyId = activeMode === "host"
+      ? activeSnapshot?.lobbyId
+      : activeClientLobbyId ?? activeSnapshot?.lobbyId;
+    const expectedSessionId = activeSnapshot?.sessionId;
+
+    if (expectedLobbyId && packetLobbyId !== expectedLobbyId) {
+      return;
+    }
+    if (expectedSessionId && packetSessionId && packetSessionId !== expectedSessionId) {
+      return;
+    }
+    if (!eventType) {
+      return;
+    }
 
     // Dispatch to any local listeners for this event type
     const map = onEventCbs.get(eventType);

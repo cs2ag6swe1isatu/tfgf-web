@@ -287,7 +287,7 @@ const QuestionPage = () => {
 
   const { applySessionProgress } = usePlayerStore();
   const localPlayer = usePlayerStore((state) => state.getPlayer());
-  const { lobbyRole, players } = useMultiplayerStore();
+  const { lobbyRole, lobbyId, players } = useMultiplayerStore();
   const { setScreen, recordSessionStartLevel, queueAchievementUnlocks } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
   const category = useGameStore((state) => state.gameConfig.category);
@@ -386,6 +386,7 @@ const derivedBunnyState: BunnyState = useMemo(() => {
   const endProgressAppliedRef = useRef(false);
   const fellBehindByHalfRef = useRef(false);
   const hasExitedRef = useRef(false);
+  const processedPowerUpEventIdsRef = useRef<Set<string>>(new Set());
   
 
   useEffect(() => {
@@ -409,11 +410,21 @@ const derivedBunnyState: BunnyState = useMemo(() => {
 
     const handlePowerUpEvent = (payload: any) => {
       try {
-        const { playerId, powerUpId } = payload;
+        const { lobbyId: eventLobbyId, playerId, powerUpId, uniqueId } = payload ?? {};
         if (!playerId || !powerUpId) return;
+        if (!uniqueId || typeof uniqueId !== "string") return;
+        if (lobbyId && eventLobbyId !== lobbyId) return;
+        if (phase !== "answering") return;
+
+        if (processedPowerUpEventIdsRef.current.has(uniqueId)) return;
+        processedPowerUpEventIdsRef.current.add(uniqueId);
+        if (processedPowerUpEventIdsRef.current.size > 256) {
+          const oldest = processedPowerUpEventIdsRef.current.values().next().value;
+          if (oldest) processedPowerUpEventIdsRef.current.delete(oldest);
+        }
 
         // Validate player is part of current players list
-        const isParticipant = players.some((p) => p.id === playerId);
+        const isParticipant = players.some((p) => p.id === playerId && p.connectionState !== "disconnected");
         if (!isParticipant) return;
 
         console.log('[QuestionPage] power_up_used event from', playerId, 'powerUp', powerUpId);
@@ -431,7 +442,7 @@ const derivedBunnyState: BunnyState = useMemo(() => {
 
     multiplayerBridge.onEvent?.('power_up_used', 'QuestionPage.PowerUp', handlePowerUpEvent);
     return () => { multiplayerBridge.offEvent?.('power_up_used', 'QuestionPage.PowerUp'); };
-  }, [mode, lobbyRole, multiplayerBridge, players, broadcastMultiplayerState]);
+  }, [mode, lobbyRole, lobbyId, multiplayerBridge, players, phase, broadcastMultiplayerState]);
 
   // AFTER
 const pendingRewardRef = useRef<null | {
