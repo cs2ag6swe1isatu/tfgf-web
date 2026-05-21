@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useCallback, useRef, useState } from "react";
 import { Box, GlobalStyles } from "@mui/material";
-import { Phase, useGameStore, useTriviaStore } from "../store";
+import { Phase, TriviaActions, TriviaState, useGameStore, useTriviaStore } from "../store";
 import { getMultiplayerPlayer, usePlayerStore } from "../store/playerStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
 import { Globe, Lock } from "pixelarticons/react";
@@ -8,11 +8,6 @@ import { getAvatarSrc } from "../utils/avatar";
 import RankIcon, { RANK_ICON_KEYFRAMES, RANK_COLORS, getRankSymbolType } from "../components/ui/RankIcon";
 import { useSoundContext } from "../context/SoundContext";
 import { getCategoryDisplay } from "../utils/categoryShorthand";
-<<<<<<< HEAD
-=======
-import { useResponsiveScale } from "../hooks/useResponsiveScale";
-import { shapeGameStateForBroadcast } from "../utils/multiplayerSync";
->>>>>>> 81092c5 (fix imports)
 
 import type {
   MultiplayerBridge,
@@ -144,26 +139,26 @@ const MultiplayerLobby = () => {
       console.log(`[Lobby Client] startGame completed in ${gameElapsedMs}ms`);
 
       const nextState = {
-  phase: payload.phase,
-  timer: payload.timer,
-  currentIndex: payload.currentIndex,
-  ...(payload.seed !== undefined ? { seed: payload.seed } : {}),
-  ...(payload.category !== undefined ? { category: payload.category } : {}),
-  ...(payload.difficulty !== undefined ? { difficulty: payload.difficulty } : {}),
-  ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
-  ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
-  ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
-  ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
-  ...(payload.playerAnswers !== undefined ? { playerAnswers: payload.playerAnswers } : {}),
-  ...(payload.rankings !== undefined ? {
-    rankings: payload.rankings.map((r) => ({
-      ...r,
-      xp: r.xp ?? 0,   // PlayerRanking.xp is number (required), payload has xp?: number
-    })),
-  } : {}),
-};
+        phase: payload.phase,
+        timer: payload.timer,
+        currentIndex: payload.currentIndex,
+        ...(payload.seed !== undefined ? { seed: payload.seed } : {}),
+        ...(payload.category !== undefined ? { category: payload.category } : {}),
+        ...(payload.difficulty !== undefined ? { difficulty: payload.difficulty } : {}),
+        ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
+        ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
+        ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
+        ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
+        ...(payload.playerAnswers !== undefined ? { playerAnswers: payload.playerAnswers } : {}),
+        ...(payload.rankings !== undefined ? {
+          rankings: payload.rankings.map((r) => ({
+            ...r,
+            xp: r.xp ?? 0,
+          })),
+        } : {}),
+      };
 
-useTriviaStore.setState(nextState);
+      useTriviaStore.setState(nextState);
       const totalElapsedMs = Date.now() - transitionStartTime;
       console.log(`[Lobby Client] Game transition complete, navigating to question page (${totalElapsedMs}ms total)`);
       setScreen(useMultiplayerStore.getState().participantRole === "spectator" ? "spectator-view" : "question");
@@ -201,7 +196,6 @@ useTriviaStore.setState(nextState);
     setIsStartingGame(true);
 
     try {
-
       resetGame();
       const gameSessionSeed = Math.floor(Math.random() * defaultGameConfig.seedRange);
       useGameStore.getState().setGameConfig({ seed: gameSessionSeed });
@@ -273,7 +267,9 @@ useTriviaStore.setState(nextState);
       });
 
       const state = useTriviaStore.getState();
-      const payload = shapeGameStateForBroadcast(state, { seed: gameSessionSeed, questionPort: httpPort || undefined });
+      
+      // THIS IS THE RETAINED MERGE CODE YOU REQUESTED:
+      const payload = shapeGameStateForBroadcast(state, { seed: gameSessionSeed, questionPort: httpPort || undefined }) as unknown as MultiplayerGameState;
       multiplayerBridge?.broadcastGameState(payload);
 
       console.log(`[Lobby] Host game-start complete, navigating to question page`);
@@ -286,64 +282,7 @@ useTriviaStore.setState(nextState);
       if (isMountedRef.current) {
         setIsStartingGame(false);
       }
-<<<<<<< HEAD
-    });
-
-    const gameStartTime = Date.now();
-    await startGame({
-      category: gameConfig.category ?? "General Knowledge",
-      difficulty: gameConfig.difficulty ?? "easy",
-      questionLimit: sessionQuestionLimit,
-      mode: "multiplayer",
-      questionTimer: sessionQuestionTimer,
-      answerTimer: sessionAnswerTimer,
-      seed: gameSessionSeed,
-      recentSessionLimitSolo: 0,
-      recentSessionLimitMultiplayer: 0,
-      autoJoinLan: false
-    });
-    const gameElapsedMs = Date.now() - gameStartTime;
-    console.log(`[Lobby] startGame completed in ${gameElapsedMs}ms, waiting for HTTP server...`);
-
-    if (!isMountedRef.current || !lobbyId) return;
-
-    httpPort = await httpServerReady;
-    const totalWaitMs = Date.now() - httpStartTime;
-    console.log(`[Lobby] HTTP server ready check complete, port=${httpPort} (${totalWaitMs}ms total)`);
-
-    if (!isMountedRef.current || !lobbyId) return;
-
-    const mpState = useMultiplayerStore.getState();
-    mpState.players.forEach(p => {
-      if (!p.isHost) {
-        mpState.setPlayerReady(p.id, false);
-      }
-      mpState.addOrUpdatePlayer(p, { status: "playing" } as any);
-    });
-
-    const state = useTriviaStore.getState();
-    multiplayerBridge?.broadcastGameState({
-      phase: state.phase,
-      timer: state.timer,
-      currentIndex: state.currentIndex,
-      seed: gameSessionSeed,
-      category: gameConfig.category ?? undefined,
-      difficulty: gameConfig.difficulty ?? undefined,
-      questionLimit: state.questionLimit,
-      questionTimer: state.questionTimer,
-      answerTimer: state.answerTimer,
-      questionPort: httpPort || undefined,
-      playerScores: state.playerScores,
-      playerAnswers: state.playerAnswers,
-      rankings: state.rankings,
-    });
-
-    console.log(`[Lobby] Host game-start complete, navigating to question page`);
-    isTransitioningToGameRef.current = true;
-    setScreen(useMultiplayerStore.getState().participantRole === "spectator" ? "spectator-view" : "question");
-=======
     }
->>>>>>> 81092c5 (fix imports)
   };
 
   const handleKick = (playerId: string) => {
@@ -462,18 +401,18 @@ useTriviaStore.setState(nextState);
     if (lobbyRole !== "host" || !lobbyId || !multiplayerBridge) return;
 
     const handlePlayerJoined = (p: LobbyMember) => {
-  if ((p.role ?? "player") === "spectator") {
-    useMultiplayerStore.getState().addOrUpdateSpectator({
-      ...p,
-      isReady: false,
-      isHost: false,
-      connectionState: "connected",
-      role: "spectator",
-    });
-  } else {
-    addOrUpdatePlayer(p, { isHost: false, isReady: false, connectionState: "connected" });
-  }
-};
+      if ((p.role ?? "player") === "spectator") {
+        useMultiplayerStore.getState().addOrUpdateSpectator({
+          ...p,
+          isReady: false,
+          isHost: false,
+          connectionState: "connected",
+          role: "spectator",
+        });
+      } else {
+        addOrUpdatePlayer(p, { isHost: false, isReady: false, connectionState: "connected" });
+      }
+    };
     const handlePlayerReadyChanged = (playerId: string, ready: boolean, member?: Partial<LobbyMember>) => {
       const existing = useMultiplayerStore.getState().players.find(p => p.id === playerId);
       if (existing) {
@@ -565,12 +504,12 @@ useTriviaStore.setState(nextState);
     }
   };
 
-const allPlayers = players.filter((p) => p.role !== "spectator");
-const connectedPlayers = allPlayers.filter((p) => p.connectionState !== "disconnected");
-const disconnectedPlayers = allPlayers.filter((p) => p.connectionState === "disconnected");
-const isCategorySelected = Boolean(gameConfig.category);
-const isDifficultySelected = Boolean(gameConfig.difficulty);
-const canStart = !isStartingGame && isCategorySelected && isDifficultySelected && connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
+  const allPlayers = players.filter((p) => p.role !== "spectator");
+  const connectedPlayers = allPlayers.filter((p) => p.connectionState !== "disconnected");
+  const disconnectedPlayers = allPlayers.filter((p) => p.connectionState === "disconnected");
+  const isCategorySelected = Boolean(gameConfig.category);
+  const isDifficultySelected = Boolean(gameConfig.difficulty);
+  const canStart = !isStartingGame && isCategorySelected && isDifficultySelected && connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
 
   const isCompactViewport = window.innerWidth <= 820 || window.innerHeight <= 500;
 
@@ -1154,3 +1093,7 @@ const canStart = !isStartingGame && isCategorySelected && isDifficultySelected &
 };
 
 export default MultiplayerLobby;
+
+function shapeGameStateForBroadcast(state: TriviaState & TriviaActions, arg1: { seed: number; questionPort: number | undefined; }) {
+  throw new Error("Function not implemented.");
+}

@@ -636,51 +636,53 @@ if (mode === "solo") {
     broadcastMultiplayerState();
   }, [mode, lobbyRole, phase, timer, currentIndex, playerScores, rankings, broadcastMultiplayerState]);
 
-  useEffect(() => {
-    if (mode !== "multiplayer" || lobbyRole !== "client" || !multiplayerBridge) return;
-    const handleGameStateSync = (payload: MultiplayerGameState) => {
-      const currentState = useTriviaStore.getState();
-      const shouldResetSelectedAnswer = payload.currentIndex !== currentState.currentIndex;
+useEffect(() => {
+    if (mode !== "multiplayer" || !multiplayerBridge) return;
 
-      // 👇 REPLACE YOUR EXISTING hostAbandoned BLOCK WITH THIS ONE 👇
-      if (payload.hostAbandoned) {
+    const activePhases = ["readying", "asking", "answering", "scoring", "ranking"];
+
+    const handlePlayerExit = (payload: any) => {
+      // Safely extract the player ID
+      const playerId = typeof payload === "string" ? payload : payload?.playerId;
+      if (!playerId) return;
+
+      const playersList = useMultiplayerStore.getState().players;
+      const exitingPlayer = playersList.find((p) => p.id === playerId);
+
+      // --- NEW: HOST EXIT CHECK ---
+      // If the player who left is the host, and we are a client, trigger the host exit overlay!
+      if (exitingPlayer?.isHost && lobbyRole !== "host") {
         endProgressAppliedRef.current = true;
-        setShowHostExitNotification(true); // <-- This triggers the on-screen overlay!
+        setShowHostExitNotification(true);
         useTriviaStore.setState({ phase: "end" });
-        setTimeout(() => setScreen("home"), 3500); // <-- Increased from 50ms to 3.5 seconds so players can read it
-        return;
-      }
-      // 👆 -------------------------------------------------------- 👆
-
-      const mappedRankings = payload.rankings?.map((r) => ({
-        playerId: r.playerId, name: r.name, score: r.score, rank: r.rank,
-        correctCount: r.correctCount, questionsAnswered: r.questionsAnswered,
-        accuracy: r.accuracy, avgTime: r.avgTime, xp: r.xp ?? 0,
-      }));
-
-      const nextState: Partial<TriviaState> = {
-        phase: payload.phase, timer: payload.timer, currentIndex: payload.currentIndex,
-        ...(payload.seed !== undefined ? { seed: payload.seed } : {}),
-        ...(payload.category !== undefined ? { category: payload.category ?? undefined } : {}),
-        ...(payload.difficulty !== undefined ? { difficulty: payload.difficulty ?? undefined } : {}),
-        ...(payload.questionLimit !== undefined ? { questionLimit: payload.questionLimit } : {}),
-        ...(payload.questionTimer !== undefined ? { questionTimer: payload.questionTimer } : {}),
-        ...(payload.answerTimer !== undefined ? { answerTimer: payload.answerTimer } : {}),
-        ...(payload.playerScores !== undefined ? { playerScores: payload.playerScores } : {}),
-        ...(payload.playerAnswers !== undefined ? { playerAnswers: payload.playerAnswers } : {}),
-        ...(mappedRankings !== undefined ? { rankings: mappedRankings } : {}),
-      };
-      if (shouldResetSelectedAnswer) nextState.selectedAnswer = "";
-
-      if (payload.phase === "end" && hasExitedRef.current) {
-        setTimeout(() => setScreen("multiplayer-results"), 50);
+        setTimeout(() => setScreen("home"), 3500);
+        return; 
       }
 
-      useTriviaStore.setState(nextState);
+      // --- REGULAR PLAYER EXIT NOTIFICATION ---
+      const currentPhase = useTriviaStore.getState().phase;
+      if (!activePhases.includes(currentPhase)) return;
+      if (playerId === localPlayerId) return;
+
+      const rankedMember = useTriviaStore.getState().rankings.find((r) => r.playerId === playerId);
+      const name = exitingPlayer?.name ?? rankedMember?.name ?? "A PLAYER";
+      
+      const toastKey = ++toastKeyRef.current;
+      setLeftNotifications((prev) => [...prev, { id: playerId, name, toastKey }]);
+      
+      setTimeout(() => {
+        setLeftNotifications((prev) => prev.filter((n) => n.toastKey !== toastKey));
+      }, 4000);
     };
-    multiplayerBridge.onGameStateSync("QuestionPage", handleGameStateSync);
-    return () => { multiplayerBridge.offGameStateSync?.("QuestionPage"); };
-  }, [mode, lobbyRole, multiplayerBridge]);
+
+    multiplayerBridge.onPlayerLeft?.("QuestionPage:left", handlePlayerExit);
+    multiplayerBridge.onPlayerDisconnected?.("QuestionPage:disconnected", handlePlayerExit);
+
+    return () => {
+      multiplayerBridge.offPlayerLeft?.("QuestionPage:left");
+      multiplayerBridge.offPlayerDisconnected?.("QuestionPage:disconnected");
+    };
+  }, [mode, multiplayerBridge, localPlayerId, lobbyRole, setScreen]);
 
   useEffect(() => { if (phase === "ranking") nextPhase(); }, [phase, nextPhase]);
 
