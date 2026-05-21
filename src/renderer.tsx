@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from "react-dom/client";
 import { ThemeProvider } from "@mui/material/styles";
 import { CssBaseline, styled, keyframes } from "@mui/material";
