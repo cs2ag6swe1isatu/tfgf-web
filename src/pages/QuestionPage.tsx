@@ -58,6 +58,11 @@ const retroFlicker = keyframes`
   65% { opacity: 1; text-shadow: 0 0 8px #35E52B; }
 `;
 
+const slideInRight = keyframes`
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+`;
+
 const correctCountPop = keyframes`
   0%   { transform: scale(1); }
   35%  { transform: scale(1.22); box-shadow: 0 0 10px #35E52Baa, 0 0 20px #35E52B55; }
@@ -289,6 +294,31 @@ const BottomHud = styled(Box)({
   padding: "0 20px",
 });
 
+const PlayerLeftToast = styled(Box)({
+  position: "absolute",
+  top: "80px",
+  right: "24px",
+  zIndex: 100,
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+  pointerEvents: "none",
+});
+
+const PlayerLeftNotification = styled(Box)({
+  fontFamily: "'Press Start 2P', monospace",
+  fontSize: "9px",
+  color: "#FF0055",
+  border: "1px solid #FF0055",
+  borderRadius: "4px",
+  background: "rgba(255, 0, 85, 0.08)",
+  boxShadow: "0 0 12px rgba(255, 0, 85, 0.25)",
+  padding: "8px 14px",
+  lineHeight: 1.8,
+  animation: `${slideInRight} 0.3s ease both`,
+  whiteSpace: "nowrap",
+});
+
 const ANSWER_LABELS = ["A", "B", "C", "D"];
 const ANSWER_COLLECTION_BUFFER_MS = 300;
 
@@ -342,6 +372,35 @@ const QuestionPage = () => {
   const [revealScore, setRevealScore] = useState<number | null>(null);
   const [liveCorrectCount, setLiveCorrectCount] = useState(0);
   const [correctAnimKey, setCorrectAnimKey] = useState<number>(0);
+  const [leftNotifications, setLeftNotifications] = useState<Array<{ id: string; name: string; toastKey: number }>>([]);
+  const toastKeyRef = useRef(0);
+  useEffect(() => {
+  if (mode !== "multiplayer" || !multiplayerBridge) return;
+
+  const activePhases = ["readying", "asking", "answering", "scoring", "ranking"];
+
+  const pushNotification = (playerId: string) => {
+    if (!activePhases.includes(useTriviaStore.getState().phase)) return;
+    if (playerId === localPlayerId) return;
+
+    const member = useMultiplayerStore.getState().players.find((p) => p.id === playerId);
+    const name = member?.name ?? "A PLAYER";
+    const toastKey = ++toastKeyRef.current;
+
+    setLeftNotifications((prev) => [...prev, { id: playerId, name, toastKey }]);
+    setTimeout(() => {
+      setLeftNotifications((prev) => prev.filter((n) => n.toastKey !== toastKey));
+    }, 4000);
+  };
+
+  multiplayerBridge.onPlayerLeft("QuestionPage:left", pushNotification);
+  multiplayerBridge.onPlayerDisconnected("QuestionPage:disconnected", pushNotification);
+
+  return () => {
+    multiplayerBridge.offPlayerLeft("QuestionPage:left");
+    multiplayerBridge.offPlayerDisconnected("QuestionPage:disconnected");
+  };
+}, [mode, multiplayerBridge, localPlayerId]);
   const correctCount = useMemo(() => {
     if (mode === "multiplayer") {
       const rankingData = rankings.find((r) => r.playerId === localPlayerId);
@@ -985,6 +1044,17 @@ for (const entry of sessionInventory) {
             <EmoteControls sendEmote={sendEmote} isOnCooldown={isOnCooldown} />
           </Box>
         </BottomHud>
+
+        {/* ADD HERE: */}
+        {mode === "multiplayer" && leftNotifications.length > 0 && (
+          <PlayerLeftToast>
+            {leftNotifications.map((n) => (
+              <PlayerLeftNotification key={n.toastKey}>
+                ⚠ {n.name.toUpperCase()} LEFT THE GAME
+              </PlayerLeftNotification>
+            ))}
+          </PlayerLeftToast>
+        )}
 
         <RewardOverlay
           rewardState={rewardState}
