@@ -25,8 +25,19 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Restore Electron cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/electron-cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --prefer-offline --no-audit --no-fund
+        env:
+          ELECTRON_CACHE: ${{ runner.temp }}/electron-cache
+          npm_config_cache: ${{ runner.temp }}/npm-cache
 
       - name: Package app
         run: npm run make
