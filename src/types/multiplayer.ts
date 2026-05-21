@@ -108,6 +108,14 @@ export interface MultiplayerHostExitPayload {
   sessionId?: string;
 }
 
+/**
+ * Payload for host:session_terminated (explicit mid-game host exit).
+ * Broadcast by the host when they press Back during an active multiplayer match.
+ */
+export interface MultiplayerSessionTerminatedPayload {
+  reason: "host_exit";
+}
+
 export type DiscoveredHost = {
   [x: string]: any;
   lobbyId: string;
@@ -154,6 +162,20 @@ onPlayerDisconnected(arg0: string, cb: (playerId: string) => void): unknown;
   offPlayerKicked?: (id: string) => void;
   onHostExit: (id: string, cb: (payload: MultiplayerHostExitPayload) => void) => void;
   offHostExit: (id: string) => void;
+
+  /**
+   * Register a listener for host:session_terminated events.
+   * Fired when the host explicitly terminates a mid-game session.
+   */
+  onSessionTerminated: (id: string, cb: (payload: MultiplayerSessionTerminatedPayload) => void) => void;
+  /** Remove a previously registered session-terminated listener. */
+  offSessionTerminated: (id: string) => void;
+  /**
+   * Broadcast a host:session_terminated event to all clients.
+   * Called by the host when pressing Back during an active multiplayer match.
+   */
+  broadcastSessionTerminated: (payload: MultiplayerSessionTerminatedPayload) => void;
+
   startBroadcast: (payload: MultiplayerLobbySnapshot) => void;
   updateLobbySnapshot?: (payload: MultiplayerLobbySnapshot) => void;
   requestJoin: (payload: MultiplayerJoinRequest) => void;

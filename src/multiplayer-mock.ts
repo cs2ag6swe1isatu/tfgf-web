@@ -16,6 +16,7 @@ import type {
   LobbyMember,
   MultiplayerDiscoveredPayload,
   MultiplayerHostExitPayload,
+  MultiplayerSessionTerminatedPayload,
   MultiplayerJoinRequest,
   MultiplayerLeaveRequest,
   MultiplayerLobbySnapshot,
@@ -32,6 +33,7 @@ type MultiplayerPacket =
   | { type: "leave-request"; payload: MultiplayerLeaveRequest }
   | { type: "heartbeat"; payload: { lobbyId: string; hostAddress: string; playerId: string } }
   | { type: "host-exit"; payload: MultiplayerHostExitPayload }
+  | { type: "session-terminated"; payload: MultiplayerSessionTerminatedPayload }
   | { type: "game-state"; payload: MultiplayerGameState }
   | { type: "answer-submission"; payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string } };
 
@@ -46,6 +48,7 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   private onHostExitCbs = new Map<string, (payload: MultiplayerHostExitPayload) => void>();
   private onGameStateSyncCbs = new Map<string, (payload: MultiplayerGameState) => void>();
   private onAnswerSubmissionCbs = new Map<string, (payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }) => void>();
+  private onSessionTerminatedCbs = new Map<string, (payload: MultiplayerSessionTerminatedPayload) => void>();
 
   private activeSnapshot: MultiplayerLobbySnapshot | null = null;
   private activeMode: "host" | "client" | null = null;
@@ -183,6 +186,12 @@ class MockMultiplayerBridge implements MultiplayerBridge {
         this.activeSnapshot = null;
         this.activeMode = null;
       }
+      return;
+    }
+
+    if (packet.type === "session-terminated") {
+      console.log('[mock] session-terminated received', packet.payload);
+      this.onSessionTerminatedCbs.forEach((cb) => cb(packet.payload));
       return;
     }
 
@@ -367,7 +376,6 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   }
 
   sendHeartbeat(payload: { lobbyId: string; hostAddress: string; playerId: string }): void {
-    // console.log('[mock] sending heartbeat', payload.playerId, 'lobby', payload.lobbyId);
     const packet: MultiplayerPacket = { type: "heartbeat", payload: { lobbyId: payload.lobbyId, hostAddress: payload.hostAddress, playerId: payload.playerId } };
     this.channel.postMessage(packet);
   }
@@ -383,17 +391,42 @@ class MockMultiplayerBridge implements MultiplayerBridge {
     this.channel.postMessage(packet);
   }
 
+  broadcastSessionTerminated(payload: MultiplayerSessionTerminatedPayload): void {
+    console.log('[mock] broadcasting session-terminated', payload);
+    const packet: MultiplayerPacket = { type: "session-terminated", payload };
+    this.channel.postMessage(packet);
+    // Fire locally too
+    this.onSessionTerminatedCbs.forEach((cb) => cb(payload));
+  }
+
   sendAnswerSubmission(payload: { lobbyId: string; hostAddress: string; playerId: string; questionIndex: number; answer: string; remainingTime?: number }): void {
     const packet: MultiplayerPacket = { type: "answer-submission", payload };
     this.channel.postMessage(packet);
   }
+
+  // ------- Stub methods required by interface -------
+
+  onHttpServerStarted(_id: string, _cb: (port: number) => void): void {}
+  offHttpServerStarted(_id: string): void {}
+  startHttpServer(_questionsJson: string): void {}
+  stopHttpServer(): void {}
+  onPlayerKicked(_id: string, _cb: (lobbyId: string, playerId: string) => void): void {}
+  offPlayerKicked(_id: string): void {}
+  kickPlayer(_payload: { lobbyId: string; playerId: string }): void {}
+  onEmoteReceived(_listenerId: string, _callback: (payload: { playerId: string; emoteId: string }) => void): void {}
+  offEmoteReceived(_listenerId: string): void {}
+  sendEmote(_payload: { lobbyId: string; hostAddress: string; playerId: string; emoteId: string; timestamp: number; uniqueId: string }): void {}
+  onEmoteSync(_source: string, _callback: (payload: any) => void): void {}
+  offEmoteSync(_source: string): void {}
+  broadcastEmote(_payload: { playerId: string; emoteId: string }): void {}
+  directJoin(_hostAddress: string): void {}
 
   // ------- Callbacks --------
 
   onDiscoveryResponse(id: string, cb: (payload: MultiplayerDiscoveredPayload) => void): void {
     this.onDiscoveryResponseCbs.set(id, cb);
   }
-  offDiscoveryResponse(id: string, cb: (payload: MultiplayerDiscoveredPayload) => void): void {
+  offDiscoveryResponse(id: string): void {
     this.onDiscoveryResponseCbs.delete(id);
   }
   onHostFound(id: string, cb: (payload: MultiplayerDiscoveredPayload) => void): void {
@@ -437,6 +470,12 @@ class MockMultiplayerBridge implements MultiplayerBridge {
   }
   offAnswerSubmission(id: string): void {
     this.onAnswerSubmissionCbs.delete(id);
+  }
+  onSessionTerminated(id: string, cb: (payload: MultiplayerSessionTerminatedPayload) => void): void {
+    this.onSessionTerminatedCbs.set(id, cb);
+  }
+  offSessionTerminated(id: string): void {
+    this.onSessionTerminatedCbs.delete(id);
   }
 }
 
