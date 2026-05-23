@@ -364,6 +364,7 @@ const MultiplayerDiscovery = () => {
     pruneStaleDiscoveredHosts,
     setParticipantRole,
     addOrUpdateSpectator,
+    clearDiscoveredHosts,
   } = useMultiplayerStore();
 
   const player = usePlayerStore((s) => s.getPlayer());
@@ -717,19 +718,23 @@ const MultiplayerDiscovery = () => {
           <Typography sx={{ color: COLORS.neonGreen, fontSize: "2rem" }}>
             {autoJoinLan ? "AUTO-DISCOVERY ACTIVE" : "MANUAL DISCOVERY"}
           </Typography>
-          <button
-            style={{
-              background: COLORS.surface,
-              color: COLORS.cyan,
-              border: `2px solid ${COLORS.cyan}`,
-              padding: "8px 24px",
-              fontFamily: "inherit",
-              cursor: "pointer",
-            }}
-            onClick={() => setScreen("multiplayer-menu")}
-          >
-            BACK
-          </button>
+      <button
+        style={{
+          background: COLORS.surface,
+          color: COLORS.cyan,
+          border: `2px solid ${COLORS.cyan}`,
+          padding: "8px 24px",
+          fontFamily: "inherit",
+          cursor: "pointer",
+        }}
+        onClick={() => {
+          // Clear stale discovered hosts and partial join state when leaving
+          clearDiscoveredHosts();
+          setScreen("multiplayer-menu");
+        }}
+      >
+        BACK
+      </button>
         </Box>
 
         {/* Direct Join */}
