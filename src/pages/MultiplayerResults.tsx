@@ -329,6 +329,7 @@ export default function MultiplayerResults() {
   const lobbySpectators = useMultiplayerStore((s) => s.spectators); 
 
   const setScreen = useGameStore((s) => s.setScreen);
+  const resetGameConfig = useGameStore((s) => s.resetGameConfig);
   const resetTrivia = useTriviaStore((s) => s.resetGame);
   const resetPlayerStatuses = useMultiplayerStore((s) => s.resetPlayerStatuses);
   const resetMultiplayer = useMultiplayerStore((s) => s.resetMultiplayer);
@@ -430,8 +431,10 @@ export default function MultiplayerResults() {
    const handleExitLobby = () => {
     resetTrivia();
     resetMultiplayer();
+    resetGameConfig();
     setScreen("home");
   };
+
   // ── Ready state change logging ────────────────────────────────────────────
   useEffect(() => {
     console.log('[MultiplayerResults] Ready state changed:', {
