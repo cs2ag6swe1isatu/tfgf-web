@@ -1,5 +1,5 @@
-import { useMemo, useEffect, useCallback, useRef, useState } from "react";
-import { Box, GlobalStyles, keyframes } from "@mui/material";
+import { useMemo, useEffect, useCallback, useRef } from "react";
+import { Box, GlobalStyles } from "@mui/material";
 import { Phase, useGameStore, useTriviaStore } from "../store";
 import { getMultiplayerPlayer, usePlayerStore } from "../store/playerStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
@@ -20,21 +20,6 @@ import { defaultGameConfig } from "../config/gameConfig";
 
 const SPECTATOR_COLOR = "#A855F7";
 const SPECTATOR_DIM   = "rgba(168,85,247,0.10)";
-
-// ── Notification overlay animation ───────────────────────────────────────────
-const overlayFadeIn = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-`;
-
-const NOTIFICATION_DURATION_MS = 4000;
-
-// ── Overlay colors per type ─────────────────────────────────────────────────
-const OVERLAY_THEME: Record<string, { border: string; bg: string; text: string }> = {
-  kick:       { border: "#E33232", bg: "rgba(227,50,50,0.12)", text: "#E33232" },
-  "host-exit": { border: "#E33232", bg: "rgba(227,50,50,0.12)", text: "#E33232" },
-  disconnect: { border: "#E3A020", bg: "rgba(227,160,32,0.12)", text: "#E3A020" },
-};
 
 const MultiplayerLobby = () => {
   const { playSound } = useSoundContext();
@@ -84,11 +69,7 @@ const MultiplayerLobby = () => {
   const isMountedRef = useRef(true);
   const gameStartAbortRef = useRef<AbortController | null>(null);
 
-  // ── Notification overlay state ─────────────────────────────────────────────
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: "kick" | "host-exit" | "disconnect";
-  } | null>(null);
+  const showNotification = useGameStore((s) => s.showNotification);
 
   const leaveToMenu = useCallback(() => {
     resetMultiplayer();
@@ -100,17 +81,17 @@ const MultiplayerLobby = () => {
   const handleKicked = useCallback((_lobbyId: string, kickedPlayerId: string) => {
     if (kickedPlayerId !== multiplayerPlayer.id) return;
     multiplayerBridge?.stopDiscovery();
-    setNotification({ message: "YOU HAVE BEEN KICKED FROM THE LOBBY", type: "kick" });
-    setTimeout(() => leaveToMenu(), NOTIFICATION_DURATION_MS);
-  }, [multiplayerPlayer.id, multiplayerBridge, leaveToMenu]);
+    showNotification("YOU HAVE BEEN KICKED FROM THE LOBBY", "error");
+    setTimeout(() => leaveToMenu(), 4000);
+  }, [multiplayerPlayer.id, multiplayerBridge, showNotification, leaveToMenu]);
 
   const handleHostExit = useCallback(() => {
     if (hasHandledHostExitRef.current) return;
     hasHandledHostExitRef.current = true;
     multiplayerBridge?.stopDiscovery();
-    setNotification({ message: "HOST DISCONNECTED — RETURNING TO MENU", type: "host-exit" });
-    setTimeout(() => leaveToMenu(), NOTIFICATION_DURATION_MS);
-  }, [multiplayerBridge, leaveToMenu]);
+    showNotification("HOST DISCONNECTED — RETURNING TO MENU", "error");
+    setTimeout(() => leaveToMenu(), 4000);
+  }, [multiplayerBridge, showNotification, leaveToMenu]);
 
   const handleCreateLobby = () => {
     setLobbyId(currentLobbyId);
@@ -894,9 +875,6 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
 
   const allPlayersReady = connectedPlayers.length > 1 && connectedPlayers.every((p) => p.isReady);
 
-  // ── Notification overlay ─────────────────────────────────────────────────
-  const notificationTheme = notification ? OVERLAY_THEME[notification.type] : null;
-
   // ── Spectator panel (left side) — only shown when there are spectators
   //    OR when this client is a spectator (so they always see themselves) ──
   const showSpectatorPanel = spectators.length > 0 || isSpectator;
@@ -904,38 +882,6 @@ const canStart = isCategorySelected && isDifficultySelected && connectedPlayers.
   return (
     <Box sx={styles.root}>
       <GlobalStyles styles={{ [RANK_ICON_KEYFRAMES]: {} }} />
-
-      {/* ── Notification overlay ─────────────────────────────────────────── */}
-      {notification && notificationTheme && (
-        <Box sx={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 9999,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(0,0,0,0.75)",
-          animation: `${overlayFadeIn} 0.35s ease both`,
-          pointerEvents: "none",
-        }}>
-          <Box sx={{
-            padding: "20px 32px",
-            border: `2px solid ${notificationTheme.border}`,
-            background: notificationTheme.bg,
-            fontFamily: "'Press Start 2P', monospace",
-            fontSize: "13px",
-            color: notificationTheme.text,
-            textShadow: `0 0 8px ${notificationTheme.text}55`,
-            letterSpacing: "2px",
-            lineHeight: 1.8,
-            textAlign: "center" as const,
-            boxShadow: `0 0 30px ${notificationTheme.text}33`,
-          }}>
-            {notification.message}
-          </Box>
-        </Box>
-      )}
 
       {/* ── LEFT: Spectator panel ─────────────────────────────────────────── */}
       {showSpectatorPanel && (

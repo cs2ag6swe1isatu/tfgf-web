@@ -81,6 +81,11 @@ interface GameState {
   // the global BGM so the two tracks never overlap.
   creditsBgmActive: boolean;
 
+  // ── Global notification overlay (survives page transitions) ────────────────
+  notification: { message: string; type: "info" | "error" | "warning" | "success"; durationMs: number } | null;
+  showNotification: (message: string, type: "info" | "error" | "warning" | "success", durationMs?: number) => void;
+  clearNotification: () => void;
+
   getPlayer: () => Player;
 
   setScreen: (screen: Screen) => void;
@@ -274,7 +279,22 @@ export const useGameStore = create<GameState>()(
       },
 
       // Permanently clear all persisted data (game store + player) and reset in-memory state
-      clearAllData: () => {
+      notification: null,
+
+  showNotification: (message, type, durationMs = 4000) => {
+    set({ notification: { message, type, durationMs } });
+    // Auto-clear after duration
+    setTimeout(() => {
+      const current = get().notification;
+      if (current && current.message === message) {
+        set({ notification: null });
+      }
+    }, durationMs);
+  },
+
+  clearNotification: () => set({ notification: null }),
+
+  clearAllData: () => {
         try {
           const storage = typeof window !== "undefined" ? window.localStorage : null;
           if (storage) storage.removeItem("game-store");

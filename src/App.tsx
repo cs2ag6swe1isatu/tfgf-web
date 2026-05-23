@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useRef, useCallback } from "react";
+import React, { useDeferredValue, useEffect, useRef, useCallback, useState } from "react";
 import HomePage from "./pages/HomePage";
 import ModeSelectPage from "./pages/ModeSelectPage";
 import CategoryPage from "./pages/CategoryPage";
@@ -22,6 +22,80 @@ import type { SoundType } from "./context/SoundContext";
 import { usePreloader, lazyPreloadAudio } from "./hooks/usePreloader";
 import { registerBundledAssets } from "./utils/registerBundledAssets";
 import PowerUpsPage from "./pages/PowerUpsPage";
+
+const NOTIFICATION_COLORS: Record<string, string> = {
+  error:   "#E33232",
+  warning: "#E3A020",
+  info:    "#00DFFF",
+  success: "#35E52B",
+};
+
+const NOTIFICATION_BG: Record<string, string> = {
+  error:   "rgba(227,50,50,0.12)",
+  warning: "rgba(227,160,32,0.12)",
+  info:    "rgba(0,223,255,0.10)",
+  success: "rgba(53,229,43,0.10)",
+};
+
+const NotificationOverlay: React.FC<{
+  message: string;
+  type: "info" | "error" | "warning" | "success";
+  onDismiss: () => void;
+}> = ({ message, type, onDismiss }) => {
+  const color = NOTIFICATION_COLORS[type];
+  const bg    = NOTIFICATION_BG[type];
+
+  return (
+    <div
+      onClick={onDismiss}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 99999,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(0,0,0,0.75)",
+        pointerEvents: "all",
+        cursor: "pointer",
+        animation: "notifFadeIn 0.35s ease both",
+      }}
+    >
+      <style>{`@keyframes notifFadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          padding: "20px 32px",
+          border: `2px solid ${color}`,
+          background: bg,
+          fontFamily: "'Press Start 2P', monospace",
+          fontSize: "13px",
+          color,
+          textShadow: `0 0 8px ${color}55`,
+          letterSpacing: "2px",
+          lineHeight: 1.8,
+          textAlign: "center" as const,
+          boxShadow: `0 0 30px ${color}33`,
+          pointerEvents: "all",
+        }}
+      >
+        {message}
+      </div>
+      <div
+        style={{
+          marginTop: "16px",
+          fontFamily: "'Press Start 2P', monospace",
+          fontSize: "9px",
+          color: "#888",
+          letterSpacing: "1px",
+        }}
+      >
+        CLICK ANYWHERE TO DISMISS
+      </div>
+    </div>
+  );
+};
 
 const styles = {
   screenRoot: {
@@ -305,6 +379,10 @@ export default function App() {
     }
   }, [bgmEnabled, vol, creditsBgmActive]);
 
+  // ── Notification overlay ─────────────────────────────────
+  const notification = useGameStore((s) => s.notification);
+  const clearNotification = useGameStore((s) => s.clearNotification);
+
   // ── Player init ──────────────────────────────────────────
   const initializePlayer = usePlayerStore((s: { initialize: () => Promise<void>; isLoading: boolean }) => s.initialize);
   const isPlayerLoading  = usePlayerStore((s: { initialize: () => Promise<void>; isLoading: boolean }) => s.isLoading);
@@ -356,6 +434,13 @@ export default function App() {
   return (
     <SoundContext.Provider value={{ playSound }}>
       <div style={styles.screenRoot}>{screenContent}</div>
+      {notification && (
+        <NotificationOverlay
+          message={notification.message}
+          type={notification.type}
+          onDismiss={clearNotification}
+        />
+      )}
     </SoundContext.Provider>
   );
 }
