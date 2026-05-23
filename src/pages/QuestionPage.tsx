@@ -350,8 +350,8 @@ const QuestionPage = () => {
 
   const { applySessionProgress } = usePlayerStore();
   const localPlayer = usePlayerStore((state) => state.getPlayer());
-  const { lobbyRole, players } = useMultiplayerStore();
-  const { setScreen, recordSessionStartLevel, queueAchievementUnlocks } = useGameStore();
+  const { lobbyRole, players, resetMultiplayer } = useMultiplayerStore();
+  const { setScreen, recordSessionStartLevel, queueAchievementUnlocks, resetGameConfig } = useGameStore();
   const mode = useGameStore((state) => state.gameConfig.mode);
   const category = useGameStore((state) => state.gameConfig.category);
   const localPlayerId = mode === "multiplayer" ? getMultiplayerPlayerId(localPlayer.id) : localPlayer.id;
@@ -935,6 +935,11 @@ const QuestionPage = () => {
   playSound("select");
   if (mode === "multiplayer" && lobbyRole === "host") {
     broadcastHostAbandoned();
+  }
+  // Clean up stale multiplayer & game config state when abandoning
+  if (mode === "multiplayer") {
+    resetMultiplayer();
+    resetGameConfig();
   }
   setScreen("home");
 }}
