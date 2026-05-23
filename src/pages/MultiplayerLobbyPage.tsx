@@ -56,6 +56,7 @@ const MultiplayerLobby = () => {
   const isReady = currentPlayer?.isReady ?? false;
   const isCurrentPlayerDisconnected = currentPlayer?.connectionState === "disconnected";
 
+  const resetGameConfig = useGameStore((s) => s.resetGameConfig);
   const startGame = useTriviaStore((s) => s.startGame);
   const resetGame = useTriviaStore((s) => s.resetGame);
 
@@ -75,8 +76,9 @@ const MultiplayerLobby = () => {
     hasHandledHostExitRef.current = true;
     multiplayerBridge?.stopDiscovery();
     resetMultiplayer();
+    resetGameConfig();
     setScreen("multiplayer-menu");
-  }, [multiplayerBridge, resetMultiplayer, setScreen]);
+  }, [multiplayerBridge, resetMultiplayer, resetGameConfig, setScreen]);
 
   const handleCreateLobby = () => {
     setLobbyId(currentLobbyId);
@@ -307,6 +309,7 @@ useTriviaStore.setState(nextState);
       multiplayerBridge?.stopBroadcast();
     }
     resetMultiplayer();
+    resetGameConfig();
     setScreen("multiplayer-menu");
   };
 

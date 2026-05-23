@@ -674,12 +674,17 @@ const QuestionPage = () => {
       const currentState = useTriviaStore.getState();
       const shouldResetSelectedAnswer = payload.currentIndex !== currentState.currentIndex;
 
-      // Host abandoned — go home immediately
+      // Host abandoned — go home immediately, clean up state
       if (payload.hostAbandoned) {
         endProgressAppliedRef.current = true;
         hasExitedRef.current = true;
         useTriviaStore.setState({ phase: "end" });
-        setTimeout(() => setScreen("home"), 50);
+        setTimeout(() => {
+          const mpState = useMultiplayerStore.getState();
+          mpState.resetMultiplayer();
+          useGameStore.getState().resetGameConfig();
+          setScreen("home");
+        }, 50);
         return;
       }
 
