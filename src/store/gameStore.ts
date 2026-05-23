@@ -122,6 +122,7 @@ interface GameState {
   setQuestionTimer: (seconds: number) => void;
   setAnswerTimer: (seconds: number) => void;
   setAutoJoinLan: (enabled: boolean) => void;
+  resetGameConfig: () => void;
 }
 
 const DEFAULT_LEVEL_UP_SESSION: LevelUpSession = {
@@ -246,10 +247,19 @@ export const useGameStore = create<GameState>()(
         set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, questionTimer: seconds } })),
       setAnswerTimer: (seconds: number) =>
         set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, answerTimer: seconds } })),
-      setAutoJoinLan: (enabled: boolean) =>
-        set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, autoJoinLan: enabled } })),
+  setAutoJoinLan: (enabled: boolean) =>
+    set((s: WithGameConfig) => ({ gameConfig: { ...s.gameConfig, autoJoinLan: enabled } })),
 
-      resetSettingsToDefaults: () => {
+  /**
+   * Reset gameConfig to default values (preserves autoJoinLan if explicitly set).
+   * Call when exiting a multiplayer session or game to prevent stale config leaking.
+   */
+  resetGameConfig: () =>
+    set({
+      gameConfig: { ...defaultGameConfig, autoJoinLan: get().gameConfig.autoJoinLan },
+    }),
+
+  resetSettingsToDefaults: () => {
         set({
           settings: {
             bgmEnabled: true,
