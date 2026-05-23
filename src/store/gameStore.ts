@@ -45,7 +45,6 @@ export interface Settings {
   useCase: boolean;
   useScanlines: boolean;
   useFlicker: boolean;
-  hasSeenIntro: boolean;
 }
 
 type WithSettings = { settings: Settings };
@@ -153,7 +152,6 @@ export const useGameStore = create<GameState>()(
         useCase: false,
         useScanlines: false,
         useFlicker: false,
-        hasSeenIntro: false,
       },
 
       gameConfig: {
@@ -260,7 +258,6 @@ export const useGameStore = create<GameState>()(
             useCase: false,
             useScanlines: false,
             useFlicker: false,
-            hasSeenIntro: false,
           },
           resolution: { width: 1024, height: 768, label: "XGA" },
         });
@@ -291,7 +288,6 @@ export const useGameStore = create<GameState>()(
             useCase: false,
             useScanlines: false,
             useFlicker: false,
-            hasSeenIntro: false,
           },
           resolution: { width: 1024, height: 768, label: "XGA" },
           gameConfig: { ...defaultGameConfig, autoJoinLan: false },
