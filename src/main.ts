@@ -305,16 +305,19 @@ ipcMain.handle('player-storage:delete', async () => {
 });
 
 const createWindow = () => {
+  const isProduction = !MAIN_WINDOW_VITE_DEV_SERVER_URL;
+
   // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    ...(isProduction ? { title: 'TFGF' } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       sandbox: false,
       backgroundThrottling: false,
       webSecurity: false,        // allows file:// to load local assets in packaged app
-      devTools: false,           // completely disable DevTools in production
+      devTools: false,           // disable DevTools in all environments
     },
     autoHideMenuBar: true,
     // menuBarVisible is kept false by default but ensure it's hidden
@@ -360,6 +363,14 @@ const createWindow = () => {
       event.preventDefault();
   }
   });
+
+  if (isProduction) {
+    // Keep the native window title fixed even if renderer updates document.title.
+    mainWindow.on('page-title-updated', (event) => {
+      event.preventDefault();
+      mainWindow?.setTitle('TFGF');
+    });
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
