@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Box, Typography, Paper } from "@mui/material";
 import { useGameStore } from "../store/gameStore";
 import { useMultiplayerStore } from "../store/multiplayerStore";
@@ -15,7 +15,7 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COLORS = {
-  bg: "#1E1E1E",
+  bg: "#000",
   surface: "#0F2A2A",
   neonGreen: "#39FF14",
   cyan: "#4AD2D2",
@@ -30,6 +30,51 @@ const COLORS = {
 
 /** Minimum number of non-host players required before spectators may join. */
 const SPECTATOR_MIN_PLAYERS = 1;
+
+// ─── Floating background particle ───────────────────────────────────────────
+function FloatingParticle({ style, id }: { style: React.CSSProperties; id: number }) {
+  return (
+    <span
+      key={id}
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        opacity: 0.22,
+        background: "rgba(74,210,210,0.18)",
+        animation: "floatPx 8s ease-in-out infinite",
+        pointerEvents: "none",
+        ...style,
+      }}
+    />
+  );
+}
+
+function useParticles(count = 36) {
+  return useMemo(() => {
+    const particles: Array<{ id: number; style: React.CSSProperties }> = [];
+    for (let i = 0; i < count; i++) {
+      const left = Math.round(Math.random() * 100);
+      const top = Math.round(Math.random() * 100);
+      const delay = Math.round(Math.random() * 8000) / 1000;
+      const size = 4 + Math.round(Math.random() * 12);
+      particles.push({
+        id: i,
+        style: {
+          left: `${left}%`,
+          top: `${top}%`,
+          width: size,
+          height: size,
+          animationDelay: `${delay}s`,
+          transform: `translate(-50%,-50%)`,
+        },
+      });
+    }
+    return particles;
+  }, [count]);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DISCONNECT NOTIFICATION TYPES & COMPONENT
@@ -674,6 +719,20 @@ const MultiplayerDiscovery = () => {
       p: 4,
       gap: 3,
     },
+    bgLayer: {
+      position: "absolute",
+      inset: 0,
+      zIndex: 0,
+      pointerEvents: "none",
+      background:
+        "radial-gradient(circle at 10% 20%, rgba(57,255,20,0.04), transparent 10%), radial-gradient(circle at 85% 30%, rgba(74,210,210,0.03), transparent 12%)",
+    },
+    decoLayer: {
+      position: "absolute",
+      inset: 0,
+      zIndex: 1,
+      pointerEvents: "none",
+    },
     lobbyCard: {
       position: "relative",
       borderRadius: 0,
@@ -703,9 +762,17 @@ const MultiplayerDiscovery = () => {
     },
   } as const;
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <Box sx={styles.root}>
+      <style>{`\n        @keyframes floatPx { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }\n        @keyframes scanlineMove { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }\n      `}</style>
+      <Box sx={styles.bgLayer} />
+      <Box sx={styles.decoLayer}>
+        {useParticles(36).map((p) => (
+          <FloatingParticle key={p.id} id={p.id} style={p.style} />
+        ))}
+        <div style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient( to bottom, rgba(0,0,0,0), rgba(0,0,0,0) 14px, rgba(0,0,0,0.06) 15px, rgba(0,0,0,0.06) 16px)", mixBlendMode: "overlay", opacity: 0.06 }} />
+      </Box>
       <Box sx={styles.container}>
         {/* Top Bar */}
         <Box
@@ -715,9 +782,11 @@ const MultiplayerDiscovery = () => {
             alignItems: "center",
           }}
         >
-          <Typography sx={{ color: COLORS.neonGreen, fontSize: "2rem" }}>
-            {autoJoinLan ? "AUTO-DISCOVERY ACTIVE" : "MANUAL DISCOVERY"}
-          </Typography>
+          <Box style={{ position: "relative", display: "inline-block" }}>
+            <Typography sx={{ color: COLORS.neonGreen, fontSize: "2rem", zIndex: 2, position: 'relative', textShadow: '0 0 8px #39FF14, 0 0 20px rgba(57,255,20,0.18)' }}>
+              {autoJoinLan ? "AUTO-DISCOVERY ACTIVE" : "MANUAL DISCOVERY"}
+            </Typography>
+          </Box>
       <button
         style={{
           background: COLORS.surface,
