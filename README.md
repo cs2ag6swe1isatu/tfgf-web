@@ -1,5 +1,10 @@
 # tfgf-web
 
+![GitHub Repo stars](https://img.shields.io/github/stars/cs2ag6swe1isatu/tfgf-web?style=flat)
+![GitHub issues](https://img.shields.io/github/issues/cs2ag6swe1isatu/tfgf-web?style=flat)
+![License](https://img.shields.io/github/license/cs2ag6swe1isatu/tfgf-web?style=flat)
+![Package version](https://img.shields.io/badge/package-v1.0.0-blue?style=flat)
+
 A LAN-capable desktop trivia game built with React, TypeScript, Vite and Electron. This repository contains the full application (renderer + main process), a Vite development workflow for fast UI iteration, and an Electron build for real LAN multiplayer testing using mDNS and UDP.
 
 ## Key Features
@@ -113,15 +118,4 @@ Suggested process:
 - Multiplayer design docs and testing notes: see `MULTIPLAYER.md`, `MULTIPLAYER_DEBUG_ANALYSIS.md`, and `VITE_MULTIPLAYER_TESTING.md` in the repo root.
 
 ## License
-
-No license is specified in this repository. Add a `LICENSE` file to set project licensing (e.g., MIT, Apache-2.0).
-
----
-
-If you want, I can also:
-
-- add a short badge header (build, license, coverage)
-- generate a `CONTRIBUTING.md` and `SECURITY.md`
-- add a basic `LICENSE` file (MIT)
-
-Let me know which of these you'd like me to do next.
+To be added
