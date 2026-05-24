@@ -51,6 +51,7 @@ export interface Player {
   avatar: string;
   lastActive: Date;
   lastPlayedDate?: Date;
+  lastDailyPowerUpClaimDate?: Date;
   gameHistory: GameSession[];
 
   totalXp: number;

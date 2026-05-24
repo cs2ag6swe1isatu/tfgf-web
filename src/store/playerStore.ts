@@ -1,4 +1,4 @@
-import { PowerUpId, PowerUpInventoryEntry } from "src/types/powerups";
+import { PowerUpId, PowerUpInventoryEntry } from "../types/powerups";
 import { defaultGameConfig } from "../config/gameConfig";
 import { CATEGORIES, Category, DIFFICULTIES, Difficulty, getRankForLevel, MODES, Mode } from "../constants";
 import { evaluateUnlocks } from "../progression/achievementRules";
@@ -242,6 +242,7 @@ const createDefaultPlayer = (): Player => ({
   avatar: "Detective.png",
   lastActive: new Date(),
   lastPlayedDate: undefined,
+  lastDailyPowerUpClaimDate: undefined,
   gameHistory: [],
   totalXp: 0,
   xpToNextLevel: 100,
@@ -294,6 +295,7 @@ const normalizePlayer = (value: unknown): Player | null => {
     avatar: typeof value.avatar === "string" && value.avatar.trim() !== "" ? getAvatarFileName(value.avatar) : "Detective.png",
     lastActive: readDate(value.lastActive),
     lastPlayedDate: readOptionalDate(value.lastPlayedDate),
+    lastDailyPowerUpClaimDate: readOptionalDate(value.lastDailyPowerUpClaimDate),
     gameHistory: Array.isArray(value.gameHistory) ? trimGameHistory(value.gameHistory.map((entry) => normalizeGameSession(entry))) : [],
     totalXp,
     xpToNextLevel: readNumber(value.xpToNextLevel, xpToNextLevel(totalXp)),
@@ -670,7 +672,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   claimDailyPowerUps: () => {
     const player = get().player ?? createDefaultPlayer();
     const now = new Date();
-    const lastClaim = player.lastPlayedDate;
+    const lastClaim = player.lastDailyPowerUpClaimDate;
     if (lastClaim) {
       const sameDay =
         lastClaim.getFullYear() === now.getFullYear() &&
@@ -686,7 +688,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const updatedPlayer: Player = {
       ...player,
       powerUpInventory: updatedInventory,
-      lastPlayedDate: now,
+      lastDailyPowerUpClaimDate: now,
       lastActive: now,
     };
     persistPlayer(updatedPlayer);

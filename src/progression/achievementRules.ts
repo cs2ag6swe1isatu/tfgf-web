@@ -1,6 +1,7 @@
 import { SessionProgressInput } from "./progressionRules";
 import { Achievement, Player } from "../types/player";
 import { Category, CATEGORIES, DIFFICULTIES, Difficulty, MODES, Mode } from "../constants";
+import { buildBadgeIconDataUri, EASTER_HUNTER_ACHIEVEMENT_ID } from "../utils/easterEggs";
 
 /**
  * Achievements list:
@@ -31,6 +32,7 @@ import { Category, CATEGORIES, DIFFICULTIES, Difficulty, MODES, Mode } from "../
  * host with the most (multiplayer)
  * apex predator (multiplayer)
  * nemesis (multiplayer)
+ * easter hunter (secret)
  */
 
 export type AchievementScope = "all" | "solo" | "multiplayer";
@@ -441,6 +443,15 @@ export const ACHIEVEMENT_RULES: AchievementRule[] = [
     category: "Multiplayer",
     scope: "multiplayer",
     check: (player, sessionInput) => sessionInput.mode === "multiplayer" && sessionInput.won === true && sessionInput.correctAnswers === sessionInput.totalQuestions,
+  },
+  {
+    id: EASTER_HUNTER_ACHIEVEMENT_ID,
+    name: "Easter Hunter",
+    description: "Discover every secret easter egg.",
+    icon: buildBadgeIconDataUri("EE", "#35E52B", "#00DFFF"),
+    category: "Skill",
+    scope: "all",
+    check: (player) => player.achievements.some((achievement) => achievement.id === EASTER_HUNTER_ACHIEVEMENT_ID),
   },
 ];
 

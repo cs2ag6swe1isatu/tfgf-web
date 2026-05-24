@@ -22,6 +22,12 @@ import type { SoundType } from "./context/SoundContext";
 import { usePreloader, lazyPreloadAudio } from "./hooks/usePreloader";
 import { registerBundledAssets } from "./utils/registerBundledAssets";
 import PowerUpsPage from "./pages/PowerUpsPage";
+import {
+  buildBadgeIconDataUri,
+  createEggMatcher,
+  EASTER_EGG_DEFINITIONS,
+  EASTER_HUNTER_ACHIEVEMENT_ID,
+} from "./utils/easterEggs";
 
 const NOTIFICATION_COLORS: Record<string, string> = {
   error:   "#E33232",
@@ -303,12 +309,17 @@ export default function App() {
   // Pause global BGM while the Credits screen BGM is active
   const creditsBgmActive = useGameStore((s) => s.creditsBgmActive);
   const deferredScreen = useDeferredValue(screen);
+  const player = usePlayerStore((s) => s.player);
 
   const { playSound } = useAudioEngine(sfxEnabled, vol);
 
   // ── Asset preloader ──────────────────────────────────────
   const preloader = usePreloader();
   const audioUpgradedRef = useRef(false);
+  const eggMatcherRef = useRef(createEggMatcher(EASTER_EGG_DEFINITIONS));
+  const eggBufferRef = useRef<string[]>([]);
+  const triggeredEggsRef = useRef(new Set<string>());
+  const [activeEgg, setActiveEgg] = useState<(typeof EASTER_EGG_DEFINITIONS)[number] | null>(null);
 
   // Register module-imported assets (bundler-emitted URLs) with
   // the AssetPreloader so they're RAM-cached like public/ assets.
@@ -328,6 +339,37 @@ export default function App() {
     });
   }, []);
 
+  const awardEasterHunter = useCallback(() => {
+    if (!player) return;
+    if (player.achievements.some((achievement) => achievement.id === EASTER_HUNTER_ACHIEVEMENT_ID)) return;
+
+    const hiddenAchievement = {
+      id: EASTER_HUNTER_ACHIEVEMENT_ID,
+      name: "Easter Hunter",
+      description: "Discover every secret easter egg.",
+      icon: buildBadgeIconDataUri("EE", "#35E52B", "#00DFFF"),
+      unlockedAt: new Date(),
+      progress: 100,
+    };
+
+    usePlayerStore.getState().updatePlayer({
+      achievements: [...player.achievements, hiddenAchievement],
+    });
+  }, [player]);
+
+  const triggerEgg = useCallback((egg: (typeof EASTER_EGG_DEFINITIONS)[number]) => {
+    setActiveEgg((currentEgg) => (currentEgg?.id === egg.id ? null : egg));
+
+    if (!triggeredEggsRef.current.has(egg.id)) {
+      triggeredEggsRef.current.add(egg.id);
+      if (triggeredEggsRef.current.size === EASTER_EGG_DEFINITIONS.length) {
+        awardEasterHunter();
+      }
+    }
+
+    playSound("select");
+  }, [awardEasterHunter, playSound]);
+
   // Attach one-time global listener for first interaction
   useEffect(() => {
     const handler = () => {
@@ -346,6 +388,23 @@ export default function App() {
       document.removeEventListener('keydown', handler);
     };
   }, [handleFirstInteraction]);
+
+  useEffect(() => {
+    const keyHandler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+
+      const { buffer, match } = eggMatcherRef.current.push(eggBufferRef.current, event.key);
+      eggBufferRef.current = buffer;
+
+      if (match) {
+        triggerEgg(match);
+      }
+    };
+
+    window.addEventListener("keydown", keyHandler);
+    return () => window.removeEventListener("keydown", keyHandler);
+  }, [triggerEgg]);
 
   // ── BGM ──────────────────────────────────────────────────
   const bgmRef   = useRef<HTMLAudioElement | null>(null);
@@ -431,9 +490,74 @@ export default function App() {
       default:                    screenContent = <HomePage />;                  break;
   }
 
+    const activeEggVisual = activeEgg
+      ? (() => {
+          switch (activeEgg.id) {
+            case "konami":
+              return {
+                filter: "hue-rotate(80deg) saturate(1.5) contrast(1.08)",
+                background: "linear-gradient(115deg, rgba(53,229,43,0.10), rgba(0,223,255,0.06), rgba(255,255,255,0.02))",
+              };
+            case "dota2":
+              return {
+                filter: "hue-rotate(-10deg) saturate(1.45) brightness(1.04)",
+                background: "radial-gradient(circle at 24% 20%, rgba(255,122,24,0.16), transparent 38%), radial-gradient(circle at 76% 18%, rgba(255,214,80,0.10), transparent 34%)",
+              };
+            case "counterstrike":
+              return {
+                filter: "hue-rotate(12deg) saturate(1.3) contrast(1.06)",
+                background: "radial-gradient(circle at 20% 24%, rgba(244,197,66,0.14), transparent 34%), linear-gradient(90deg, rgba(244,197,66,0.05), rgba(255,255,255,0.02))",
+              };
+            case "sanandreas":
+              return {
+                filter: "hue-rotate(95deg) saturate(1.25) contrast(1.05)",
+                background: "radial-gradient(circle at 22% 18%, rgba(53,229,43,0.16), transparent 36%), radial-gradient(circle at 82% 22%, rgba(255,106,0,0.08), transparent 30%)",
+              };
+            case "plantsvzombies":
+              return {
+                filter: "hue-rotate(220deg) saturate(1.18) contrast(1.04)",
+                background: "radial-gradient(circle at 50% 20%, rgba(121,231,95,0.14), transparent 40%), linear-gradient(90deg, rgba(121,231,95,0.05), rgba(0,223,255,0.04))",
+              };
+            case "jojo":
+              return {
+                filter: "hue-rotate(300deg) saturate(1.5) contrast(1.1)",
+                background: "radial-gradient(circle at 22% 20%, rgba(255,79,216,0.16), transparent 34%), radial-gradient(circle at 78% 18%, rgba(255,214,80,0.12), transparent 32%), linear-gradient(90deg, rgba(255,79,216,0.06), rgba(255,214,80,0.05))",
+              };
+          }
+        })()
+      : null;
+
   return (
     <SoundContext.Provider value={{ playSound }}>
-      <div style={styles.screenRoot}>{screenContent}</div>
+      <div
+        style={{
+          ...styles.screenRoot,
+            ...(activeEggVisual ? { filter: activeEggVisual.filter } : {}),
+        }}
+      >
+        {screenContent}
+        {activeEgg && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 1000,
+              pointerEvents: "none",
+              background: activeEggVisual?.background ?? "radial-gradient(circle at 50% 20%, rgba(0,223,255,0.12), transparent 40%), linear-gradient(90deg, rgba(0,223,255,0.05), rgba(53,229,43,0.05))",
+              mixBlendMode: "screen",
+              animation: "eggPulse 1.5s ease-in-out infinite",
+            }}
+          >
+            <style>{`
+              @keyframes eggPulse {
+                0%, 100% { opacity: 0.55; }
+                50% { opacity: 0.95; }
+              }
+            `}</style>
+          </div>
+        )}
+      </div>
       {notification && (
         <NotificationOverlay
           message={notification.message}

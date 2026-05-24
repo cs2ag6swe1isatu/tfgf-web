@@ -174,7 +174,7 @@ const ProfilePage = () => {
   const player = usePlayerStore((state) => state.getPlayer());
   const { playSound } = useSoundContext();
   const isDailyBonusClaimed = (() => {
-  const last = localPlayer.lastPlayedDate;
+  const last = localPlayer.lastDailyPowerUpClaimDate;
   if (!last) return false;
   const now = new Date();
   return (

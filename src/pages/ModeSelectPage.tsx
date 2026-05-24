@@ -1,7 +1,5 @@
 import { useGameStore } from "../store/gameStore";
 import { useSoundContext } from "../context/SoundContext";
-import { useEffect } from "react";
-import { usePlayerStore } from "../store/playerStore";
 
 
 // ─── Palette (spec-accurate) ──────────────────────────────────────────────────
@@ -187,22 +185,6 @@ function ModeCard({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function ModeSelectPage() {
-  const localPlayer = usePlayerStore((state) => state.getPlayer());
-
-useEffect(() => {
-  usePlayerStore.getState().claimDailyPowerUps();
-}, []);
-
-const isDailyBonusClaimed = (() => {
-  const last = localPlayer.lastPlayedDate;
-  if (!last) return false;
-  const now = new Date();
-  return (
-    last.getFullYear() === now.getFullYear() &&
-    last.getMonth() === now.getMonth() &&
-    last.getDate() === now.getDate()
-  );
-})();
   const { playSound } = useSoundContext();
   const setScreen = useGameStore((s) => s.setScreen);
   const setMode   = useGameStore((s) => s.setMode);

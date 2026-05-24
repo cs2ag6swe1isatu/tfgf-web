@@ -1,7 +1,8 @@
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { useGameStore } from "../store/gameStore";
 import { useSoundContext } from "../context/SoundContext";
 import { usePlayerStore } from "../store/playerStore";
+import SplashText from "../components/SplashText";
 
 // ─── Floating background particle ───────────────────────────────────────────
 function FloatingParticle({
@@ -145,14 +146,8 @@ export default function HomePage() {
   const setScreen = useGameStore((state) => state.setScreen);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const particles = useParticles(55);
-  const [dailyStreak, setDailyStreak] = useState(0);
+  const dailyStreak = usePlayerStore((state) => state.player?.dailyStreak ?? 0);
   const isZeroStreak = dailyStreak === 0;
-
-  // Read daily streak from player store on mount
-  useEffect(() => {
-    const player = usePlayerStore.getState().getPlayer();
-    setDailyStreak(player.dailyStreak ?? 0);
-  }, []);
 
   // Periodic glitch effect on title
   useEffect(() => {
@@ -236,6 +231,11 @@ export default function HomePage() {
           0%   { transform: translateY(-100%); }
           100% { transform: translateY(100%); }
         }
+        @keyframes splashHue {
+          0% { filter: hue-rotate(0deg) saturate(1.1); transform: scale(1.05); }
+          50% { filter: hue-rotate(140deg) saturate(1.5); transform: scale(0.95); }
+          100% { filter: hue-rotate(360deg) saturate(1.1); transform: scale(1.05); }
+        }
 
         .play-btn:hover  { transform: scale(1.05) !important; }
         .play-btn:active { transform: scale(0.97) !important; }
@@ -310,6 +310,7 @@ export default function HomePage() {
             <br />
             GUESS FASTER
           </h1>
+          <SplashText />
         </div>
 
         {/* Play button */}
@@ -453,6 +454,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   titleBlock: {
+    position: "relative",
+    display: "inline-block",
     textAlign: "center",
     marginBottom: 52,
   },

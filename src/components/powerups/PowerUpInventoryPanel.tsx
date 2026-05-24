@@ -154,9 +154,6 @@ export const PowerUpInventoryPanel = ({
       </Grid>
 
       <DailyBonusNote>
-        <Typography sx={{ fontSize: "16px" }}>
-          {dailyClaimed ? "✅" : "🎁"}
-        </Typography>
         <Box>
           <Typography sx={{
             fontFamily: "'Press Start 2P', monospace",
